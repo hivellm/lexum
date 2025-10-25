@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "lexum-core",
+    "lexum-core", "lexum-server",
 ]
 
 [workspace.package]

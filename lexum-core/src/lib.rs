@@ -59,5 +59,5 @@ pub use document::DocumentStore;
 pub use error::{Error, Result};
 pub use index::{Index, IndexManager, IndexSettings};
 pub use query::{BoolQuery, MatchQuery, Query, QueryBuilder, RangeQuery, TermQuery};
-pub use schema::{FieldType, SchemaBuilder};
+pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult};

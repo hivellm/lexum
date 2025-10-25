@@ -4,4 +4,4 @@ pub mod builder;
 pub mod field_type;
 
 pub use builder::SchemaBuilder;
-pub use field_type::FieldType;
+pub use field_type::{FieldConfig, FieldType};
