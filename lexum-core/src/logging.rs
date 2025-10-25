@@ -123,7 +123,7 @@ pub fn init_with_config(config: &LoggingConfig) -> Result<()> {
 /// use tracing::info;
 ///
 /// logging::init().unwrap();
-/// 
+///
 /// logging::set_correlation_id("req-123");
 /// info!("This log will have correlation ID");
 /// ```

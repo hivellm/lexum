@@ -32,8 +32,14 @@ pub mod config;
 /// Error types
 pub mod error;
 
+/// Index management
+pub mod index;
+
 /// Logging and tracing setup
 pub mod logging;
+
+/// Schema management
+pub mod schema;
 
 /// Common types
 pub mod types;
@@ -41,3 +47,5 @@ pub mod types;
 // Re-export commonly used items
 pub use config::Config;
 pub use error::{Error, Result};
+pub use index::{Index, IndexManager, IndexSettings};
+pub use schema::{FieldType, SchemaBuilder};
