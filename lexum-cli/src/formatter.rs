@@ -1,7 +1,7 @@
 //! Output formatting utilities
 
 use colored::Colorize;
-use comfy_table::{Cell, Table, presets::UTF8_FULL};
+use comfy_table::{Table, presets::UTF8_FULL};
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 
@@ -18,7 +18,7 @@ pub enum OutputFormat {
 
 impl OutputFormat {
     /// Parse from string
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "json" => Some(Self::Json),
             "json-pretty" | "pretty" => Some(Self::JsonPretty),
@@ -121,14 +121,14 @@ mod tests {
 
     #[test]
     fn test_output_format_from_str() {
-        assert_eq!(OutputFormat::from_str("json"), Some(OutputFormat::Json));
-        assert_eq!(OutputFormat::from_str("JSON"), Some(OutputFormat::Json));
+        assert_eq!(OutputFormat::parse("json"), Some(OutputFormat::Json));
+        assert_eq!(OutputFormat::parse("JSON"), Some(OutputFormat::Json));
         assert_eq!(
-            OutputFormat::from_str("pretty"),
+            OutputFormat::parse("pretty"),
             Some(OutputFormat::JsonPretty)
         );
-        assert_eq!(OutputFormat::from_str("table"), Some(OutputFormat::Table));
-        assert_eq!(OutputFormat::from_str("invalid"), None);
+        assert_eq!(OutputFormat::parse("table"), Some(OutputFormat::Table));
+        assert_eq!(OutputFormat::parse("invalid"), None);
     }
 
     #[test]

@@ -7,6 +7,7 @@ use axum::http::StatusCode;
 use lexum_core::{FieldConfig, FieldType, IndexManager, IndexSettings, SchemaBuilder};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use utoipa::ToSchema;
 
 /// Application state
 #[derive(Clone)]
@@ -16,7 +17,7 @@ pub struct AppState {
 }
 
 /// Field definition in schema
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct FieldDefinition {
     /// Field name
     pub name: String,
@@ -39,7 +40,7 @@ fn default_true() -> bool {
 }
 
 /// Create index request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateIndexRequest {
     /// Index name
     pub name: String,
@@ -51,7 +52,7 @@ pub struct CreateIndexRequest {
 }
 
 /// Index info response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct IndexInfo {
     /// Index name
     pub name: String,
@@ -60,13 +61,25 @@ pub struct IndexInfo {
 }
 
 /// List indices response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ListIndicesResponse {
     /// Indices
     pub indices: Vec<IndexInfo>,
 }
 
 /// Create index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices",
+    request_body = CreateIndexRequest,
+    responses(
+        (status = 201, description = "Index created successfully", body = IndexInfo),
+        (status = 400, description = "Invalid request", body = ApiError),
+        (status = 409, description = "Index already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
 pub async fn create_index(
     State(state): State<AppState>,
     Json(request): Json<CreateIndexRequest>,
@@ -123,6 +136,19 @@ pub async fn create_index(
 }
 
 /// Get index handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/indices/{name}",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    responses(
+        (status = 200, description = "Index information", body = IndexInfo),
+        (status = 404, description = "Index not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
 pub async fn get_index(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -139,6 +165,15 @@ pub async fn get_index(
 }
 
 /// List indices handler
+#[utoipa::path(
+    get,
+    path = "/api/v1/indices",
+    responses(
+        (status = 200, description = "List of indices", body = ListIndicesResponse),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
 pub async fn list_indices(State(state): State<AppState>) -> ApiResult<Json<ListIndicesResponse>> {
     let index_names = state.index_manager.list_indices();
 
@@ -158,6 +193,19 @@ pub async fn list_indices(State(state): State<AppState>) -> ApiResult<Json<ListI
 }
 
 /// Delete index handler
+#[utoipa::path(
+    delete,
+    path = "/api/v1/indices/{name}",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    responses(
+        (status = 204, description = "Index deleted successfully"),
+        (status = 404, description = "Index not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
 pub async fn delete_index(
     State(state): State<AppState>,
     Path(name): Path<String>,

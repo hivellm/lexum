@@ -2,6 +2,7 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{document, health, index, search, snapshot};
+use crate::openapi::{ApiDoc, create_swagger_ui};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower_http::cors::CorsLayer;
@@ -39,7 +40,7 @@ pub fn build_router(state: AppState) -> Router {
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
         // Snapshot repositories
-        .route("/_snapshot/{repository}", put(snapshot::create_repository))
+        .route("/_snapshot/{repository}", put(snapshot::create_or_update_repository))
         .route("/_snapshot/{repository}", get(snapshot::get_repository))
         .route("/_snapshot", get(snapshot::list_repositories))
         // Snapshots
@@ -73,6 +74,8 @@ pub fn build_router(state: AppState) -> Router {
             "/_snapshot/_stats",
             get(snapshot::get_global_snapshot_stats),
         )
+        // OpenAPI documentation (temporarily disabled due to version conflicts)
+        // .merge(create_swagger_ui())
         // Middleware (rate limiting implemented, ready for full Tower integration)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())

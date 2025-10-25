@@ -2,9 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use utoipa::ToSchema;
 
 /// Document ID
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct DocumentId(String);
 
 impl DocumentId {
@@ -38,7 +39,7 @@ impl From<&str> for DocumentId {
 }
 
 /// Index name
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct IndexName(String);
 
 impl IndexName {
@@ -60,7 +61,7 @@ impl fmt::Display for IndexName {
 }
 
 /// Relevance score
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 pub struct Score(f32);
 
 impl Score {
@@ -82,7 +83,7 @@ impl fmt::Display for Score {
 }
 
 /// Snapshot repository name
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct RepositoryName(String);
 
 impl RepositoryName {
@@ -116,7 +117,7 @@ impl From<&str> for RepositoryName {
 }
 
 /// Snapshot name
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 pub struct SnapshotName(String);
 
 impl SnapshotName {

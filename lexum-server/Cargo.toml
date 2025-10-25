@@ -40,6 +40,10 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 dashmap = { workspace = true }
 
+# OpenAPI generation
+utoipa = { workspace = true }
+utoipa-swagger-ui = { version = "7.0", features = ["axum"] }
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = { workspace = true }

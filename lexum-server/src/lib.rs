@@ -23,6 +23,9 @@ pub mod handlers;
 /// Middleware
 pub mod middleware;
 
+/// OpenAPI specification
+pub mod openapi;
+
 /// API router
 pub mod router;
 

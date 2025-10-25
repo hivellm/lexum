@@ -19,7 +19,7 @@ pub struct ErrorResponse {
 }
 
 /// API error types
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, utoipa::ToSchema)]
 pub enum ApiError {
     /// Index not found
     #[error("Index not found: {0}")]

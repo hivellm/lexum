@@ -9,16 +9,17 @@ use lexum_core::DocumentStore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
+use utoipa::ToSchema;
 
 /// Add document request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct AddDocumentRequest {
     /// Document data
     pub document: JsonValue,
 }
 
 /// Add document response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct AddDocumentResponse {
     /// Document ID
     pub id: String,
@@ -106,7 +107,7 @@ pub async fn delete_document(
 }
 
 /// Bulk operation type
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(tag = "action", rename_all = "lowercase")]
 pub enum BulkOperation {
     /// Index a document (create or update)
@@ -172,14 +173,14 @@ pub struct BulkOperationResult {
 }
 
 /// Bulk operations request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BulkRequest {
     /// List of operations to perform
     pub operations: Vec<BulkOperation>,
 }
 
 /// Bulk operations response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BulkResponse {
     /// Whether all operations succeeded
     pub errors: bool,

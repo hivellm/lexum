@@ -106,7 +106,7 @@ pub async fn stats(url: &str, name: &str) -> Result<()> {
 
     // Display as table by default
     let output = format_output(&response, OutputFormat::Table)?;
-    println!("{}", output);
+    println!("{output}");
 
     Ok(())
 }

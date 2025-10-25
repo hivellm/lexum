@@ -35,6 +35,10 @@ pub enum Error {
     /// JSON parsing error
     #[error("JSON parsing error: {0}")]
     JsonParse(String),
+
+    /// File watching error
+    #[error("File watching error: {0}")]
+    FileWatch(String),
 }
 
 impl From<serde_yaml::Error> for Error {
@@ -46,5 +50,11 @@ impl From<serde_yaml::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error::JsonParse(err.to_string())
+    }
+}
+
+impl From<notify::Error> for Error {
+    fn from(err: notify::Error) -> Self {
+        Error::FileWatch(err.to_string())
     }
 }

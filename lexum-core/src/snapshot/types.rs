@@ -3,10 +3,11 @@
 use crate::types::{IndexName, RepositoryName, SnapshotName};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::time::SystemTime;
+use chrono::{DateTime, Utc};
+use utoipa::ToSchema;
 
 /// Snapshot state
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub enum SnapshotState {
     /// Snapshot is being created
     #[default]
@@ -20,7 +21,7 @@ pub enum SnapshotState {
 }
 
 /// Snapshot information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SnapshotInfo {
     /// Snapshot name
     pub name: SnapshotName,
@@ -35,10 +36,10 @@ pub struct SnapshotInfo {
     pub indices: Vec<IndexName>,
 
     /// Start time
-    pub start_time: SystemTime,
+    pub start_time: DateTime<Utc>,
 
     /// End time (if completed)
-    pub end_time: Option<SystemTime>,
+    pub end_time: Option<DateTime<Utc>>,
 
     /// Duration in milliseconds
     pub duration_in_millis: Option<u64>,
@@ -54,29 +55,29 @@ pub struct SnapshotInfo {
 }
 
 /// Shard information
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
 pub struct ShardInfo {
     /// Total number of shards
     pub total: u32,
-    
+
     /// Number of successful shards
     pub successful: u32,
-    
+
     /// Number of failed shards
     pub failed: u32,
 }
 
 /// Snapshot metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SnapshotMetadata {
     /// User-provided metadata
     pub user_metadata: HashMap<String, String>,
-    
+
     /// Snapshot version
     pub version: String,
-    
+
     /// Creation timestamp
-    pub creation_time: SystemTime,
+    pub creation_time: DateTime<Utc>,
 }
 
 impl Default for SnapshotMetadata {
@@ -84,13 +85,13 @@ impl Default for SnapshotMetadata {
         Self {
             user_metadata: HashMap::new(),
             version: "1.0".to_string(),
-            creation_time: SystemTime::now(),
+            creation_time: Utc::now(),
         }
     }
 }
 
 /// Snapshot repository information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RepositoryInfo {
     /// Repository name
     pub name: RepositoryName,
@@ -109,7 +110,7 @@ pub struct RepositoryInfo {
 }
 
 /// Snapshot creation request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateSnapshotRequest {
     /// Indices to include in snapshot
     pub indices: Vec<IndexName>,
@@ -140,7 +141,7 @@ impl Default for CreateSnapshotRequest {
 }
 
 /// Snapshot restore request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RestoreSnapshotRequest {
     /// Indices to restore
     pub indices: Vec<IndexName>,
@@ -179,20 +180,20 @@ impl Default for RestoreSnapshotRequest {
 }
 
 /// Snapshot statistics
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
 pub struct SnapshotStats {
     /// Total number of snapshots
     pub total_snapshots: u32,
-    
+
     /// Total size of all snapshots in bytes
     pub total_size: u64,
-    
+
     /// Number of successful snapshots
     pub successful_snapshots: u32,
-    
+
     /// Number of failed snapshots
     pub failed_snapshots: u32,
-    
+
     /// Number of in-progress snapshots
     pub in_progress_snapshots: u32,
 }

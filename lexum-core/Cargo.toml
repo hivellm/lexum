@@ -44,6 +44,12 @@ tantivy = { workspace = true }
 # Hostname detection
 hostname = "0.4"
 
+# File watching for hot-reload
+notify = "6.1"
+
+# OpenAPI documentation
+utoipa = { workspace = true }
+
 [dev-dependencies]
 criterion = { workspace = true }
 proptest = { workspace = true }

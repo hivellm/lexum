@@ -5,7 +5,7 @@ use crate::error::{Error, Result};
 use crate::snapshot::types::*;
 use crate::types::{RepositoryName, SnapshotName};
 use std::collections::HashMap;
-use std::time::SystemTime;
+use chrono::{DateTime, Utc};
 use tokio::fs;
 
 /// Snapshot repository trait
@@ -135,7 +135,7 @@ impl SnapshotRepository for FsSnapshotRepository {
         // Create snapshot directory
         fs::create_dir_all(&snapshot_path).await?;
 
-        let start_time = SystemTime::now();
+        let start_time = Utc::now();
 
         // TODO: Implement actual snapshot creation logic
         // This would involve copying index data to the snapshot directory
@@ -145,8 +145,8 @@ impl SnapshotRepository for FsSnapshotRepository {
             repository: self.name.clone(),
             state: SnapshotState::Success,
             indices: request.indices,
-            start_time,
-            end_time: Some(SystemTime::now()),
+            start_time: start_time.into(),
+            end_time: Some(Utc::now()),
             duration_in_millis: Some(0), // TODO: Calculate actual duration
             failures: 0,
             shards: ShardInfo::default(),

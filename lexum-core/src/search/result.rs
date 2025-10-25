@@ -3,6 +3,7 @@
 use crate::types::{DocumentId, Score};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use utoipa::ToSchema;
 
 /// Sort order for search results
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
@@ -46,7 +47,7 @@ impl SortOption {
 }
 
 /// Search hit containing a document and metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SearchHit {
     /// Document ID
     pub id: DocumentId,
@@ -57,7 +58,7 @@ pub struct SearchHit {
 }
 
 /// Search result containing hits and metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SearchResult {
     /// Hits (matching documents)
     pub hits: Vec<SearchHit>,
