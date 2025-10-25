@@ -27,10 +27,24 @@ pub enum Error {
     /// Environment variable error
     #[error("Environment variable error: {0}")]
     EnvVar(#[from] std::env::VarError),
+
+    /// Not found error
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    /// JSON parsing error
+    #[error("JSON parsing error: {0}")]
+    JsonParse(String),
 }
 
 impl From<serde_yaml::Error> for Error {
     fn from(err: serde_yaml::Error) -> Self {
         Error::YamlParse(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Self {
+        Error::JsonParse(err.to_string())
     }
 }

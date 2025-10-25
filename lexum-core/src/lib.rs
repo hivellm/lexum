@@ -50,6 +50,9 @@ pub mod schema;
 /// Search execution
 pub mod search;
 
+/// Snapshot and restore functionality
+pub mod snapshot;
+
 /// Common types
 pub mod types;
 
@@ -63,3 +66,7 @@ pub use query::{
 };
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};
+pub use snapshot::{
+    CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo, SnapshotManager,
+    SnapshotRepository, SnapshotStats,
+};

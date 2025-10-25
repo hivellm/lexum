@@ -1,0 +1,362 @@
+//! Snapshot repository implementation
+
+use crate::config::SnapshotRepositoryConfig;
+use crate::error::{Error, Result};
+use crate::snapshot::types::*;
+use crate::types::{RepositoryName, SnapshotName};
+use std::collections::HashMap;
+use std::time::SystemTime;
+use tokio::fs;
+
+/// Snapshot repository trait
+#[async_trait::async_trait]
+pub trait SnapshotRepository: Send + Sync {
+    /// Get repository information
+    async fn get_info(&self) -> Result<RepositoryInfo>;
+
+    /// Create a snapshot
+    async fn create_snapshot(
+        &self,
+        snapshot_name: SnapshotName,
+        request: CreateSnapshotRequest,
+    ) -> Result<SnapshotInfo>;
+
+    /// Get snapshot information
+    async fn get_snapshot(&self, snapshot_name: SnapshotName) -> Result<SnapshotInfo>;
+
+    /// List all snapshots
+    async fn list_snapshots(&self) -> Result<Vec<SnapshotInfo>>;
+
+    /// Delete a snapshot
+    async fn delete_snapshot(&self, snapshot_name: SnapshotName) -> Result<()>;
+
+    /// Restore from snapshot
+    async fn restore_snapshot(
+        &self,
+        snapshot_name: SnapshotName,
+        request: RestoreSnapshotRequest,
+    ) -> Result<()>;
+
+    /// Get repository statistics
+    async fn get_stats(&self) -> Result<SnapshotStats>;
+}
+
+/// Filesystem-based snapshot repository
+pub struct FsSnapshotRepository {
+    name: RepositoryName,
+    path: String,
+    settings: HashMap<String, String>,
+}
+
+impl FsSnapshotRepository {
+    /// Create a new filesystem snapshot repository
+    pub fn new(config: SnapshotRepositoryConfig) -> Result<Self> {
+        let path = config.settings.location.clone();
+
+        // Validate path
+        if path.is_empty() {
+            return Err(Error::Validation(
+                "Repository location cannot be empty".to_string(),
+            ));
+        }
+
+        let mut settings = HashMap::new();
+        settings.insert("location".to_string(), path.clone());
+        settings.insert("compress".to_string(), config.settings.compress.to_string());
+        settings.insert("chunk_size".to_string(), config.settings.chunk_size.clone());
+        settings.insert(
+            "max_restore_bytes_per_sec".to_string(),
+            config.settings.max_restore_bytes_per_sec.clone(),
+        );
+        settings.insert(
+            "max_snapshot_bytes_per_sec".to_string(),
+            config.settings.max_snapshot_bytes_per_sec.clone(),
+        );
+        settings.insert("readonly".to_string(), config.settings.readonly.to_string());
+
+        Ok(Self {
+            name: RepositoryName::new(config.name),
+            path,
+            settings,
+        })
+    }
+
+    /// Ensure repository directory exists
+    async fn ensure_directory(&self) -> Result<()> {
+        fs::create_dir_all(&self.path).await?;
+        Ok(())
+    }
+
+    /// Get snapshot directory path
+    fn get_snapshot_path(&self, snapshot_name: &SnapshotName) -> String {
+        format!("{}/{}", self.path, snapshot_name.as_str())
+    }
+
+    /// Get snapshots metadata file path
+    fn get_metadata_path(&self) -> String {
+        format!("{}/snapshots.json", self.path)
+    }
+}
+
+#[async_trait::async_trait]
+impl SnapshotRepository for FsSnapshotRepository {
+    async fn get_info(&self) -> Result<RepositoryInfo> {
+        self.ensure_directory().await?;
+
+        let snapshot_count = self.count_snapshots().await?;
+        let total_size = self.calculate_total_size().await?;
+
+        Ok(RepositoryInfo {
+            name: self.name.clone(),
+            repository_type: "fs".to_string(),
+            settings: self.settings.clone(),
+            snapshot_count,
+            total_size,
+        })
+    }
+
+    async fn create_snapshot(
+        &self,
+        snapshot_name: SnapshotName,
+        request: CreateSnapshotRequest,
+    ) -> Result<SnapshotInfo> {
+        self.ensure_directory().await?;
+
+        let snapshot_path = self.get_snapshot_path(&snapshot_name);
+
+        // Check if snapshot already exists
+        if fs::metadata(&snapshot_path).await.is_ok() {
+            return Err(Error::Validation(format!(
+                "Snapshot '{}' already exists",
+                snapshot_name.as_str()
+            )));
+        }
+
+        // Create snapshot directory
+        fs::create_dir_all(&snapshot_path).await?;
+
+        let start_time = SystemTime::now();
+
+        // TODO: Implement actual snapshot creation logic
+        // This would involve copying index data to the snapshot directory
+
+        let snapshot_info = SnapshotInfo {
+            name: snapshot_name.clone(),
+            repository: self.name.clone(),
+            state: SnapshotState::Success,
+            indices: request.indices,
+            start_time,
+            end_time: Some(SystemTime::now()),
+            duration_in_millis: Some(0), // TODO: Calculate actual duration
+            failures: 0,
+            shards: ShardInfo::default(),
+            metadata: request.metadata.unwrap_or_default(),
+        };
+
+        // Save snapshot metadata
+        self.save_snapshot_metadata(&snapshot_info).await?;
+
+        Ok(snapshot_info)
+    }
+
+    async fn get_snapshot(&self, snapshot_name: SnapshotName) -> Result<SnapshotInfo> {
+        let metadata_path = self.get_metadata_path();
+
+        if fs::metadata(&metadata_path).await.is_err() {
+            return Err(Error::NotFound(format!(
+                "Snapshot '{}' not found",
+                snapshot_name.as_str()
+            )));
+        }
+
+        let content = fs::read_to_string(&metadata_path).await?;
+        let snapshots: HashMap<String, SnapshotInfo> = serde_json::from_str(&content)?;
+
+        snapshots
+            .get(snapshot_name.as_str())
+            .cloned()
+            .ok_or_else(|| {
+                Error::NotFound(format!("Snapshot '{}' not found", snapshot_name.as_str()))
+            })
+    }
+
+    async fn list_snapshots(&self) -> Result<Vec<SnapshotInfo>> {
+        let metadata_path = self.get_metadata_path();
+
+        if fs::metadata(&metadata_path).await.is_err() {
+            return Ok(vec![]);
+        }
+
+        let content = fs::read_to_string(&metadata_path).await?;
+        let snapshots: HashMap<String, SnapshotInfo> = serde_json::from_str(&content)?;
+
+        Ok(snapshots.into_values().collect())
+    }
+
+    async fn delete_snapshot(&self, snapshot_name: SnapshotName) -> Result<()> {
+        let snapshot_path = self.get_snapshot_path(&snapshot_name);
+
+        if fs::metadata(&snapshot_path).await.is_err() {
+            return Err(Error::NotFound(format!(
+                "Snapshot '{}' not found",
+                snapshot_name.as_str()
+            )));
+        }
+
+        // Remove snapshot directory
+        fs::remove_dir_all(&snapshot_path).await?;
+
+        // Remove from metadata
+        self.remove_snapshot_from_metadata(&snapshot_name).await?;
+
+        Ok(())
+    }
+
+    async fn restore_snapshot(
+        &self,
+        snapshot_name: SnapshotName,
+        _request: RestoreSnapshotRequest,
+    ) -> Result<()> {
+        let snapshot_info = self.get_snapshot(snapshot_name).await?;
+
+        if snapshot_info.state != SnapshotState::Success {
+            return Err(Error::Validation(format!(
+                "Cannot restore snapshot '{}' in state {:?}",
+                snapshot_info.name.as_str(),
+                snapshot_info.state
+            )));
+        }
+
+        // TODO: Implement actual restore logic
+        // This would involve copying data from snapshot back to indices
+
+        Ok(())
+    }
+
+    async fn get_stats(&self) -> Result<SnapshotStats> {
+        let snapshots = self.list_snapshots().await?;
+
+        let mut total_size = 0;
+        let mut successful_snapshots = 0;
+        let mut failed_snapshots = 0;
+        let mut in_progress_snapshots = 0;
+
+        for snapshot in &snapshots {
+            total_size += 0; // TODO: Calculate actual size
+
+            match snapshot.state {
+                SnapshotState::Success => successful_snapshots += 1,
+                SnapshotState::Failed => failed_snapshots += 1,
+                SnapshotState::InProgress => in_progress_snapshots += 1,
+                SnapshotState::Partial => failed_snapshots += 1,
+            }
+        }
+
+        let stats = SnapshotStats {
+            total_snapshots: snapshots.len() as u32,
+            total_size,
+            successful_snapshots,
+            failed_snapshots,
+            in_progress_snapshots,
+        };
+
+        Ok(stats)
+    }
+}
+
+impl FsSnapshotRepository {
+    /// Count snapshots in repository
+    async fn count_snapshots(&self) -> Result<u32> {
+        let snapshots = self.list_snapshots().await?;
+        Ok(snapshots.len() as u32)
+    }
+
+    /// Calculate total size of all snapshots
+    async fn calculate_total_size(&self) -> Result<u64> {
+        // TODO: Implement actual size calculation
+        Ok(0)
+    }
+
+    /// Save snapshot metadata
+    async fn save_snapshot_metadata(&self, snapshot_info: &SnapshotInfo) -> Result<()> {
+        let metadata_path = self.get_metadata_path();
+
+        let mut snapshots = if fs::metadata(&metadata_path).await.is_ok() {
+            let content = fs::read_to_string(&metadata_path).await?;
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            HashMap::new()
+        };
+
+        snapshots.insert(
+            snapshot_info.name.as_str().to_string(),
+            snapshot_info.clone(),
+        );
+
+        let content = serde_json::to_string_pretty(&snapshots)?;
+        fs::write(&metadata_path, content).await?;
+
+        Ok(())
+    }
+
+    /// Remove snapshot from metadata
+    async fn remove_snapshot_from_metadata(&self, snapshot_name: &SnapshotName) -> Result<()> {
+        let metadata_path = self.get_metadata_path();
+
+        if fs::metadata(&metadata_path).await.is_err() {
+            return Ok(());
+        }
+
+        let content = fs::read_to_string(&metadata_path).await?;
+        let mut snapshots: HashMap<String, SnapshotInfo> = serde_json::from_str(&content)?;
+
+        snapshots.remove(snapshot_name.as_str());
+
+        let content = serde_json::to_string_pretty(&snapshots)?;
+        fs::write(&metadata_path, content).await?;
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_fs_repository_creation() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SnapshotRepositoryConfig {
+            name: "test_repo".to_string(),
+            repository_type: "fs".to_string(),
+            settings: crate::config::SnapshotRepositorySettings {
+                location: temp_dir.path().to_string_lossy().to_string(),
+                ..Default::default()
+            },
+        };
+
+        let repo = FsSnapshotRepository::new(config).unwrap();
+        assert_eq!(repo.name.as_str(), "test_repo");
+    }
+
+    #[tokio::test]
+    async fn test_fs_repository_info() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = SnapshotRepositoryConfig {
+            name: "test_repo".to_string(),
+            repository_type: "fs".to_string(),
+            settings: crate::config::SnapshotRepositorySettings {
+                location: temp_dir.path().to_string_lossy().to_string(),
+                ..Default::default()
+            },
+        };
+
+        let repo = FsSnapshotRepository::new(config).unwrap();
+        let info = repo.get_info().await.unwrap();
+
+        assert_eq!(info.name.as_str(), "test_repo");
+        assert_eq!(info.repository_type, "fs");
+        assert_eq!(info.snapshot_count, 0);
+    }
+}

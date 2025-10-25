@@ -30,7 +30,7 @@ struct CreateIndexRequest {
     fields: Vec<FieldDef>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct IndexInfo {
     name: String,
     num_docs: u64,

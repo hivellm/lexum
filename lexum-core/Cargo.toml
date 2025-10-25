@@ -36,6 +36,7 @@ uuid = { workspace = true }
 parking_lot = { workspace = true }
 dashmap = { workspace = true }
 once_cell = { workspace = true }
+async-trait = { workspace = true }
 
 # Search engine
 tantivy = { workspace = true }

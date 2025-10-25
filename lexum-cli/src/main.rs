@@ -105,6 +105,14 @@ enum DocAction {
         /// Document ID
         id: String,
     },
+    /// Bulk index documents from file
+    Bulk {
+        /// Index name
+        index: String,
+        /// JSON array file
+        #[arg(short, long)]
+        file: String,
+    },
 }
 
 #[tokio::main]
@@ -148,6 +156,9 @@ async fn main() -> Result<()> {
             }
             DocAction::Delete { index, id } => {
                 commands::document::delete(&cli.url, &index, &id).await?;
+            }
+            DocAction::Bulk { index, file } => {
+                commands::document::bulk(&cli.url, &index, &file).await?;
             }
         },
         Some(Commands::Search {

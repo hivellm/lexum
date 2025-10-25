@@ -129,3 +129,6 @@ jobs:
           ls -lh target/release/lexum-server* || true
           ls -lh target/release/lexum-cli* || true
 
+
+
+

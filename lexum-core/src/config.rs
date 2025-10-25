@@ -47,6 +47,10 @@ pub struct Config {
     /// Logging configuration
     #[serde(default)]
     pub logging: LoggingConfig,
+
+    /// Snapshot repository configuration
+    #[serde(default)]
+    pub snapshots: SnapshotConfig,
 }
 
 /// Cluster configuration
@@ -183,6 +187,26 @@ pub struct LoggingConfig {
     pub outputs: Vec<String>,
 }
 
+/// Snapshot configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotConfig {
+    /// Default snapshot repository settings
+    #[serde(default)]
+    pub repositories: Vec<SnapshotRepositoryConfig>,
+
+    /// Snapshot storage path
+    #[serde(default = "default_snapshot_path")]
+    pub path: String,
+
+    /// Maximum number of snapshots to keep
+    #[serde(default = "default_max_snapshots")]
+    pub max_snapshots: usize,
+
+    /// Snapshot compression enabled
+    #[serde(default = "default_compression_enabled")]
+    pub compression_enabled: bool,
+}
+
 fn default_log_level() -> String {
     "info".to_string()
 }
@@ -195,12 +219,129 @@ fn default_log_outputs() -> Vec<String> {
     vec!["stdout".to_string()]
 }
 
+fn default_snapshot_path() -> String {
+    "./snapshots".to_string()
+}
+
+fn default_max_snapshots() -> usize {
+    100
+}
+
+fn default_compression_enabled() -> bool {
+    true
+}
+
 impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
             level: default_log_level(),
             format: default_log_format(),
             outputs: default_log_outputs(),
+        }
+    }
+}
+
+/// Snapshot repository configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotRepositoryConfig {
+    /// Repository name
+    pub name: String,
+
+    /// Repository type (fs, s3, gcs, azure)
+    #[serde(default = "default_repository_type")]
+    pub repository_type: String,
+
+    /// Repository settings
+    #[serde(default)]
+    pub settings: SnapshotRepositorySettings,
+}
+
+fn default_repository_type() -> String {
+    "fs".to_string()
+}
+
+impl Default for SnapshotRepositoryConfig {
+    fn default() -> Self {
+        Self {
+            name: "default".to_string(),
+            repository_type: default_repository_type(),
+            settings: SnapshotRepositorySettings::default(),
+        }
+    }
+}
+
+/// Snapshot repository settings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotRepositorySettings {
+    /// Location for filesystem repositories
+    #[serde(default = "default_location")]
+    pub location: String,
+
+    /// Compress snapshots
+    #[serde(default = "default_compress")]
+    pub compress: bool,
+
+    /// Chunk size for snapshots
+    #[serde(default = "default_chunk_size")]
+    pub chunk_size: String,
+
+    /// Maximum number of snapshots per repository
+    #[serde(default = "default_max_restore_bytes_per_sec")]
+    pub max_restore_bytes_per_sec: String,
+
+    /// Maximum number of snapshots per repository
+    #[serde(default = "default_max_snapshot_bytes_per_sec")]
+    pub max_snapshot_bytes_per_sec: String,
+
+    /// Readonly repository
+    #[serde(default = "default_readonly")]
+    pub readonly: bool,
+}
+
+fn default_location() -> String {
+    "./snapshots".to_string()
+}
+
+fn default_compress() -> bool {
+    true
+}
+
+fn default_chunk_size() -> String {
+    "1gb".to_string()
+}
+
+fn default_max_restore_bytes_per_sec() -> String {
+    "40mb".to_string()
+}
+
+fn default_max_snapshot_bytes_per_sec() -> String {
+    "40mb".to_string()
+}
+
+fn default_readonly() -> bool {
+    false
+}
+
+impl Default for SnapshotRepositorySettings {
+    fn default() -> Self {
+        Self {
+            location: default_location(),
+            compress: default_compress(),
+            chunk_size: default_chunk_size(),
+            max_restore_bytes_per_sec: default_max_restore_bytes_per_sec(),
+            max_snapshot_bytes_per_sec: default_max_snapshot_bytes_per_sec(),
+            readonly: default_readonly(),
+        }
+    }
+}
+
+impl Default for SnapshotConfig {
+    fn default() -> Self {
+        Self {
+            repositories: vec![SnapshotRepositoryConfig::default()],
+            path: default_snapshot_path(),
+            max_snapshots: default_max_snapshots(),
+            compression_enabled: default_compression_enabled(),
         }
     }
 }
@@ -281,6 +422,19 @@ impl Config {
         }
         if let Ok(format) = std::env::var("LEXUM_LOG_FORMAT") {
             self.logging.format = format;
+        }
+
+        // Snapshots
+        if let Ok(path) = std::env::var("LEXUM_SNAPSHOT_PATH") {
+            self.snapshots.path = path;
+        }
+        if let Ok(max) = std::env::var("LEXUM_MAX_SNAPSHOTS") {
+            if let Ok(max) = max.parse() {
+                self.snapshots.max_snapshots = max;
+            }
+        }
+        if let Ok(compression) = std::env::var("LEXUM_SNAPSHOT_COMPRESSION") {
+            self.snapshots.compression_enabled = compression.parse().unwrap_or(true);
         }
     }
 

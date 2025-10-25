@@ -1,7 +1,7 @@
 //! API router configuration
 
 use crate::handlers::index::AppState;
-use crate::handlers::{document, health, index, search};
+use crate::handlers::{document, health, index, search, snapshot};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower_http::cors::CorsLayer;
@@ -38,6 +38,41 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/bulk", post(document::bulk_operations))
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
+        // Snapshot repositories
+        .route("/_snapshot/{repository}", put(snapshot::create_repository))
+        .route("/_snapshot/{repository}", get(snapshot::get_repository))
+        .route("/_snapshot", get(snapshot::list_repositories))
+        // Snapshots
+        .route(
+            "/_snapshot/{repository}/{snapshot}",
+            put(snapshot::create_snapshot),
+        )
+        .route(
+            "/_snapshot/{repository}/{snapshot}",
+            get(snapshot::get_snapshot),
+        )
+        .route(
+            "/_snapshot/{repository}/{snapshot}",
+            delete(snapshot::delete_snapshot),
+        )
+        .route(
+            "/_snapshot/{repository}/_all",
+            get(snapshot::list_snapshots),
+        )
+        // Snapshot restore
+        .route(
+            "/_snapshot/{repository}/{snapshot}/_restore",
+            post(snapshot::restore_snapshot),
+        )
+        // Snapshot statistics
+        .route(
+            "/_snapshot/{repository}/_stats",
+            get(snapshot::get_snapshot_stats),
+        )
+        .route(
+            "/_snapshot/_stats",
+            get(snapshot::get_global_snapshot_stats),
+        )
         // Middleware (rate limiting implemented, ready for full Tower integration)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())

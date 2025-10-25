@@ -81,6 +81,74 @@ impl fmt::Display for Score {
     }
 }
 
+/// Snapshot repository name
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RepositoryName(String);
+
+impl RepositoryName {
+    /// Create a new repository name
+    pub fn new(name: impl Into<String>) -> Self {
+        Self(name.into())
+    }
+
+    /// Get the inner string
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for RepositoryName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for RepositoryName {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for RepositoryName {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+/// Snapshot name
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SnapshotName(String);
+
+impl SnapshotName {
+    /// Create a new snapshot name
+    pub fn new(name: impl Into<String>) -> Self {
+        Self(name.into())
+    }
+
+    /// Get the inner string
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for SnapshotName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl From<String> for SnapshotName {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for SnapshotName {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
