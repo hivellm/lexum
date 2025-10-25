@@ -26,6 +26,7 @@ tower-http = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = "0.9"
 
 # Error handling
 thiserror = { workspace = true }
@@ -42,7 +43,7 @@ dashmap = { workspace = true }
 
 # OpenAPI generation
 utoipa = { workspace = true }
-utoipa-swagger-ui = { version = "7.0", features = ["axum"] }
+utoipa-swagger-ui = { version = "8.0", features = ["axum"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

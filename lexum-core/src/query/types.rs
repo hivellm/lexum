@@ -1,9 +1,10 @@
 //! Query type definitions
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Main query enum
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Query {
     /// Match query (full-text search)
@@ -23,7 +24,7 @@ pub enum Query {
 }
 
 /// Match query for full-text search
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct MatchQuery {
     /// Field to search
     pub field: String,
@@ -42,7 +43,7 @@ impl MatchQuery {
 }
 
 /// Term query for exact matching
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TermQuery {
     /// Field to search
     pub field: String,
@@ -61,7 +62,7 @@ impl TermQuery {
 }
 
 /// Range query for numeric/date ranges
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct RangeQuery {
     /// Field to search
     pub field: String,
@@ -113,7 +114,7 @@ impl RangeQuery {
 }
 
 /// Boolean query for combining queries
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, ToSchema)]
 pub struct BoolQuery {
     /// Must clauses (all required)
     #[serde(default)]
@@ -161,7 +162,7 @@ impl BoolQuery {
 }
 
 /// Fuzzy query for approximate matching with edit distance
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct FuzzyQuery {
     /// Field to search
     pub field: String,
@@ -218,7 +219,7 @@ impl FuzzyQuery {
 }
 
 /// Phrase query for exact phrase matching
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PhraseQuery {
     /// Field to search
     pub field: String,

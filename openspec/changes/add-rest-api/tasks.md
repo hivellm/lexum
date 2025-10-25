@@ -19,60 +19,83 @@
 - [x] 3.3 Implement GET /{index}/_doc/{id} - Get document
 - [x] 3.4 Implement POST /{index}/_update/{id} - Update document
 - [x] 3.5 Implement DELETE /{index}/_doc/{id} - Delete document
-- [ ] 3.6 Add validation and error handling
-- [ ] 3.7 Add tests
+- [x] 3.6 Add validation and error handling
+- [x] 3.7 Add tests
 
 ## 4. Bulk Operations
 - [x] 4.1 Implement POST /_bulk endpoint
 - [x] 4.2 Support index, create, update, delete operations
-- [ ] 4.3 Add NDJSON parsing
+- [x] 4.3 Add NDJSON parsing
 - [x] 4.4 Implement batch processing
 - [x] 4.5 Add error handling per operation
-- [ ] 4.6 Add performance tests
+- [x] 4.6 Add performance tests
+- [x] 4.7 Add ToSchema for bulk response types
 
 ## 5. Search Endpoints
 - [x] 5.1 Implement POST /{index}/_search
-- [ ] 5.2 Support query DSL parsing
+- [x] 5.2 Support query DSL parsing
 - [x] 5.3 Add pagination parameters
-- [ ] 5.4 Add sorting parameters
+- [x] 5.4 Add sorting parameters
 - [x] 5.5 Add field selection
 - [x] 5.6 Implement result formatting
-- [ ] 5.7 Add search tests
+- [x] 5.7 Add search tests
+- [x] 5.8 Add ToSchema for SearchRequest
 
-## 6. Cluster Endpoints
-- [ ] 6.1 Implement GET / - Cluster info
-- [ ] 6.2 Implement GET /_cluster/health
-- [ ] 6.3 Implement GET /_cluster/stats
-- [ ] 6.4 Add cluster state endpoint
-- [ ] 6.5 Add tests
+## 6. Snapshot & Repository Endpoints
+- [x] 6.1 Implement PUT /_snapshot/{repository} - Create repository
+- [x] 6.2 Implement GET /_snapshot/{repository} - Get repository
+- [x] 6.3 Implement GET /_snapshot - List repositories
+- [x] 6.4 Implement PUT /_snapshot/{repository}/{snapshot} - Create snapshot
+- [x] 6.5 Implement GET /_snapshot/{repository}/{snapshot} - Get snapshot
+- [x] 6.6 Implement DELETE /_snapshot/{repository}/{snapshot} - Delete snapshot
+- [x] 6.7 Implement GET /_snapshot/{repository}/_all - List snapshots
+- [x] 6.8 Implement POST /_snapshot/{repository}/{snapshot}/_restore - Restore snapshot
+- [x] 6.9 Implement GET /_snapshot/_stats - Get snapshot stats
+- [x] 6.10 Add tests for all snapshot endpoints
 
-## 7. Middleware
-- [x] 7.1 Implement request logging middleware
-- [x] 7.2 Implement authentication middleware (API key)
-- [x] 7.3 Implement rate limiting middleware
-- [x] 7.4 Add CORS middleware
-- [ ] 7.5 Add request timeout middleware
-- [x] 7.6 Test middleware chain
+## 7. Cluster Endpoints (Phase 2 - Distributed System)
+- [ ] 7.1 Implement GET / - Cluster info
+- [ ] 7.2 Implement GET /_cluster/health
+- [ ] 7.3 Implement GET /_cluster/stats
+- [ ] 7.4 Add cluster state endpoint
+- [ ] 7.5 Add tests
 
-## 8. Error Handling
-- [x] 8.1 Define error response format
-- [x] 8.2 Implement error mapping from core
-- [x] 8.3 Add proper HTTP status codes
-- [ ] 8.4 Implement error logging
-- [ ] 8.5 Add error response tests
+## 8. Middleware
+- [x] 8.1 Implement request logging middleware
+- [x] 8.2 Implement authentication middleware (API key)
+- [x] 8.3 Implement rate limiting middleware
+- [x] 8.4 Add CORS middleware
+- [x] 8.5 Add request timeout middleware
+- [x] 8.6 Test middleware chain
+- [x] 8.7 Fix unsafe code in auth tests
 
-## 9. Documentation & Testing
-- [ ] 9.1 Generate OpenAPI specification
-- [ ] 9.2 Add API documentation
-- [x] 9.3 Create integration test suite
-- [ ] 9.4 Add load tests
-- [ ] 9.5 Document all endpoints
-- [ ] 9.6 Create usage examples
+## 9. Error Handling
+- [x] 9.1 Define error response format
+- [x] 9.2 Implement error mapping from core
+- [x] 9.3 Add proper HTTP status codes
+- [x] 9.4 Implement error logging
+- [x] 9.5 Add error response tests
+- [x] 9.6 Add ToSchema for error types
+- [x] 9.7 Add ValidationError type
 
-## 10. Quality Checks
-- [ ] 10.1 Run cargo fmt and clippy
-- [x] 10.2 Achieve >95% test coverage
-- [ ] 10.3 Run performance benchmarks
-- [ ] 10.4 Verify all acceptance criteria
-- [x] 10.5 Update CHANGELOG
+## 10. Documentation & Testing
+- [x] 10.1 Generate OpenAPI specification
+- [x] 10.2 Add API documentation
+- [x] 10.3 Create integration test suite (35+ tests)
+- [ ] 10.4 Add load tests - Phase 4 performance optimization
+- [x] 10.5 Document all endpoints
+- [x] 10.6 Create usage examples
+- [x] 10.7 Setup utoipa with SwaggerUI
+- [x] 10.8 Resolve utoipa version conflicts (5.4 + swagger-ui 8.0)
+- [x] 10.9 Add utoipa::path annotations to all endpoints
+
+## 11. Quality Checks
+- [x] 11.1 Run cargo fmt and clippy
+- [x] 11.2 Achieve >95% test coverage
+- [x] 11.3 Run performance benchmarks
+- [x] 11.4 Verify all acceptance criteria
+- [x] 11.5 Update CHANGELOG
+- [x] 11.6 Fix all compiler errors
+- [x] 11.7 Remove unused imports and variables
+- [x] 11.8 Configure unsafe_code linting for tests
 

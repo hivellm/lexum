@@ -236,4 +236,132 @@ mod tests {
         assert_eq!(stats.total_snapshots, 0);
         assert_eq!(stats.total_size, 0);
     }
+
+    #[tokio::test]
+    async fn test_create_snapshot() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("test_repo");
+        let snapshot_name = SnapshotName::new("test_snapshot");
+        let request = CreateSnapshotRequest {
+            indices: vec![
+                crate::types::IndexName::new("index1"),
+                crate::types::IndexName::new("index2"),
+            ],
+            ..Default::default()
+        };
+
+        let snapshot_info = manager
+            .create_snapshot(&repo_name, snapshot_name.clone(), request)
+            .await
+            .unwrap();
+
+        assert_eq!(snapshot_info.name, snapshot_name);
+        assert_eq!(snapshot_info.repository, repo_name);
+        assert_eq!(snapshot_info.state, crate::snapshot::SnapshotState::Success);
+        assert_eq!(snapshot_info.indices.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_get_snapshot() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("test_repo");
+        let snapshot_name = SnapshotName::new("test_snapshot");
+        let request = CreateSnapshotRequest::default();
+
+        // Create snapshot
+        manager
+            .create_snapshot(&repo_name, snapshot_name.clone(), request)
+            .await
+            .unwrap();
+
+        // Get snapshot
+        let snapshot_info = manager
+            .get_snapshot(&repo_name, snapshot_name)
+            .await
+            .unwrap();
+
+        assert_eq!(snapshot_info.name.as_str(), "test_snapshot");
+        assert_eq!(snapshot_info.repository, repo_name);
+    }
+
+    #[tokio::test]
+    async fn test_list_snapshots() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("test_repo");
+
+        // Initially no snapshots
+        let snapshots = manager.list_snapshots(&repo_name).await.unwrap();
+        assert_eq!(snapshots.len(), 0);
+
+        // Create snapshots
+        let snapshot1 = SnapshotName::new("snapshot1");
+        let snapshot2 = SnapshotName::new("snapshot2");
+        let request = CreateSnapshotRequest::default();
+
+        manager
+            .create_snapshot(&repo_name, snapshot1, request.clone())
+            .await
+            .unwrap();
+        manager
+            .create_snapshot(&repo_name, snapshot2, request)
+            .await
+            .unwrap();
+
+        // List snapshots
+        let snapshots = manager.list_snapshots(&repo_name).await.unwrap();
+        assert_eq!(snapshots.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_delete_snapshot() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("test_repo");
+        let snapshot_name = SnapshotName::new("test_snapshot");
+        let request = CreateSnapshotRequest::default();
+
+        // Create snapshot
+        manager
+            .create_snapshot(&repo_name, snapshot_name.clone(), request)
+            .await
+            .unwrap();
+
+        // Verify snapshot exists
+        let snapshots = manager.list_snapshots(&repo_name).await.unwrap();
+        assert_eq!(snapshots.len(), 1);
+
+        // Delete snapshot
+        manager
+            .delete_snapshot(&repo_name, snapshot_name)
+            .await
+            .unwrap();
+
+        // Verify snapshot is deleted
+        let snapshots = manager.list_snapshots(&repo_name).await.unwrap();
+        assert_eq!(snapshots.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_repository_not_found() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("nonexistent_repo");
+        let snapshot_name = SnapshotName::new("test_snapshot");
+        let request = CreateSnapshotRequest::default();
+
+        let result = manager
+            .create_snapshot(&repo_name, snapshot_name, request)
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
 }

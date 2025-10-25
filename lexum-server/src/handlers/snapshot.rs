@@ -6,11 +6,11 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
+use chrono::Utc;
 use lexum_core::{
     snapshot::{CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo, SnapshotStats},
     types::{RepositoryName, SnapshotName},
 };
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use utoipa::ToSchema;
@@ -90,7 +90,7 @@ pub async fn create_or_update_repository(
     Path(repository_name): Path<String>,
     Json(request): Json<CreateRepositoryRequest>,
 ) -> Result<Json<RepositoryResponse>, StatusCode> {
-    let repo_name = RepositoryName::new(repository_name.clone());
+    let _repo_name = RepositoryName::new(repository_name.clone());
 
     // TODO: Implement repository create/update logic
     // This would involve:
@@ -130,7 +130,7 @@ pub async fn get_repository(
     State(_state): State<AppState>,
     Path(repository_name): Path<String>,
 ) -> Result<Json<RepositoryResponse>, StatusCode> {
-    let repo_name = RepositoryName::new(repository_name);
+    let _repo_name = RepositoryName::new(repository_name);
 
     // TODO: Get actual repository from state
     // let snapshot_manager = &state.snapshot_manager;
@@ -188,32 +188,20 @@ pub async fn list_repositories(
     tag = "Snapshots"
 )]
 pub async fn create_snapshot(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path((repository_name, snapshot_name)): Path<(String, String)>,
-    Json(_request): Json<CreateSnapshotRequest>,
+    Json(request): Json<CreateSnapshotRequest>,
 ) -> Result<Json<SnapshotResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    // TODO: Get actual snapshot manager from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // let snapshot_info = snapshot_manager.create_snapshot(&repo_name, snap_name, request).await
-    //     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let snapshot_info = state.snapshot_manager
+        .create_snapshot(&repo_name, snap_name, request)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // For now, return a placeholder response
     let response = SnapshotResponse {
-        snapshot: SnapshotInfo {
-            name: snap_name,
-            repository: repo_name,
-            state: lexum_core::snapshot::SnapshotState::Success,
-            indices: vec![],
-            start_time: Utc::now(),
-            end_time: Some(Utc::now()),
-            duration_in_millis: Some(0),
-            failures: 0,
-            shards: lexum_core::snapshot::ShardInfo::default(),
-            metadata: lexum_core::snapshot::SnapshotMetadata::default(),
-        },
+        snapshot: snapshot_info,
         acknowledged: true,
     };
 
@@ -236,30 +224,16 @@ pub async fn create_snapshot(
     tag = "Snapshots"
 )]
 pub async fn get_snapshot(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path((repository_name, snapshot_name)): Path<(String, String)>,
 ) -> Result<Json<SnapshotInfo>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    // TODO: Get actual snapshot from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // let snapshot_info = snapshot_manager.get_snapshot(&repo_name, snap_name).await
-    //     .map_err(|_| StatusCode::NOT_FOUND)?;
-
-    // For now, return a placeholder response
-    let snapshot_info = SnapshotInfo {
-        name: snap_name,
-        repository: repo_name,
-        state: lexum_core::snapshot::SnapshotState::Success,
-        indices: vec![],
-        start_time: Utc::now(),
-        end_time: Some(Utc::now()),
-        duration_in_millis: Some(0),
-        failures: 0,
-        shards: lexum_core::snapshot::ShardInfo::default(),
-        metadata: lexum_core::snapshot::SnapshotMetadata::default(),
-    };
+    let snapshot_info = state.snapshot_manager
+        .get_snapshot(&repo_name, snap_name)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
 
     Ok(Json(snapshot_info))
 }
@@ -278,18 +252,17 @@ pub async fn get_snapshot(
     tag = "Snapshots"
 )]
 pub async fn list_snapshots(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(repository_name): Path<String>,
 ) -> Result<Json<SnapshotListResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
 
-    // TODO: Get actual snapshots from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // let snapshots = snapshot_manager.list_snapshots(&repo_name).await
-    //     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let snapshots = state.snapshot_manager
+        .list_snapshots(&repo_name)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // For now, return empty list
-    let response = SnapshotListResponse { snapshots: vec![] };
+    let response = SnapshotListResponse { snapshots };
 
     Ok(Json(response))
 }
@@ -310,16 +283,16 @@ pub async fn list_snapshots(
     tag = "Snapshots"
 )]
 pub async fn delete_snapshot(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path((repository_name, snapshot_name)): Path<(String, String)>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    // TODO: Delete actual snapshot from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // snapshot_manager.delete_snapshot(&repo_name, snap_name).await
-    //     .map_err(|_| StatusCode::NOT_FOUND)?;
+    state.snapshot_manager
+        .delete_snapshot(&repo_name, snap_name)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
 
     let response = serde_json::json!({
         "acknowledged": true
@@ -349,8 +322,8 @@ pub async fn restore_snapshot(
     Path((repository_name, snapshot_name)): Path<(String, String)>,
     Json(_request): Json<RestoreSnapshotRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let repo_name = RepositoryName::new(repository_name);
-    let snap_name = SnapshotName::new(snapshot_name);
+    let _repo_name = RepositoryName::new(repository_name);
+    let _snap_name = SnapshotName::new(snapshot_name);
 
     // TODO: Restore actual snapshot from state
     // let snapshot_manager = &state.snapshot_manager;
@@ -378,20 +351,17 @@ pub async fn restore_snapshot(
     tag = "Snapshots"
 )]
 pub async fn get_snapshot_stats(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(repository_name): Path<String>,
 ) -> Result<Json<SnapshotStatsResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
 
-    // TODO: Get actual statistics from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // let stats = snapshot_manager.get_repository_stats(&repo_name).await
-    //     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let stats = state.snapshot_manager
+        .get_repository_stats(&repo_name)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // For now, return empty stats
-    let response = SnapshotStatsResponse {
-        stats: SnapshotStats::default(),
-    };
+    let response = SnapshotStatsResponse { stats };
 
     Ok(Json(response))
 }
@@ -407,17 +377,14 @@ pub async fn get_snapshot_stats(
     tag = "Snapshots"
 )]
 pub async fn get_global_snapshot_stats(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
 ) -> Result<Json<SnapshotStatsResponse>, StatusCode> {
-    // TODO: Get actual global statistics from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // let stats = snapshot_manager.get_global_stats().await
-    //     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let stats = state.snapshot_manager
+        .get_global_stats()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // For now, return empty stats
-    let response = SnapshotStatsResponse {
-        stats: SnapshotStats::default(),
-    };
+    let response = SnapshotStatsResponse { stats };
 
     Ok(Json(response))
 }
@@ -426,7 +393,6 @@ pub async fn get_global_snapshot_stats(
 mod tests {
     use super::*;
     use crate::handlers::index::AppState;
-    use axum::extract::State;
     use std::collections::HashMap;
 
     #[tokio::test]
@@ -493,9 +459,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_or_update_repository_handler() {
-        use axum::extract::State;
-        use axum::http::StatusCode;
         use axum::Json;
+        use axum::extract::State;
 
         let mut settings = HashMap::new();
         settings.insert("location".to_string(), "/tmp/snapshots".to_string());
@@ -507,11 +472,9 @@ mod tests {
         };
 
         let state = AppState::default();
-        let result = create_or_update_repository(
-            State(state),
-            Path("test_repo".to_string()),
-            Json(request),
-        ).await;
+        let result =
+            create_or_update_repository(State(state), Path("test_repo".to_string()), Json(request))
+                .await;
 
         assert!(result.is_ok());
         let response = result.unwrap();

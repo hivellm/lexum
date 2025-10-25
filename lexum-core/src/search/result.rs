@@ -6,7 +6,7 @@ use serde_json::Value as JsonValue;
 use utoipa::ToSchema;
 
 /// Sort order for search results
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum SortOrder {
     /// Ascending order
@@ -17,7 +17,7 @@ pub enum SortOrder {
 }
 
 /// Sort option for a field
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SortOption {
     /// Field to sort by
     pub field: String,

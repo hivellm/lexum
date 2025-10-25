@@ -1,9 +1,10 @@
 //! Index settings and configuration
 
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 /// Settings for index creation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct IndexSettings {
     /// Number of shards (for future distributed support)
     #[serde(default = "default_shards")]

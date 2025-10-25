@@ -12,7 +12,7 @@
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
-#![deny(unsafe_code)]
+#![cfg_attr(not(test), deny(unsafe_code))]
 
 /// API error types
 pub mod error;

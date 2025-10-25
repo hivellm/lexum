@@ -9,7 +9,6 @@ use lexum_core::DocumentStore;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
-use utoipa::ToSchema;
 
 /// Add document request
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
@@ -155,7 +154,7 @@ pub enum BulkOperation {
 }
 
 /// Bulk operation result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BulkOperationResult {
     /// Whether the operation succeeded
     pub success: bool,

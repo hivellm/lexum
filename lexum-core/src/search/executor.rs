@@ -352,7 +352,7 @@ impl SearchExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::query::{QueryBuilder, TermQuery};
+    use crate::query::QueryBuilder;
     use crate::schema::SchemaBuilder;
 
     #[tokio::test]

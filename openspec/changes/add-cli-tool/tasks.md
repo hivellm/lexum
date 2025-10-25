@@ -23,11 +23,11 @@
 - [x] 4.1 Implement `lexum doc index <index>`
 - [x] 4.2 Add `lexum doc get <index> <id>`
 - [x] 4.3 Add `lexum doc delete <index> <id>`
-- [ ] 4.4 Implement `lexum doc bulk <index> <file>`
+- [ ] 4.4 Implement `lexum doc bulk <index> <file>` - Phase 2
 
 ## 5. Query Commands
 - [x] 5.1 Implement `lexum query <index> <query>`
-- [ ] 5.2 Add `lexum lql <query>` command
+- [ ] 5.2 Add `lexum lql <query>` command - Phase 3
 - [ ] 5.3 Add query from file support
 - [ ] 5.4 Implement interactive query mode
 

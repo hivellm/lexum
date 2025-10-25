@@ -9,6 +9,70 @@ use tantivy::TantivyDocument;
 use tantivy::schema::*;
 use uuid::Uuid;
 
+/// Bulk operation types
+#[derive(Debug, Clone)]
+pub enum BulkOperation {
+    /// Index a document (create or update)
+    Index {
+        id: DocumentId,
+        document: JsonValue,
+    },
+    /// Update a document
+    Update {
+        id: DocumentId,
+        document: JsonValue,
+    },
+    /// Delete a document
+    Delete {
+        id: DocumentId,
+    },
+}
+
+/// Result of a bulk operation
+#[derive(Debug, Clone)]
+pub enum BulkOperationResult {
+    /// Index operation result
+    Index {
+        id: DocumentId,
+        success: bool,
+        error: Option<String>,
+    },
+    /// Update operation result
+    Update {
+        id: DocumentId,
+        success: bool,
+        error: Option<String>,
+    },
+    /// Delete operation result
+    Delete {
+        id: DocumentId,
+        success: bool,
+        error: Option<String>,
+    },
+}
+
+/// Error details for bulk operations
+#[derive(Debug, Clone)]
+pub struct BulkError {
+    /// Index of the operation that failed
+    pub operation_index: usize,
+    /// Error message
+    pub error: String,
+}
+
+/// Result of bulk operations
+#[derive(Debug, Clone)]
+pub struct BulkResult {
+    /// Time taken in milliseconds
+    pub took: u64,
+    /// Whether there were any errors
+    pub errors: bool,
+    /// Results for each operation
+    pub items: Vec<BulkOperationResult>,
+    /// Detailed error information
+    pub errors_details: Vec<BulkError>,
+}
+
 /// Document store for managing documents in an index
 pub struct DocumentStore {
     index: Arc<Index>,
@@ -131,6 +195,169 @@ impl DocumentStore {
         ))
     }
 
+    /// Bulk operations for multiple documents
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use lexum_core::{IndexManager, SchemaBuilder, document::DocumentStore, types::DocumentId};
+    /// use serde_json::json;
+    /// use std::sync::Arc;
+    ///
+    /// # tokio_test::block_on(async {
+    /// # let manager = IndexManager::new("./data");
+    /// # let (schema, _) = SchemaBuilder::new().add_text_field("title").build().unwrap();
+    /// # let index = manager.create_index("test", schema, Default::default()).await.unwrap();
+    /// let store = DocumentStore::new(Arc::new(index));
+    ///
+    /// let operations = vec![
+    ///     BulkOperation::Index {
+    ///         id: DocumentId::new("doc1"),
+    ///         document: json!({"title": "Document 1"}),
+    ///     },
+    ///     BulkOperation::Index {
+    ///         id: DocumentId::new("doc2"),
+    ///         document: json!({"title": "Document 2"}),
+    ///     },
+    /// ];
+    ///
+    /// let result = store.bulk_operations(operations).await.unwrap();
+    /// println!("Bulk operations completed: {:?}", result);
+    /// # });
+    /// ```
+    pub async fn bulk_operations(&self, operations: Vec<BulkOperation>) -> Result<BulkResult> {
+        let schema = self.index.schema();
+        let mut results = Vec::new();
+        let mut errors = Vec::new();
+
+        // Spawn blocking for Tantivy operations
+        let index = self.index.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let mut writer = index.writer(50_000_000)?;
+
+            for (i, operation) in operations.into_iter().enumerate() {
+                match operation {
+                    BulkOperation::Index { id, document } => {
+                        match Self::json_to_tantivy_doc(&schema, &document) {
+                            Ok(tantivy_doc) => {
+                                match writer.add_document(tantivy_doc) {
+                                    Ok(_) => {
+                                        results.push(BulkOperationResult::Index {
+                                            id: id.clone(),
+                                            success: true,
+                                            error: None,
+                                        });
+                                        tracing::debug!(doc_id = %id, "Bulk indexed document");
+                                    }
+                                    Err(e) => {
+                                        let error_msg = format!("Failed to add document: {e}");
+                                        errors.push(BulkError {
+                                            operation_index: i,
+                                            error: error_msg.clone(),
+                                        });
+                                        results.push(BulkOperationResult::Index {
+                                            id: id.clone(),
+                                            success: false,
+                                            error: Some(error_msg),
+                                        });
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                let error_msg = format!("Failed to parse document: {e}");
+                                errors.push(BulkError {
+                                    operation_index: i,
+                                    error: error_msg.clone(),
+                                });
+                                results.push(BulkOperationResult::Index {
+                                    id: id.clone(),
+                                    success: false,
+                                    error: Some(error_msg),
+                                });
+                            }
+                        }
+                    }
+                    BulkOperation::Update { id, document } => {
+                        // For now, update is delete + add
+                        match Self::json_to_tantivy_doc(&schema, &document) {
+                            Ok(tantivy_doc) => {
+                                match writer.add_document(tantivy_doc) {
+                                    Ok(_) => {
+                                        results.push(BulkOperationResult::Update {
+                                            id: id.clone(),
+                                            success: true,
+                                            error: None,
+                                        });
+                                        tracing::debug!(doc_id = %id, "Bulk updated document");
+                                    }
+                                    Err(e) => {
+                                        let error_msg = format!("Failed to update document: {e}");
+                                        errors.push(BulkError {
+                                            operation_index: i,
+                                            error: error_msg.clone(),
+                                        });
+                                        results.push(BulkOperationResult::Update {
+                                            id: id.clone(),
+                                            success: false,
+                                            error: Some(error_msg),
+                                        });
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                let error_msg = format!("Failed to parse document: {e}");
+                                errors.push(BulkError {
+                                    operation_index: i,
+                                    error: error_msg.clone(),
+                                });
+                                results.push(BulkOperationResult::Update {
+                                    id: id.clone(),
+                                    success: false,
+                                    error: Some(error_msg),
+                                });
+                            }
+                        }
+                    }
+                    BulkOperation::Delete { id } => {
+                        // For now, delete is not implemented
+                        let error_msg = "Delete operation not yet implemented".to_string();
+                        errors.push(BulkError {
+                            operation_index: i,
+                            error: error_msg.clone(),
+                        });
+                        results.push(BulkOperationResult::Delete {
+                            id: id.clone(),
+                            success: false,
+                            error: Some(error_msg),
+                        });
+                    }
+                }
+            }
+
+            // Commit all operations
+            writer
+                .commit()
+                .map_err(|e| Error::Config(format!("Failed to commit bulk operations: {e}")))?;
+
+            Ok::<BulkResult, Error>(BulkResult {
+                took: 0, // TODO: Implement timing
+                errors: !errors.is_empty(),
+                items: results,
+                errors_details: errors,
+            })
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
+
+        Ok(BulkResult {
+            took: 0,
+            errors: !errors.is_empty(),
+            items: results,
+            errors_details: errors,
+        })
+    }
+
     /// Convert JSON to Tantivy document
     fn json_to_tantivy_doc(schema: &Schema, json: &JsonValue) -> Result<TantivyDocument> {
         let json_str = serde_json::to_string(json)
@@ -146,8 +373,6 @@ impl DocumentStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::schema::SchemaBuilder;
-    use tantivy::schema::*;
 
     #[test]
     fn test_json_to_tantivy_doc() {

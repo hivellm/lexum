@@ -1,12 +1,13 @@
 //! Error types for Lexum
 
 use thiserror::Error;
+use utoipa::ToSchema;
 
 /// Result type alias for Lexum operations
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Lexum error types
-#[derive(Error, Debug)]
+#[derive(Error, Debug, ToSchema)]
 pub enum Error {
     /// Configuration error
     #[error("Configuration error: {0}")]
@@ -14,6 +15,7 @@ pub enum Error {
 
     /// I/O error
     #[error("I/O error: {0}")]
+    #[schema(value_type = String)]
     Io(#[from] std::io::Error),
 
     /// YAML parsing error
@@ -26,6 +28,7 @@ pub enum Error {
 
     /// Environment variable error
     #[error("Environment variable error: {0}")]
+    #[schema(value_type = String)]
     EnvVar(#[from] std::env::VarError),
 
     /// Not found error
@@ -58,3 +61,4 @@ impl From<notify::Error> for Error {
         Error::FileWatch(err.to_string())
     }
 }
+

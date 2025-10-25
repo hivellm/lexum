@@ -9,13 +9,22 @@ use serde::{Deserialize, Serialize};
 pub type ApiResult<T> = std::result::Result<T, ApiError>;
 
 /// API error response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ErrorResponse {
     /// Error message
     pub error: String,
     /// Error details
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<String>,
+}
+
+/// Validation error details
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ValidationError {
+    /// Field that failed validation
+    pub field: String,
+    /// Validation error message
+    pub message: String,
 }
 
 /// API error types

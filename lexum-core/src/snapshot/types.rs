@@ -1,9 +1,9 @@
 //! Snapshot-related type definitions
 
 use crate::types::{IndexName, RepositoryName, SnapshotName};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use utoipa::ToSchema;
 
 /// Snapshot state

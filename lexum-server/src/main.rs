@@ -9,7 +9,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create and run server
     let config = ServerConfig::default();
-    let server = Server::new(config);
+    let server = Server::new(config)?;
 
     server.run().await
 }

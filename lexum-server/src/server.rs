@@ -2,7 +2,7 @@
 
 use crate::handlers::index::AppState;
 use crate::router::build_router;
-use lexum_core::IndexManager;
+use lexum_core::{IndexManager, SnapshotManager, config::Config};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -14,6 +14,8 @@ pub struct ServerConfig {
     pub bind_addr: SocketAddr,
     /// Data directory
     pub data_dir: String,
+    /// Configuration
+    pub config: Config,
 }
 
 impl Default for ServerConfig {
@@ -21,6 +23,7 @@ impl Default for ServerConfig {
         Self {
             bind_addr: "127.0.0.1:9200".parse().unwrap(),
             data_dir: "./data".to_string(),
+            config: Config::default(),
         }
     }
 }
@@ -29,17 +32,20 @@ impl Default for ServerConfig {
 pub struct Server {
     config: ServerConfig,
     index_manager: Arc<IndexManager>,
+    snapshot_manager: Arc<SnapshotManager>,
 }
 
 impl Server {
     /// Create new server
-    pub fn new(config: ServerConfig) -> Self {
+    pub fn new(config: ServerConfig) -> anyhow::Result<Self> {
         let index_manager = Arc::new(IndexManager::new(&config.data_dir));
+        let snapshot_manager = Arc::new(SnapshotManager::new(&config.config)?);
 
-        Self {
+        Ok(Self {
             config,
             index_manager,
-        }
+            snapshot_manager,
+        })
     }
 
     /// Run server
@@ -48,6 +54,7 @@ impl Server {
 
         let state = AppState {
             index_manager: self.index_manager,
+            snapshot_manager: self.snapshot_manager,
         };
 
         let app = build_router(state);
