@@ -10,5 +10,8 @@ pub mod commands;
 /// HTTP client
 pub mod client;
 
+/// Output formatting
+pub mod formatter;
+
 /// REPL session
 pub mod repl;

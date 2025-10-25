@@ -14,6 +14,10 @@ struct Cli {
     #[arg(short, long, default_value = "http://localhost:9200")]
     url: String,
 
+    /// Output format: json, json-pretty, table
+    #[arg(short = 'f', long, default_value = "table")]
+    format: String,
+
     /// Subcommand to execute
     #[command(subcommand)]
     command: Option<Commands>,
