@@ -15,29 +15,29 @@ pub fn build_router(state: AppState) -> Router {
         // Index management
         .route("/api/v1/indices", post(index::create_index))
         .route("/api/v1/indices", get(index::list_indices))
-        .route("/api/v1/indices/:name", get(index::get_index))
-        .route("/api/v1/indices/:name", delete(index::delete_index))
+        .route("/api/v1/indices/{name}", get(index::get_index))
+        .route("/api/v1/indices/{name}", delete(index::delete_index))
         // Document operations
         .route(
-            "/api/v1/indices/:index/documents",
+            "/api/v1/indices/{index}/documents",
             post(document::add_document),
         )
         .route(
-            "/api/v1/indices/:index/documents/:id",
+            "/api/v1/indices/{index}/documents/{id}",
             get(document::get_document),
         )
         .route(
-            "/api/v1/indices/:index/documents/:id",
+            "/api/v1/indices/{index}/documents/{id}",
             put(document::update_document),
         )
         .route(
-            "/api/v1/indices/:index/documents/:id",
+            "/api/v1/indices/{index}/documents/{id}",
             delete(document::delete_document),
         )
         // Bulk operations
         .route("/api/v1/bulk", post(document::bulk_operations))
         // Search
-        .route("/api/v1/indices/:index/search", post(search::search))
+        .route("/api/v1/indices/{index}/search", post(search::search))
         // Middleware
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
