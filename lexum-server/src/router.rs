@@ -34,6 +34,8 @@ pub fn build_router(state: AppState) -> Router {
             "/api/v1/indices/:index/documents/:id",
             delete(document::delete_document),
         )
+        // Bulk operations
+        .route("/api/v1/bulk", post(document::bulk_operations))
         // Search
         .route("/api/v1/indices/:index/search", post(search::search))
         // Middleware
