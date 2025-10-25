@@ -9,7 +9,7 @@
 - [x] 2.1 Implement PUT /{index} - Create index
 - [x] 2.2 Implement GET /{index} - Get index info
 - [x] 2.3 Implement DELETE /{index} - Delete index
-- [ ] 2.4 Implement GET /_cat/indices - List indices
+- [x] 2.4 Implement GET /_cat/indices - List indices
 - [x] 2.5 Add request validation
 - [x] 2.6 Add integration tests
 

@@ -17,7 +17,7 @@
 - [x] 3.2 Add `lexum index list`
 - [x] 3.3 Add `lexum index info <index>`
 - [x] 3.4 Implement `lexum index delete <index>`
-- [ ] 3.5 Add `lexum index stats <index>`
+- [x] 3.5 Add `lexum index stats <index>`
 
 ## 4. Document Commands
 - [x] 4.1 Implement `lexum doc index <index>`
