@@ -65,8 +65,8 @@
 - [ ] 8.6 Document performance characteristics
 
 ## 9. Quality Checks
-- [ ] 9.1 Run cargo +nightly fmt --all
-- [ ] 9.2 Run cargo clippy --workspace -- -D warnings
+- [x] 9.1 Run cargo +nightly fmt --all
+- [x] 9.2 Run cargo clippy --workspace -- -D warnings
 - [x] 9.3 Run cargo test --workspace
 - [x] 9.4 Run cargo llvm-cov --all
 - [ ] 9.5 Run cargo bench

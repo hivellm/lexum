@@ -48,7 +48,7 @@
 
 ## 7. Middleware
 - [x] 7.1 Implement request logging middleware
-- [ ] 7.2 Implement authentication middleware (API key)
+- [x] 7.2 Implement authentication middleware (API key)
 - [x] 7.3 Implement rate limiting middleware
 - [x] 7.4 Add CORS middleware
 - [ ] 7.5 Add request timeout middleware

@@ -22,7 +22,7 @@
 ## 4. Document Commands
 - [x] 4.1 Implement `lexum doc index <index>`
 - [x] 4.2 Add `lexum doc get <index> <id>`
-- [ ] 4.3 Add `lexum doc delete <index> <id>`
+- [x] 4.3 Add `lexum doc delete <index> <id>`
 - [ ] 4.4 Implement `lexum doc bulk <index> <file>`
 
 ## 5. Query Commands
