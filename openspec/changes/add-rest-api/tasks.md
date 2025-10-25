@@ -23,11 +23,11 @@
 - [ ] 3.7 Add tests
 
 ## 4. Bulk Operations
-- [ ] 4.1 Implement POST /_bulk endpoint
-- [ ] 4.2 Support index, create, update, delete operations
+- [x] 4.1 Implement POST /_bulk endpoint
+- [x] 4.2 Support index, create, update, delete operations
 - [ ] 4.3 Add NDJSON parsing
-- [ ] 4.4 Implement batch processing
-- [ ] 4.5 Add error handling per operation
+- [x] 4.4 Implement batch processing
+- [x] 4.5 Add error handling per operation
 - [ ] 4.6 Add performance tests
 
 ## 5. Search Endpoints

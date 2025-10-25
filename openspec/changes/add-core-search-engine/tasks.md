@@ -42,16 +42,16 @@
 - [x] 6.2 Implement TermQuery
 - [x] 6.3 Implement RangeQuery
 - [x] 6.4 Implement BooleanQuery (must, should, must_not, filter)
-- [ ] 6.5 Implement FuzzyQuery
-- [ ] 6.6 Implement PhraseQuery
+- [x] 6.5 Implement FuzzyQuery
+- [x] 6.6 Implement PhraseQuery
 - [x] 6.7 Add query builder pattern
-- [ ] 6.8 Add query tests
+- [x] 6.8 Add query tests
 
 ## 7. Search Execution
 - [x] 7.1 Implement search executor
 - [x] 7.2 Add BM25 scoring
 - [x] 7.3 Implement result pagination
-- [ ] 7.4 Implement sorting
+- [x] 7.4 Implement sorting
 - [x] 7.5 Add field selection
 - [ ] 7.6 Implement query cache
 - [ ] 7.7 Add search benchmarks
