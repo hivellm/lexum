@@ -1,0 +1,50 @@
+[package]
+name = "lexum-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Core search engine library for Lexum"
+readme = "README.md"
+keywords = ["search", "full-text", "distributed", "tantivy"]
+categories = ["database", "web-programming"]
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+bincode = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+
+# Utilities
+chrono = { workspace = true }
+uuid = { workspace = true }
+parking_lot = { workspace = true }
+dashmap = { workspace = true }
+once_cell = { workspace = true }
+
+# Hostname detection
+hostname = "0.4"
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+tokio-test = "0.4"
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

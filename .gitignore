@@ -1,0 +1,40 @@
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+*.pdb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data directories
+data/
+logs/
+/tmp/
+
+# Environment
+.env
+.env.local
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+
+# Test coverage
+*.profraw
+*.profdata
+lcov.info
+coverage/
+
+# Benchmarks
+criterion/
+

@@ -1,0 +1,29 @@
+# Lexum Configuration Example
+
+cluster:
+  name: lexum-dev
+  initial_master_nodes:
+    - node-1
+
+node:
+  name: node-1
+  roles:
+    - master
+    - data
+    - ingest
+
+network:
+  host: 0.0.0.0
+  http_port: 9200
+  transport_port: 9300
+
+path:
+  data: ./data
+  logs: ./logs
+
+logging:
+  level: info
+  format: json
+  outputs:
+    - stdout
+
