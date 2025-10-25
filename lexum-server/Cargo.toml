@@ -38,6 +38,7 @@ tracing-subscriber = { workspace = true }
 # Utilities
 chrono = { workspace = true }
 uuid = { workspace = true }
+dashmap = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"

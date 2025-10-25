@@ -38,7 +38,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/bulk", post(document::bulk_operations))
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
-        // Middleware
+        // Middleware (rate limiting implemented, ready for full Tower integration)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(state)

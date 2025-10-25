@@ -20,6 +20,9 @@ pub mod error;
 /// HTTP handlers
 pub mod handlers;
 
+/// Middleware
+pub mod middleware;
+
 /// API router
 pub mod router;
 
