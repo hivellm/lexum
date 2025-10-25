@@ -894,15 +894,84 @@ Create a snapshot. `search`: Semantic search
 
 UMICP uses binary protocol over TCP/WebSocket.
 
-### Connection
+### Connecti### POST /_snapshot/{repository}/{snapshot}/_restore
 
-```rust
-// Connect via WebSocket
-let url = "ws://localhost:9200/_umicp";
-let stream = connect_async(url).await?;
+Restore indices from a snapshot. This operation restores the indices that were included in the snapshot back to the system.
 
-// Send binary message
-let request = UmicpRequest {
+**Parameters:**
+- `repository` (string, required): Repository name
+- `snapshot` (string, required): Snapshot name
+
+**Request Body:**
+```json
+{
+  "indices": ["index1", "index2"],
+  "rename_pattern": "index_(.*)",
+  "rename_replacement": "restored_$1",
+  "wait_for_completion": false,
+  "ignore_unavailable": false,
+  "include_global_state": true,
+  "include_aliases": true
+}
+```
+
+**Request Body Parameters:**
+- `indices` (array, optional): List of indices to restore. If empty, restores all indices from the snapshot
+- `rename_pattern` (string, optional): Regular expression pattern for renaming indices during restore
+- `rename_replacement` (string, optional): Replacement pattern for renaming indices
+- `wait_for_completion` (boolean, optional): Wait for restore completion before returning (default: false)
+- `ignore_unavailable` (boolean, optional): Ignore unavailable indices (default: false)
+- `include_global_state` (boolean, optional): Include global state in restore (default: true)
+- `include_aliases` (boolean, optional): Include aliases in restore (default: true)
+
+**Response:**
+```json
+{
+  "acknowledged": true,
+  "message": "Snapshot restore completed successfully"
+}
+```
+
+**Examples:**
+
+Restore all indices from a snapshot:
+```bash
+curl -X POST http://localhost:9200/_snapshot/my_backup/snapshot_1/_restore \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+Restore specific indices:
+```bash
+curl -X POST http://localhost:9200/_snapshot/my_backup/snapshot_1/_restore \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ["index1", "index2"]
+  }'
+```
+
+Restore with index renaming:
+```bash
+curl -X POST http://localhost:9200/_snapshot/my_backup/snapshot_1/_restore \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ["index1"],
+    "rename_pattern": "index_(.*)",
+    "rename_replacement": "restored_$1"
+  }'
+```
+
+**Error Responses:**
+- `400 Bad Request`: Invalid request parameters
+- `404 Not Found`: Snapshot or repository not found
+- `500 Internal Server Error`: Restore operation failed
+
+**Notes:**
+- The snapshot must be in a successful state to be restored
+- Restored indices will be created in the `./data/` directory
+- If `rename_pattern` and `rename_replacement` are provided, indices will be renamed during restore
+- The restore operation validates snapshot integrity before proceeding
+- Compressed snapshots are automatically decompressed during restoremicpRequest {
     method: "search",
     params: SearchParams { ... }
 };

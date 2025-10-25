@@ -394,4 +394,86 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
+
+    #[tokio::test]
+    async fn test_restore_snapshot() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("test_repo");
+        let snapshot_name = SnapshotName::new("test_snapshot");
+        let create_request = CreateSnapshotRequest {
+            indices: vec![
+                crate::types::IndexName::new("index1"),
+                crate::types::IndexName::new("index2"),
+            ],
+            ..Default::default()
+        };
+
+        // Create snapshot
+        let snapshot_info = manager
+            .create_snapshot(&repo_name, snapshot_name.clone(), create_request)
+            .await
+            .unwrap();
+
+        assert_eq!(snapshot_info.state, crate::snapshot::SnapshotState::Success);
+
+        // Test restore
+        let restore_request = RestoreSnapshotRequest::default();
+        let result = manager
+            .restore_snapshot(&repo_name, snapshot_name, restore_request)
+            .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_restore_nonexistent_snapshot() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("test_repo");
+        let snapshot_name = SnapshotName::new("nonexistent_snapshot");
+        let restore_request = RestoreSnapshotRequest::default();
+
+        let result = manager
+            .restore_snapshot(&repo_name, snapshot_name, restore_request)
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_restore_with_rename_pattern() {
+        let config = create_test_config();
+        let manager = SnapshotManager::new(&config).unwrap();
+
+        let repo_name = RepositoryName::new("test_repo");
+        let snapshot_name = SnapshotName::new("test_snapshot");
+        let create_request = CreateSnapshotRequest {
+            indices: vec![crate::types::IndexName::new("index1")],
+            ..Default::default()
+        };
+
+        // Create snapshot
+        manager
+            .create_snapshot(&repo_name, snapshot_name.clone(), create_request)
+            .await
+            .unwrap();
+
+        // Test restore with rename pattern
+        let restore_request = RestoreSnapshotRequest {
+            indices: vec![crate::types::IndexName::new("index1")],
+            rename_pattern: Some("index1".to_string()),
+            rename_replacement: Some("restored_index1".to_string()),
+            ..Default::default()
+        };
+
+        let result = manager
+            .restore_snapshot(&repo_name, snapshot_name, restore_request)
+            .await;
+
+        assert!(result.is_ok());
+    }
 }

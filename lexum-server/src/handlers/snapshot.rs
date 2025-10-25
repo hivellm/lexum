@@ -366,25 +366,36 @@ pub async fn delete_snapshot(
     responses(
         (status = 200, description = "Snapshot restore initiated successfully"),
         (status = 400, description = "Bad request"),
+        (status = 404, description = "Snapshot or repository not found"),
         (status = 500, description = "Internal server error")
     ),
     tag = "Snapshots"
 )]
 pub async fn restore_snapshot(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path((repository_name, snapshot_name)): Path<(String, String)>,
-    Json(_request): Json<RestoreSnapshotRequest>,
+    Json(request): Json<RestoreSnapshotRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let _repo_name = RepositoryName::new(repository_name);
-    let _snap_name = SnapshotName::new(snapshot_name);
+    let repo_name = RepositoryName::new(repository_name);
+    let snap_name = SnapshotName::new(snapshot_name.clone());
 
-    // TODO: Restore actual snapshot from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // snapshot_manager.restore_snapshot(&repo_name, snap_name, request).await
-    //     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let snapshot_manager = state.snapshot_manager.read().await;
+    snapshot_manager
+        .restore_snapshot(&repo_name, snap_name, request)
+        .await
+        .map_err(|e| {
+            tracing::error!(
+                repository = %repo_name.as_str(),
+                snapshot = %snapshot_name,
+                error = %e,
+                "Failed to restore snapshot"
+            );
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     let response = serde_json::json!({
-        "acknowledged": true
+        "acknowledged": true,
+        "message": "Snapshot restore completed successfully"
     });
 
     Ok(Json(response))
@@ -448,6 +459,7 @@ pub async fn get_global_snapshot_stats(
 mod tests {
     use super::*;
     use crate::handlers::index::AppState;
+    use lexum_core::types::IndexName;
     use std::collections::HashMap;
 
     #[tokio::test]
@@ -678,5 +690,48 @@ mod tests {
             response.settings.get("chunk_size"),
             Some(&"2gb".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn test_restore_snapshot_handler() {
+        use axum::Json;
+        use axum::extract::State;
+
+        let state = AppState::default();
+        let restore_request = RestoreSnapshotRequest::default();
+
+        let result = restore_snapshot(
+            State(state),
+            Path(("test_repo".to_string(), "test_snapshot".to_string())),
+            Json(restore_request),
+        )
+        .await;
+
+        // Should fail because snapshot doesn't exist
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_restore_snapshot_with_rename() {
+        use axum::Json;
+        use axum::extract::State;
+
+        let state = AppState::default();
+        let restore_request = RestoreSnapshotRequest {
+            indices: vec![IndexName::new("index1")],
+            rename_pattern: Some("index1".to_string()),
+            rename_replacement: Some("restored_index1".to_string()),
+            ..Default::default()
+        };
+
+        let result = restore_snapshot(
+            State(state),
+            Path(("test_repo".to_string(), "test_snapshot".to_string())),
+            Json(restore_request),
+        )
+        .await;
+
+        // Should fail because snapshot doesn't exist
+        assert!(result.is_err());
     }
 }

@@ -10,6 +10,56 @@ Snapshot repositories in Lexum allow you to:
 - Manage snapshot retention policies
 - Support multiple storage backends (filesystem, S3, GCS, Azure)
 
+## Restore Operations
+
+The restore operation allows you to recover indices from previously created snapshots. This is essential for disaster recovery, data migration, and testing scenarios.
+
+### Basic Restore
+
+To restore all indices from a snapshot:
+
+```bash
+curl -X POST http://localhost:9200/_snapshot/my_repo/my_snapshot/_restore \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
+
+### Selective Restore
+
+To restore only specific indices:
+
+```bash
+curl -X POST http://localhost:9200/_snapshot/my_repo/my_snapshot/_restore \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ["index1", "index2"]
+  }'
+```
+
+### Restore with Renaming
+
+To restore indices with new names:
+
+```bash
+curl -X POST http://localhost:9200/_snapshot/my_repo/my_snapshot/_restore \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "indices": ["old_index"],
+    "rename_pattern": "old_(.*)",
+    "rename_replacement": "new_$1"
+  }'
+```
+
+### Restore Options
+
+- `indices`: Array of index names to restore (empty = all indices)
+- `rename_pattern`: Regular expression for renaming indices
+- `rename_replacement`: Replacement pattern for renaming
+- `wait_for_completion`: Wait for restore to complete (default: false)
+- `ignore_unavailable`: Ignore missing indices (default: false)
+- `include_global_state`: Include global state (default: true)
+- `include_aliases`: Include aliases (default: true)
+
 ## Configuration Structure
 
 ### Global Snapshot Settings

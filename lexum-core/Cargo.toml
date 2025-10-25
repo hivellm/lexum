@@ -44,6 +44,9 @@ tantivy = { workspace = true }
 # Compression
 flate2 = { workspace = true }
 
+# Regular expressions for restore rename patterns
+regex = "1.10"
+
 # Hostname detection
 hostname = "0.4"
 
