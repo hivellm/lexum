@@ -11,25 +11,19 @@ use uuid::Uuid;
 
 /// Bulk operation types
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub enum BulkOperation {
     /// Index a document (create or update)
-    Index {
-        id: DocumentId,
-        document: JsonValue,
-    },
+    Index { id: DocumentId, document: JsonValue },
     /// Update a document
-    Update {
-        id: DocumentId,
-        document: JsonValue,
-    },
+    Update { id: DocumentId, document: JsonValue },
     /// Delete a document
-    Delete {
-        id: DocumentId,
-    },
+    Delete { id: DocumentId },
 }
 
 /// Result of a bulk operation
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub enum BulkOperationResult {
     /// Index operation result
     Index {
@@ -227,43 +221,39 @@ impl DocumentStore {
     /// ```
     pub async fn bulk_operations(&self, operations: Vec<BulkOperation>) -> Result<BulkResult> {
         let schema = self.index.schema();
-        let mut results = Vec::new();
-        let mut errors = Vec::new();
-
-        // Spawn blocking for Tantivy operations
         let index = self.index.clone();
 
-        tokio::task::spawn_blocking(move || {
+        let result = tokio::task::spawn_blocking(move || {
             let mut writer = index.writer(50_000_000)?;
+            let mut results = Vec::new();
+            let mut errors = Vec::new();
 
             for (i, operation) in operations.into_iter().enumerate() {
                 match operation {
                     BulkOperation::Index { id, document } => {
                         match Self::json_to_tantivy_doc(&schema, &document) {
-                            Ok(tantivy_doc) => {
-                                match writer.add_document(tantivy_doc) {
-                                    Ok(_) => {
-                                        results.push(BulkOperationResult::Index {
-                                            id: id.clone(),
-                                            success: true,
-                                            error: None,
-                                        });
-                                        tracing::debug!(doc_id = %id, "Bulk indexed document");
-                                    }
-                                    Err(e) => {
-                                        let error_msg = format!("Failed to add document: {e}");
-                                        errors.push(BulkError {
-                                            operation_index: i,
-                                            error: error_msg.clone(),
-                                        });
-                                        results.push(BulkOperationResult::Index {
-                                            id: id.clone(),
-                                            success: false,
-                                            error: Some(error_msg),
-                                        });
-                                    }
+                            Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
+                                Ok(_) => {
+                                    results.push(BulkOperationResult::Index {
+                                        id: id.clone(),
+                                        success: true,
+                                        error: None,
+                                    });
+                                    tracing::debug!(doc_id = %id, "Bulk indexed document");
                                 }
-                            }
+                                Err(e) => {
+                                    let error_msg = format!("Failed to add document: {e}");
+                                    errors.push(BulkError {
+                                        operation_index: i,
+                                        error: error_msg.clone(),
+                                    });
+                                    results.push(BulkOperationResult::Index {
+                                        id: id.clone(),
+                                        success: false,
+                                        error: Some(error_msg),
+                                    });
+                                }
+                            },
                             Err(e) => {
                                 let error_msg = format!("Failed to parse document: {e}");
                                 errors.push(BulkError {
@@ -281,30 +271,28 @@ impl DocumentStore {
                     BulkOperation::Update { id, document } => {
                         // For now, update is delete + add
                         match Self::json_to_tantivy_doc(&schema, &document) {
-                            Ok(tantivy_doc) => {
-                                match writer.add_document(tantivy_doc) {
-                                    Ok(_) => {
-                                        results.push(BulkOperationResult::Update {
-                                            id: id.clone(),
-                                            success: true,
-                                            error: None,
-                                        });
-                                        tracing::debug!(doc_id = %id, "Bulk updated document");
-                                    }
-                                    Err(e) => {
-                                        let error_msg = format!("Failed to update document: {e}");
-                                        errors.push(BulkError {
-                                            operation_index: i,
-                                            error: error_msg.clone(),
-                                        });
-                                        results.push(BulkOperationResult::Update {
-                                            id: id.clone(),
-                                            success: false,
-                                            error: Some(error_msg),
-                                        });
-                                    }
+                            Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
+                                Ok(_) => {
+                                    results.push(BulkOperationResult::Update {
+                                        id: id.clone(),
+                                        success: true,
+                                        error: None,
+                                    });
+                                    tracing::debug!(doc_id = %id, "Bulk updated document");
                                 }
-                            }
+                                Err(e) => {
+                                    let error_msg = format!("Failed to update document: {e}");
+                                    errors.push(BulkError {
+                                        operation_index: i,
+                                        error: error_msg.clone(),
+                                    });
+                                    results.push(BulkOperationResult::Update {
+                                        id: id.clone(),
+                                        success: false,
+                                        error: Some(error_msg),
+                                    });
+                                }
+                            },
                             Err(e) => {
                                 let error_msg = format!("Failed to parse document: {e}");
                                 errors.push(BulkError {
@@ -350,12 +338,7 @@ impl DocumentStore {
         .await
         .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
 
-        Ok(BulkResult {
-            took: 0,
-            errors: !errors.is_empty(),
-            items: results,
-            errors_details: errors,
-        })
+        Ok(result)
     }
 
     /// Convert JSON to Tantivy document

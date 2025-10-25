@@ -4,7 +4,9 @@ use crate::error::{ApiError, ApiResult};
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use lexum_core::{FieldConfig, FieldType, IndexManager, IndexSettings, SchemaBuilder, SnapshotManager};
+use lexum_core::{
+    FieldConfig, FieldType, IndexManager, IndexSettings, SchemaBuilder, SnapshotManager,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use utoipa::ToSchema;
@@ -23,23 +25,24 @@ impl Default for AppState {
         // Create a temporary directory for testing purposes
         let temp_dir = std::env::temp_dir().join("lexum_test");
         std::fs::create_dir_all(&temp_dir).ok();
-        
+
         // Create default config for snapshot manager
         let config = lexum_core::config::Config::default();
         let snapshot_manager = Arc::new(SnapshotManager::new(&config).unwrap_or_else(|_| {
             // Fallback to a minimal config if default fails
             let mut fallback_config = config;
-            fallback_config.snapshots.repositories = vec![lexum_core::config::SnapshotRepositoryConfig {
-                name: "default".to_string(),
-                repository_type: "fs".to_string(),
-                settings: lexum_core::config::SnapshotRepositorySettings {
-                    location: temp_dir.join("snapshots").to_string_lossy().to_string(),
-                    ..Default::default()
-                },
-            }];
+            fallback_config.snapshots.repositories =
+                vec![lexum_core::config::SnapshotRepositoryConfig {
+                    name: "default".to_string(),
+                    repository_type: "fs".to_string(),
+                    settings: lexum_core::config::SnapshotRepositorySettings {
+                        location: temp_dir.join("snapshots").to_string_lossy().to_string(),
+                        ..Default::default()
+                    },
+                }];
             SnapshotManager::new(&fallback_config).unwrap()
         }));
-        
+
         Self {
             index_manager: Arc::new(IndexManager::new(&temp_dir)),
             snapshot_manager,

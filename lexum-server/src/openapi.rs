@@ -184,7 +184,13 @@ mod tests {
         let openapi = ApiDoc::openapi();
         assert_eq!(openapi.info.title, "Lexum Search Engine API");
         assert_eq!(openapi.info.version, "0.1.0");
-        assert!(openapi.info.description.as_ref().map_or(false, |d| d.contains("Lexum")));
+        assert!(
+            openapi
+                .info
+                .description
+                .as_ref()
+                .map_or(false, |d| d.contains("Lexum"))
+        );
     }
 
     #[test]

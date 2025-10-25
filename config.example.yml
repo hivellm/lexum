@@ -1,29 +1,138 @@
 # Lexum Configuration Example
+# This file demonstrates all available configuration options for Lexum
 
+# Cluster configuration
 cluster:
-  name: lexum-dev
+  name: "lexum-cluster"
   initial_master_nodes:
-    - node-1
+    - "node-1"
+    - "node-2"
+    - "node-3"
 
+# Node configuration
 node:
-  name: node-1
+  name: "node-1"
   roles:
-    - master
-    - data
-    - ingest
+    - "master"
+    - "data"
+    - "ingest"
 
+# Network configuration
 network:
-  host: 0.0.0.0
+  host: "0.0.0.0"
   http_port: 9200
   transport_port: 9300
 
+# Storage paths
 path:
-  data: ./data
-  logs: ./logs
+  data: "./data"
+  logs: "./logs"
 
+# Logging configuration
 logging:
-  level: info
-  format: json
+  level: "info"  # trace, debug, info, warn, error
+  format: "json"  # json, pretty
   outputs:
-    - stdout
+    - "stdout"
+    - "file"
 
+# Snapshot repository configuration
+snapshots:
+  # Global snapshot settings
+  path: "./snapshots"
+  max_snapshots: 100
+  compression_enabled: true
+  
+  # Repository configurations
+  repositories:
+    # Filesystem repository (default)
+    - name: "fs_repo"
+      repository_type: "fs"
+      settings:
+        location: "./snapshots/fs_repo"
+        compress: true
+        chunk_size: "1gb"
+        max_restore_bytes_per_sec: "40mb"
+        max_snapshot_bytes_per_sec: "40mb"
+        readonly: false
+        max_snapshots: 1000
+        retention_policy:
+          keep_for_days: 30
+          keep_count: 10
+          delete_after_days: 90
+
+    # AWS S3 repository
+    - name: "s3_repo"
+      repository_type: "s3"
+      settings:
+        location: "my-lexum-snapshots"
+        compress: true
+        chunk_size: "1gb"
+        max_restore_bytes_per_sec: "40mb"
+        max_snapshot_bytes_per_sec: "40mb"
+        readonly: false
+        max_snapshots: 5000
+        retention_policy:
+          keep_for_days: 60
+          keep_count: 50
+          delete_after_days: 180
+        s3_settings:
+          region: "us-east-1"
+          access_key_id: "${AWS_ACCESS_KEY_ID}"  # Use environment variable
+          secret_access_key: "${AWS_SECRET_ACCESS_KEY}"  # Use environment variable
+          endpoint: null  # Use default AWS S3 endpoint
+          path_style: false
+          server_side_encryption: "AES256"
+
+    # Google Cloud Storage repository
+    - name: "gcs_repo"
+      repository_type: "gcs"
+      settings:
+        location: "my-lexum-snapshots"
+        compress: true
+        chunk_size: "1gb"
+        max_restore_bytes_per_sec: "40mb"
+        max_snapshot_bytes_per_sec: "40mb"
+        readonly: false
+        max_snapshots: 5000
+        retention_policy:
+          keep_for_days: 60
+          keep_count: 50
+          delete_after_days: 180
+        gcs_settings:
+          project_id: "my-gcp-project"
+          service_account_key_file: "/path/to/service-account-key.json"
+          # OR use application credentials
+          # application_credentials: "/path/to/application-credentials.json"
+
+    # Azure Blob Storage repository
+    - name: "azure_repo"
+      repository_type: "azure"
+      settings:
+        location: "lexum-snapshots"
+        compress: true
+        chunk_size: "1gb"
+        max_restore_bytes_per_sec: "40mb"
+        max_snapshot_bytes_per_sec: "40mb"
+        readonly: false
+        max_snapshots: 5000
+        retention_policy:
+          keep_for_days: 60
+          keep_count: 50
+          delete_after_days: 180
+        azure_settings:
+          account_name: "mystorageaccount"
+          account_key: "${AZURE_STORAGE_ACCOUNT_KEY}"  # Use environment variable
+          # OR use connection string
+          # connection_string: "${AZURE_STORAGE_CONNECTION_STRING}"
+          container_name: "snapshots"
+
+# Environment variable overrides
+# You can override any configuration value using environment variables:
+# LEXUM_CLUSTER_NAME=my-cluster
+# LEXUM_NODE_NAME=my-node
+# LEXUM_NETWORK_HTTP_PORT=9200
+# LEXUM_NETWORK_TRANSPORT_PORT=9300
+# LEXUM_LOGGING_LEVEL=debug
+# LEXUM_SNAPSHOTS_PATH=/custom/snapshots
+# LEXUM_SNAPSHOTS_MAX_SNAPSHOTS=200

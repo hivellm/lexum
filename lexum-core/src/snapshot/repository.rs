@@ -136,11 +136,11 @@ impl SnapshotRepository for FsSnapshotRepository {
         fs::create_dir_all(&snapshot_path).await?;
 
         let start_time = Utc::now();
-        let mut failures = 0;
+        let failures = 0;
         let mut shards = ShardInfo::default();
 
         // Create snapshot metadata file
-        let metadata_file = format!("{}/snapshot.json", snapshot_path);
+        let _metadata_file = format!("{snapshot_path}/snapshot.json");
         let mut snapshot_info = SnapshotInfo {
             name: snapshot_name.clone(),
             repository: self.name.clone(),
@@ -170,11 +170,15 @@ impl SnapshotRepository for FsSnapshotRepository {
                 "version": "1.0"
             });
 
-            let index_metadata_file = format!("{}/index.json", index_snapshot_path);
-            fs::write(&index_metadata_file, serde_json::to_string_pretty(&index_metadata)?).await?;
+            let index_metadata_file = format!("{index_snapshot_path}/index.json");
+            fs::write(
+                &index_metadata_file,
+                serde_json::to_string_pretty(&index_metadata)?,
+            )
+            .await?;
 
             // Create a placeholder data file
-            let data_file = format!("{}/data.bin", index_snapshot_path);
+            let data_file = format!("{index_snapshot_path}/data.bin");
             fs::write(&data_file, b"snapshot_data_placeholder").await?;
 
             shards.total += 1;
@@ -431,7 +435,10 @@ mod tests {
             include_global_state: true,
         };
 
-        let snapshot_info = repo.create_snapshot(snapshot_name.clone(), request).await.unwrap();
+        let snapshot_info = repo
+            .create_snapshot(snapshot_name.clone(), request)
+            .await
+            .unwrap();
 
         assert_eq!(snapshot_info.name, snapshot_name);
         assert_eq!(snapshot_info.repository.as_str(), "test_repo");
@@ -479,7 +486,9 @@ mod tests {
         let request = CreateSnapshotRequest::default();
 
         // Create first snapshot
-        repo.create_snapshot(snapshot_name.clone(), request.clone()).await.unwrap();
+        repo.create_snapshot(snapshot_name.clone(), request.clone())
+            .await
+            .unwrap();
 
         // Try to create duplicate snapshot
         let result = repo.create_snapshot(snapshot_name, request).await;
@@ -507,7 +516,10 @@ mod tests {
         };
 
         // Create snapshot
-        let created_snapshot = repo.create_snapshot(snapshot_name.clone(), request).await.unwrap();
+        let created_snapshot = repo
+            .create_snapshot(snapshot_name.clone(), request)
+            .await
+            .unwrap();
 
         // Get snapshot
         let retrieved_snapshot = repo.get_snapshot(snapshot_name).await.unwrap();
@@ -541,14 +553,17 @@ mod tests {
         let snapshot2 = SnapshotName::new("snapshot2");
         let request = CreateSnapshotRequest::default();
 
-        repo.create_snapshot(snapshot1, request.clone()).await.unwrap();
+        repo.create_snapshot(snapshot1, request.clone())
+            .await
+            .unwrap();
         repo.create_snapshot(snapshot2, request).await.unwrap();
 
         // List snapshots
         let snapshots = repo.list_snapshots().await.unwrap();
         assert_eq!(snapshots.len(), 2);
 
-        let snapshot_names: Vec<String> = snapshots.iter()
+        let snapshot_names: Vec<String> = snapshots
+            .iter()
             .map(|s| s.name.as_str().to_string())
             .collect();
         assert!(snapshot_names.contains(&"snapshot1".to_string()));
@@ -572,7 +587,9 @@ mod tests {
         let request = CreateSnapshotRequest::default();
 
         // Create snapshot
-        repo.create_snapshot(snapshot_name.clone(), request).await.unwrap();
+        repo.create_snapshot(snapshot_name.clone(), request)
+            .await
+            .unwrap();
 
         // Verify snapshot exists
         let snapshots = repo.list_snapshots().await.unwrap();
@@ -612,7 +629,9 @@ mod tests {
         let snapshot2 = SnapshotName::new("snapshot2");
         let request = CreateSnapshotRequest::default();
 
-        repo.create_snapshot(snapshot1, request.clone()).await.unwrap();
+        repo.create_snapshot(snapshot1, request.clone())
+            .await
+            .unwrap();
         repo.create_snapshot(snapshot2, request).await.unwrap();
 
         // Check stats

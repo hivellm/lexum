@@ -195,7 +195,8 @@ pub async fn create_snapshot(
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    let snapshot_info = state.snapshot_manager
+    let snapshot_info = state
+        .snapshot_manager
         .create_snapshot(&repo_name, snap_name, request)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -230,7 +231,8 @@ pub async fn get_snapshot(
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    let snapshot_info = state.snapshot_manager
+    let snapshot_info = state
+        .snapshot_manager
         .get_snapshot(&repo_name, snap_name)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -257,7 +259,8 @@ pub async fn list_snapshots(
 ) -> Result<Json<SnapshotListResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
 
-    let snapshots = state.snapshot_manager
+    let snapshots = state
+        .snapshot_manager
         .list_snapshots(&repo_name)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -289,7 +292,8 @@ pub async fn delete_snapshot(
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    state.snapshot_manager
+    state
+        .snapshot_manager
         .delete_snapshot(&repo_name, snap_name)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -356,7 +360,8 @@ pub async fn get_snapshot_stats(
 ) -> Result<Json<SnapshotStatsResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
 
-    let stats = state.snapshot_manager
+    let stats = state
+        .snapshot_manager
         .get_repository_stats(&repo_name)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -379,7 +384,8 @@ pub async fn get_snapshot_stats(
 pub async fn get_global_snapshot_stats(
     State(state): State<AppState>,
 ) -> Result<Json<SnapshotStatsResponse>, StatusCode> {
-    let stats = state.snapshot_manager
+    let stats = state
+        .snapshot_manager
         .get_global_stats()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

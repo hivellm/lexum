@@ -61,4 +61,3 @@ impl From<notify::Error> for Error {
         Error::FileWatch(err.to_string())
     }
 }
-

@@ -25,6 +25,20 @@ pub struct AddDocumentResponse {
 }
 
 /// Add document handler
+#[utoipa::path(
+    post,
+    path = "/indices/{index_name}/documents",
+    params(
+        ("index_name" = String, Path, description = "Index name")
+    ),
+    request_body = AddDocumentRequest,
+    responses(
+        (status = 201, description = "Document added successfully", body = AddDocumentResponse),
+        (status = 404, description = "Index not found", body = ErrorResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse)
+    ),
+    tag = "Documents"
+)]
 pub async fn add_document(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
@@ -47,6 +61,20 @@ pub async fn add_document(
 }
 
 /// Get document handler
+#[utoipa::path(
+    get,
+    path = "/indices/{index_name}/documents/{doc_id}",
+    params(
+        ("index_name" = String, Path, description = "Index name"),
+        ("doc_id" = String, Path, description = "Document ID")
+    ),
+    responses(
+        (status = 200, description = "Document retrieved successfully", body = JsonValue),
+        (status = 404, description = "Index or document not found", body = ErrorResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse)
+    ),
+    tag = "Documents"
+)]
 pub async fn get_document(
     State(state): State<AppState>,
     Path((index_name, doc_id)): Path<(String, String)>,
@@ -66,6 +94,21 @@ pub async fn get_document(
 }
 
 /// Update document handler
+#[utoipa::path(
+    put,
+    path = "/indices/{index_name}/documents/{doc_id}",
+    params(
+        ("index_name" = String, Path, description = "Index name"),
+        ("doc_id" = String, Path, description = "Document ID")
+    ),
+    request_body = AddDocumentRequest,
+    responses(
+        (status = 200, description = "Document updated successfully", body = AddDocumentResponse),
+        (status = 404, description = "Index or document not found", body = ErrorResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse)
+    ),
+    tag = "Documents"
+)]
 pub async fn update_document(
     State(state): State<AppState>,
     Path((index_name, doc_id)): Path<(String, String)>,
@@ -88,6 +131,20 @@ pub async fn update_document(
 }
 
 /// Delete document handler
+#[utoipa::path(
+    delete,
+    path = "/indices/{index_name}/documents/{doc_id}",
+    params(
+        ("index_name" = String, Path, description = "Index name"),
+        ("doc_id" = String, Path, description = "Document ID")
+    ),
+    responses(
+        (status = 200, description = "Document deleted successfully"),
+        (status = 404, description = "Index or document not found", body = ErrorResponse),
+        (status = 400, description = "Invalid request", body = ErrorResponse)
+    ),
+    tag = "Documents"
+)]
 pub async fn delete_document(
     State(state): State<AppState>,
     Path((index_name, doc_id)): Path<(String, String)>,
