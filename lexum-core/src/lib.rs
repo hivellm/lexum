@@ -57,7 +57,7 @@ pub mod types;
 pub use config::Config;
 pub use document::DocumentStore;
 pub use error::{Error, Result};
-pub use index::{Index, IndexManager, IndexSettings};
+pub use index::{Index, IndexManager, IndexSettings, IndexStats};
 pub use query::{BoolQuery, FuzzyQuery, MatchQuery, PhraseQuery, Query, QueryBuilder, RangeQuery, TermQuery};
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};

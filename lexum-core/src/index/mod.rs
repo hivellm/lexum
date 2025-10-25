@@ -5,5 +5,5 @@
 pub mod manager;
 pub mod settings;
 
-pub use manager::{Index, IndexManager};
+pub use manager::{Index, IndexManager, IndexStats};
 pub use settings::IndexSettings;

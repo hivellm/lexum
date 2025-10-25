@@ -174,6 +174,33 @@ impl IndexManager {
         let indices = self.indices.read();
         indices.contains_key(name)
     }
+
+    /// Get index statistics
+    pub fn get_index_stats(&self, name: &str) -> Result<IndexStats> {
+        let index = self.get_index(name)?;
+        let reader = index.reader()?;
+        let searcher = reader.searcher();
+        
+        let num_docs = searcher.num_docs();
+        let num_segments = searcher.segment_readers().len();
+        
+        Ok(IndexStats {
+            name: name.to_string(),
+            num_docs,
+            num_segments,
+        })
+    }
+}
+
+/// Index statistics
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct IndexStats {
+    /// Index name
+    pub name: String,
+    /// Number of documents
+    pub num_docs: u64,
+    /// Number of segments
+    pub num_segments: usize,
 }
 
 #[cfg(test)]

@@ -519,3 +519,43 @@ fn test_range_query_serialization() {
     assert!(json.contains("lte"));
 }
 
+// ============================================================================
+// Index Stats Tests
+// ============================================================================
+
+#[test]
+fn test_index_stats_creation() {
+    use lexum_core::index::IndexStats;
+    
+    let stats = IndexStats {
+        name: "test_index".to_string(),
+        num_docs: 100,
+        num_segments: 2,
+    };
+    
+    assert_eq!(stats.name, "test_index");
+    assert_eq!(stats.num_docs, 100);
+    assert_eq!(stats.num_segments, 2);
+}
+
+#[test]
+fn test_index_stats_serialization() {
+    use lexum_core::index::IndexStats;
+    
+    let stats = IndexStats {
+        name: "my_index".to_string(),
+        num_docs: 1000,
+        num_segments: 5,
+    };
+    
+    let json = serde_json::to_string(&stats).unwrap();
+    assert!(json.contains("my_index"));
+    assert!(json.contains("1000"));
+    assert!(json.contains("\"num_segments\":5"));
+    
+    let deserialized: IndexStats = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.name, "my_index");
+    assert_eq!(deserialized.num_docs, 1000);
+    assert_eq!(deserialized.num_segments, 5);
+}
+
