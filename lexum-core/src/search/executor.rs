@@ -5,21 +5,74 @@ use crate::index::Index;
 use crate::query::Query;
 use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
 use crate::types::{DocumentId, Score};
+use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tantivy::TantivyDocument;
 use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Occur, PhraseQuery, QueryParser, RangeQuery, TermQuery};
 use tantivy::schema::*;
 
+/// Cache key for query results
+type CacheKey = String;
+
 /// Search executor for running queries
 pub struct SearchExecutor {
     index: Arc<Index>,
+    /// Query cache (key: query hash, value: cached result)
+    cache: Arc<DashMap<CacheKey, SearchResult>>,
+    /// Whether caching is enabled
+    cache_enabled: bool,
 }
 
 impl SearchExecutor {
-    /// Create new search executor
+    /// Create new search executor with caching enabled
     pub fn new(index: Arc<Index>) -> Self {
-        Self { index }
+        Self {
+            index,
+            cache: Arc::new(DashMap::new()),
+            cache_enabled: true,
+        }
+    }
+
+    /// Create new search executor without caching
+    pub fn without_cache(index: Arc<Index>) -> Self {
+        Self {
+            index,
+            cache: Arc::new(DashMap::new()),
+            cache_enabled: false,
+        }
+    }
+
+    /// Clear the query cache
+    pub fn clear_cache(&self) {
+        self.cache.clear();
+    }
+
+    /// Get cache size
+    pub fn cache_size(&self) -> usize {
+        self.cache.len()
+    }
+
+    /// Generate cache key from query parameters
+    fn cache_key(query: &Query, limit: usize, offset: usize, sort: &Option<SortOption>) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        
+        let mut hasher = DefaultHasher::new();
+        
+        // Hash query as JSON (simple but effective)
+        if let Ok(query_json) = serde_json::to_string(query) {
+            query_json.hash(&mut hasher);
+        }
+        limit.hash(&mut hasher);
+        offset.hash(&mut hasher);
+        
+        if let Some(s) = sort {
+            s.field.hash(&mut hasher);
+            format!("{:?}", s.order).hash(&mut hasher);
+        }
+        
+        format!("{:x}", hasher.finish())
     }
 
     /// Execute a search query
@@ -50,17 +103,28 @@ impl SearchExecutor {
         offset: usize,
         sort: Option<SortOption>,
     ) -> Result<SearchResult> {
+        // Check cache first if enabled
+        if self.cache_enabled {
+            let key = Self::cache_key(&query, limit, offset, &sort);
+            if let Some(cached) = self.cache.get(&key) {
+                tracing::debug!(cache_key = %key, "Cache hit");
+                return Ok(cached.clone());
+            }
+        }
+
         let start = Instant::now();
 
         let schema = self.index.schema();
         let index = self.index.clone();
+        let query_clone = query.clone();
+        let sort_clone = sort.clone();
 
         let result = tokio::task::spawn_blocking(move || {
             let reader = index.reader()?;
             let searcher = reader.searcher();
 
             // Convert our query to Tantivy query
-            let tantivy_query = Self::build_tantivy_query(&index.inner, &query)?;
+            let tantivy_query = Self::build_tantivy_query(&index.inner, &query_clone)?;
 
             // Execute search (sorting will be handled in-memory for now)
             // TODO: Implement efficient Tantivy-based sorting in future
@@ -89,7 +153,7 @@ impl SearchExecutor {
             }
 
             // Apply in-memory sorting if requested
-            if let Some(sort_opt) = sort {
+            if let Some(sort_opt) = sort_clone {
                 if sort_opt.field != "_score" {
                     // Sort by custom field value
                     hits.sort_by(|a, b| {
@@ -137,6 +201,13 @@ impl SearchExecutor {
 
         let mut result = result?;
         result.took_ms = start.elapsed().as_millis() as u64;
+
+        // Store in cache if enabled
+        if self.cache_enabled {
+            let key = Self::cache_key(&query, limit, offset, &sort);
+            self.cache.insert(key.clone(), result.clone());
+            tracing::debug!(cache_key = %key, cache_size = self.cache.len(), "Cached result");
+        }
 
         Ok(result)
     }
@@ -311,5 +382,76 @@ mod tests {
         let query = QueryBuilder::term_query("title", "test");
         let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_cache_creation() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let executor = SearchExecutor::new(Arc::new(index));
+        assert_eq!(executor.cache_size(), 0);
+        assert!(executor.cache_enabled);
+    }
+
+    #[test]
+    fn test_cache_without() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let executor = SearchExecutor::without_cache(Arc::new(index));
+        assert_eq!(executor.cache_size(), 0);
+        assert!(!executor.cache_enabled);
+    }
+
+    #[test]
+    fn test_cache_clear() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let executor = SearchExecutor::new(Arc::new(index));
+        executor.clear_cache();
+        assert_eq!(executor.cache_size(), 0);
+    }
+
+    #[test]
+    fn test_cache_key_generation() {
+        let query = QueryBuilder::match_query("title", "test");
+        let key1 = SearchExecutor::cache_key(&query, 10, 0, &None);
+        let key2 = SearchExecutor::cache_key(&query, 10, 0, &None);
+        
+        // Same parameters should generate same key
+        assert_eq!(key1, key2);
+
+        // Different parameters should generate different keys
+        let key3 = SearchExecutor::cache_key(&query, 20, 0, &None);
+        assert_ne!(key1, key3);
     }
 }
