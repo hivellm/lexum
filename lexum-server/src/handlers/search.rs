@@ -64,7 +64,7 @@ pub async fn search(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lexum_core::{Query, MatchQuery, SortOrder};
+    use lexum_core::{MatchQuery, Query, SortOrder};
 
     #[test]
     fn test_default_limit() {
@@ -73,7 +73,10 @@ mod tests {
 
     #[test]
     fn test_search_request_serialization() {
-        let query = Query::Match(MatchQuery::new("title".to_string(), "test query".to_string()));
+        let query = Query::Match(MatchQuery::new(
+            "title".to_string(),
+            "test query".to_string(),
+        ));
         let request = SearchRequest {
             query: query.clone(),
             limit: 20,
@@ -83,7 +86,7 @@ mod tests {
 
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(request.limit, deserialized.limit);
         assert_eq!(request.offset, deserialized.offset);
         assert!(request.sort.is_some());
@@ -92,17 +95,20 @@ mod tests {
 
     #[test]
     fn test_search_request_defaults() {
-        let query = Query::Match(MatchQuery::new("title".to_string(), "test query".to_string()));
+        let query = Query::Match(MatchQuery::new(
+            "title".to_string(),
+            "test query".to_string(),
+        ));
         let request = SearchRequest {
             query,
-            limit: 10, // default
-            offset: 0, // default
+            limit: 10,  // default
+            offset: 0,  // default
             sort: None, // default
         };
 
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.limit, 10);
         assert_eq!(deserialized.offset, 0);
         assert!(deserialized.sort.is_none());
@@ -110,7 +116,10 @@ mod tests {
 
     #[test]
     fn test_search_request_with_custom_limits() {
-        let query = Query::Match(MatchQuery::new("title".to_string(), "test query".to_string()));
+        let query = Query::Match(MatchQuery::new(
+            "title".to_string(),
+            "test query".to_string(),
+        ));
         let request = SearchRequest {
             query,
             limit: 50,

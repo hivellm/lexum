@@ -127,7 +127,9 @@ impl SnapshotRepository for FsSnapshotRepository {
 
         // Validate snapshot name
         if snapshot_name.as_str().is_empty() {
-            return Err(Error::Validation("Snapshot name cannot be empty".to_string()));
+            return Err(Error::Validation(
+                "Snapshot name cannot be empty".to_string(),
+            ));
         }
 
         // Validate indices - allow empty list for testing purposes
@@ -181,8 +183,11 @@ impl SnapshotRepository for FsSnapshotRepository {
         // Create index snapshots with actual data copying
         for index_name in &request.indices {
             let index_snapshot_path = format!("{}/{}", snapshot_path, index_name.as_str());
-            
-            match self.create_index_snapshot(index_name, &index_snapshot_path, &start_time).await {
+
+            match self
+                .create_index_snapshot(index_name, &index_snapshot_path, &start_time)
+                .await
+            {
                 Ok(()) => {
                     shards.total += 1;
                     shards.successful += 1;
@@ -193,7 +198,7 @@ impl SnapshotRepository for FsSnapshotRepository {
                         error = %e,
                         "Failed to create snapshot for index"
                     );
-                    
+
                     if !request.ignore_unavailable {
                         // Clean up partial snapshot
                         let _ = fs::remove_dir_all(&index_snapshot_path).await;
@@ -218,7 +223,7 @@ impl SnapshotRepository for FsSnapshotRepository {
         } else {
             snapshot_info.state = SnapshotState::Success;
         }
-        
+
         snapshot_info.end_time = Some(end_time);
         snapshot_info.duration_in_millis = Some(duration.num_milliseconds() as u64);
         snapshot_info.failures = failures;
@@ -327,7 +332,10 @@ impl SnapshotRepository for FsSnapshotRepository {
         for snapshot in &snapshots {
             // Calculate actual size for each snapshot
             let snapshot_path = self.get_snapshot_path(&snapshot.name);
-            total_size += self.calculate_directory_size(&snapshot_path).await.unwrap_or(0);
+            total_size += self
+                .calculate_directory_size(&snapshot_path)
+                .await
+                .unwrap_or(0);
 
             match snapshot.state {
                 SnapshotState::Success => successful_snapshots += 1,
@@ -367,7 +375,10 @@ impl FsSnapshotRepository {
 
         for snapshot in &snapshots {
             let snapshot_path = self.get_snapshot_path(&snapshot.name);
-            total_size += self.calculate_directory_size(&snapshot_path).await.unwrap_or(0);
+            total_size += self
+                .calculate_directory_size(&snapshot_path)
+                .await
+                .unwrap_or(0);
         }
 
         Ok(total_size)
@@ -376,7 +387,7 @@ impl FsSnapshotRepository {
     /// Calculate directory size recursively
     async fn calculate_directory_size(&self, path: &str) -> Result<u64> {
         use std::collections::VecDeque;
-        
+
         let mut total_size = 0;
         let mut dirs_to_process = VecDeque::new();
         dirs_to_process.push_back(path.to_string());
@@ -434,9 +445,14 @@ impl FsSnapshotRepository {
         });
 
         let json_data = serde_json::to_string_pretty(&snapshot_data)?;
-        
+
         // Apply compression if enabled
-        if self.settings.get("compress").unwrap_or(&"false".to_string()) == "true" {
+        if self
+            .settings
+            .get("compress")
+            .unwrap_or(&"false".to_string())
+            == "true"
+        {
             self.compress_data(json_data.as_bytes()).await
         } else {
             Ok(json_data.into_bytes())
@@ -536,14 +552,14 @@ impl FsSnapshotRepository {
     async fn compress_data(&self, data: &[u8]) -> Result<Vec<u8>> {
         // For now, use a simple compression approach
         // In a real implementation, this would use the configured compression algorithm
-        use flate2::write::GzEncoder;
         use flate2::Compression;
+        use flate2::write::GzEncoder;
         use std::io::Write;
 
         let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(data)?;
         let compressed = encoder.finish()?;
-        
+
         Ok(compressed)
     }
 
@@ -578,7 +594,9 @@ impl FsSnapshotRepository {
 
         // Create a more realistic data file with actual content
         let data_file = format!("{snapshot_path}/data.bin");
-        let data_content = self.create_index_snapshot_data(index_name, start_time).await?;
+        let data_content = self
+            .create_index_snapshot_data(index_name, start_time)
+            .await?;
         fs::write(&data_file, data_content).await?;
 
         // Create schema file

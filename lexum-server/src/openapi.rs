@@ -197,7 +197,7 @@ mod tests {
                     .info
                     .description
                     .as_ref()
-                    .map_or(false, |d| d.contains("Lexum"))
+                    .is_some_and(|d| d.contains("Lexum"))
             );
         }
     }
@@ -206,7 +206,7 @@ mod tests {
     #[ignore = "Stack overflow due to complex OpenAPI type definitions - needs investigation"]
     fn test_openapi_json_generation() {
         // Test JSON generation with error handling to avoid stack overflow
-        let result = std::panic::catch_unwind(|| generate_openapi_json());
+        let result = std::panic::catch_unwind(generate_openapi_json);
 
         // The test should not panic due to stack overflow
         assert!(result.is_ok(), "OpenAPI JSON generation should not panic");
@@ -221,7 +221,7 @@ mod tests {
     #[ignore = "Stack overflow due to complex OpenAPI type definitions - needs investigation"]
     fn test_openapi_yaml_generation() {
         // Test YAML generation with error handling to avoid stack overflow
-        let result = std::panic::catch_unwind(|| generate_openapi_yaml());
+        let result = std::panic::catch_unwind(generate_openapi_yaml);
 
         // The test should not panic due to stack overflow
         assert!(result.is_ok(), "OpenAPI YAML generation should not panic");

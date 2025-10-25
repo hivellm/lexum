@@ -111,7 +111,7 @@ mod tests {
     fn test_error_response_creation() {
         let error = ApiError::IndexNotFound("test_index".to_string());
         let response = error.to_response();
-        
+
         assert_eq!(response.error, "Index not found: test_index");
         assert_eq!(response.details, None);
     }
@@ -122,7 +122,7 @@ mod tests {
             error: "Test error".to_string(),
             details: Some("Test details".to_string()),
         };
-        
+
         let json = serde_json::to_string(&response).unwrap();
         assert!(json.contains("Test error"));
         assert!(json.contains("Test details"));
@@ -134,7 +134,7 @@ mod tests {
             field: "name".to_string(),
             message: "Name is required".to_string(),
         };
-        
+
         assert_eq!(validation_error.field, "name");
         assert_eq!(validation_error.message, "Name is required");
     }
@@ -151,14 +151,17 @@ mod tests {
         assert_eq!(invalid_error.to_string(), "Invalid request: Invalid data");
 
         let internal_error = ApiError::Internal("Database error".to_string());
-        assert_eq!(internal_error.to_string(), "Internal server error: Database error");
+        assert_eq!(
+            internal_error.to_string(),
+            "Internal server error: Database error"
+        );
     }
 
     #[test]
     fn test_core_error_conversion() {
         let core_error = lexum_core::Error::Config("Configuration error".to_string());
         let api_error: ApiError = core_error.into();
-        
+
         match api_error {
             ApiError::Core(_) => (),
             _ => panic!("Expected Core error variant"),
@@ -169,22 +172,22 @@ mod tests {
     fn test_into_response() {
         let error = ApiError::IndexNotFound("test".to_string());
         let response = error.into_response();
-        
+
         // The response should be a valid HTTP response
         assert!(response.status().is_client_error());
     }
 
     #[test]
     fn test_api_result_type() {
-        fn success_function() -> ApiResult<String> {
-            Ok("success".to_string())
+        fn success_function() -> String {
+            "success".to_string()
         }
 
         fn error_function() -> ApiResult<String> {
             Err(ApiError::InvalidRequest("test".to_string()))
         }
 
-        assert_eq!(success_function().unwrap(), "success");
+        assert_eq!(success_function(), "success");
         assert!(error_function().is_err());
     }
 }

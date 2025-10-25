@@ -456,7 +456,7 @@ mod tests {
 
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: AddDocumentRequest = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(request.document, deserialized.document);
     }
 
@@ -468,7 +468,7 @@ mod tests {
 
         let json = serde_json::to_string(&response).unwrap();
         let deserialized: AddDocumentResponse = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(response.id, deserialized.id);
     }
 
@@ -497,7 +497,7 @@ mod tests {
 
         let json = serde_json::to_string(&response).unwrap();
         let deserialized: BulkResponse = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(response.errors, deserialized.errors);
         assert_eq!(response.took_ms, deserialized.took_ms);
         assert_eq!(response.items.len(), deserialized.items.len());
@@ -521,21 +521,23 @@ mod tests {
                 id: "doc3".to_string(),
                 document: serde_json::json!({"title": "Doc 3"}),
             },
-            BulkOperation::Delete { 
+            BulkOperation::Delete {
                 index: "test_index".to_string(),
-                id: "doc4".to_string() 
+                id: "doc4".to_string(),
             },
         ];
 
         for operation in operations {
             let json = serde_json::to_string(&operation).unwrap();
-            let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
-            
+            let _deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+
             // Verify the operation can be serialized and deserialized
-            assert!(matches!(operation, BulkOperation::Index { .. }) || 
-                   matches!(operation, BulkOperation::Create { .. }) ||
-                   matches!(operation, BulkOperation::Update { .. }) ||
-                   matches!(operation, BulkOperation::Delete { .. }));
+            assert!(
+                matches!(operation, BulkOperation::Index { .. })
+                    || matches!(operation, BulkOperation::Create { .. })
+                    || matches!(operation, BulkOperation::Update { .. })
+                    || matches!(operation, BulkOperation::Delete { .. })
+            );
         }
     }
 }

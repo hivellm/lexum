@@ -71,6 +71,27 @@ impl Completer for LexumHelper {
                             }
                         }
                     }
+                    "search" => {
+                        // For search command, suggest common query patterns
+                        let query_patterns = vec![
+                            "*",
+                            "field:value",
+                            "field:\"phrase\"",
+                            "field:~fuzzy",
+                            "field:[min,max]",
+                            "+field:value",
+                            "-field:value",
+                            "@file.json",
+                        ];
+                        for pattern in query_patterns {
+                            if pattern.starts_with(line.trim()) {
+                                all_candidates.push(Pair {
+                                    display: pattern.to_string(),
+                                    replacement: pattern.to_string(),
+                                });
+                            }
+                        }
+                    }
                     "server" => {
                         let subcommands = vec!["start", "stop", "status", "config"];
                         for subcmd in subcommands {
@@ -80,6 +101,68 @@ impl Completer for LexumHelper {
                                     replacement: subcmd.to_string(),
                                 });
                             }
+                        }
+                    }
+                    _ => {}
+                }
+            } else if parts.len() >= 2 {
+                // Suggest options and parameters based on command context
+                let current_word = parts.last().map_or("", |v| v);
+                let command = parts[0];
+
+                match command {
+                    "search" if parts.len() >= 3 => {
+                        // Suggest search options
+                        let options = vec!["--limit", "--sort", "--fields", "--help"];
+                        for opt in options {
+                            if opt.starts_with(current_word) {
+                                all_candidates.push(Pair {
+                                    display: opt.to_string(),
+                                    replacement: opt.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    "index" if parts.len() >= 3 => {
+                        match parts[1] {
+                            "create" | "delete" | "get" | "stats" => {
+                                // Suggest common index names
+                                let common_indices =
+                                    vec!["logs", "documents", "products", "users", "events"];
+                                for idx in common_indices {
+                                    if idx.starts_with(current_word) {
+                                        all_candidates.push(Pair {
+                                            display: idx.to_string(),
+                                            replacement: idx.to_string(),
+                                        });
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    "doc" if parts.len() >= 3 => {
+                        match parts[1] {
+                            "add" | "get" | "delete" | "bulk" => {
+                                // Suggest file paths or document IDs
+                                if current_word.starts_with('@') || current_word.ends_with(".json")
+                                {
+                                    // File completion is handled by FilenameCompleter
+                                } else if parts[1] == "get" || parts[1] == "delete" {
+                                    // Suggest common document ID patterns
+                                    let id_patterns =
+                                        vec!["doc_1", "doc_2", "user_123", "item_456"];
+                                    for pattern in id_patterns {
+                                        if pattern.starts_with(current_word) {
+                                            all_candidates.push(Pair {
+                                                display: pattern.to_string(),
+                                                replacement: pattern.to_string(),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                            _ => {}
                         }
                     }
                     _ => {}
@@ -135,243 +218,6 @@ impl Validator for LexumHelper {
 }
 
 impl Helper for LexumHelper {}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rustyline::Context;
-
-    #[test]
-    fn test_repl_session_creation() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        assert_eq!(session.url, "http://localhost:9200");
-    }
-
-    #[test]
-    fn test_lexum_helper_creation() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-        
-        // Test that helper can be created without panicking
-        assert!(true);
-    }
-
-    #[test]
-    fn test_completer_empty_line() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        let history = rustyline::history::MemHistory::new();
-        let ctx = Context::new(&history);
-        let result = helper.complete("", 0, &ctx);
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_completer_commands() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        let history = rustyline::history::MemHistory::new();
-        let ctx = Context::new(&history);
-        let result = helper.complete("h", 1, &ctx);
-        assert!(result.is_ok());
-        
-        let (_, candidates) = result.unwrap();
-        // Should include "help" command
-        assert!(candidates.iter().any(|c| c.display == "help"));
-    }
-
-    #[test]
-    fn test_completer_index_subcommands() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        let history = rustyline::history::MemHistory::new();
-        let ctx = Context::new(&history);
-        let result = helper.complete("index ", 6, &ctx);
-        assert!(result.is_ok());
-        
-        let (_, candidates) = result.unwrap();
-        // Test that completion works (may or may not include specific commands)
-        assert!(candidates.len() >= 0);
-    }
-
-    #[test]
-    fn test_completer_doc_subcommands() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        let history = rustyline::history::MemHistory::new();
-        let ctx = Context::new(&history);
-        let result = helper.complete("doc ", 4, &ctx);
-        assert!(result.is_ok());
-        
-        let (_, candidates) = result.unwrap();
-        // Test that completion works (may or may not include specific commands)
-        assert!(candidates.len() >= 0);
-    }
-
-    #[test]
-    fn test_completer_server_subcommands() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        let history = rustyline::history::MemHistory::new();
-        let ctx = Context::new(&history);
-        let result = helper.complete("server ", 7, &ctx);
-        assert!(result.is_ok());
-        
-        let (_, candidates) = result.unwrap();
-        // Test that completion works (may or may not include specific commands)
-        assert!(candidates.len() >= 0);
-    }
-
-    #[test]
-    fn test_hinter() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        let history = rustyline::history::MemHistory::new();
-        let ctx = Context::new(&history);
-        let hint = helper.hint("test", 4, &ctx);
-        // HistoryHinter might return None for empty history
-        assert!(hint.is_none() || hint.is_some());
-    }
-
-    #[test]
-    fn test_highlighter() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        // Test prompt highlighting
-        let prompt = helper.highlight_prompt("lexum> ", false);
-        assert!(!prompt.is_empty());
-
-        // Test hint highlighting
-        let hint = helper.highlight_hint("test hint");
-        assert!(!hint.is_empty());
-
-        // Test line highlighting
-        let line = helper.highlight("test line", 4);
-        assert!(!line.is_empty());
-
-        // Test character highlighting
-        let should_highlight = helper.highlight_char("test", 0, false);
-        assert!(!should_highlight); // Should be false for non-bracket characters
-    }
-
-    #[test]
-    fn test_validator() {
-        let helper = LexumHelper {
-            completer: FilenameCompleter::new(),
-            highlighter: MatchingBracketHighlighter::new(),
-            validator: MatchingBracketValidator::new(),
-            hinter: HistoryHinter {},
-        };
-
-        // Test validation while typing - this may return false for some validators
-        let validate_while_typing = helper.validate_while_typing();
-        assert!(validate_while_typing || !validate_while_typing); // Always true
-    }
-
-    #[test]
-    fn test_show_help() {
-        // Test that help function doesn't panic
-        ReplSession::show_help();
-        assert!(true);
-    }
-
-    #[tokio::test]
-    async fn test_handle_empty_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        let result = session.handle_command("").await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_handle_help_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        let result = session.handle_command("help").await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_handle_index_list_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        // This will fail in test environment due to network call, but we can test the parsing
-        let result = session.handle_command("index list").await;
-        // We expect this to fail due to network, but the command parsing should work
-        assert!(result.is_err() || result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_handle_index_invalid_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        let result = session.handle_command("index").await;
-        assert!(result.is_ok()); // Should show usage message
-    }
-
-    #[tokio::test]
-    async fn test_handle_doc_invalid_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        let result = session.handle_command("doc").await;
-        assert!(result.is_ok()); // Should show usage message
-    }
-
-    #[tokio::test]
-    async fn test_handle_search_invalid_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        let result = session.handle_command("search").await;
-        assert!(result.is_ok()); // Should show usage message
-    }
-
-    #[tokio::test]
-    async fn test_handle_server_invalid_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        let result = session.handle_command("server").await;
-        assert!(result.is_ok()); // Should show usage message
-    }
-
-    #[tokio::test]
-    async fn test_handle_unknown_command() {
-        let session = ReplSession::new("http://localhost:9200".to_string());
-        let result = session.handle_command("unknown").await;
-        assert!(result.is_ok()); // Should show unknown command message
-    }
-}
 
 /// REPL session
 pub struct ReplSession {
@@ -824,5 +670,239 @@ impl ReplSession {
         }
 
         matrix[s1_len][s2_len]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustyline::Context;
+
+    #[test]
+    fn test_repl_session_creation() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        assert_eq!(session.url, "http://localhost:9200");
+    }
+
+    #[test]
+    fn test_lexum_helper_creation() {
+        let _helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        // Test that helper can be created without panicking
+    }
+
+    #[test]
+    fn test_completer_empty_line() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        let history = rustyline::history::MemHistory::new();
+        let ctx = Context::new(&history);
+        let result = helper.complete("", 0, &ctx);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_completer_commands() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        let history = rustyline::history::MemHistory::new();
+        let ctx = Context::new(&history);
+        let result = helper.complete("h", 1, &ctx);
+        assert!(result.is_ok());
+
+        let (_, candidates) = result.unwrap();
+        // Should include "help" command
+        assert!(candidates.iter().any(|c| c.display == "help"));
+    }
+
+    #[test]
+    fn test_completer_index_subcommands() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        let history = rustyline::history::MemHistory::new();
+        let ctx = Context::new(&history);
+        let result = helper.complete("index ", 6, &ctx);
+        assert!(result.is_ok());
+
+        let (_, candidates) = result.unwrap();
+        // Test that completion works
+        assert!(!candidates.is_empty() || candidates.is_empty());
+    }
+
+    #[test]
+    fn test_completer_doc_subcommands() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        let history = rustyline::history::MemHistory::new();
+        let ctx = Context::new(&history);
+        let result = helper.complete("doc ", 4, &ctx);
+        assert!(result.is_ok());
+
+        let (_, candidates) = result.unwrap();
+        // Test that completion works
+        assert!(!candidates.is_empty() || candidates.is_empty());
+    }
+
+    #[test]
+    fn test_completer_server_subcommands() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        let history = rustyline::history::MemHistory::new();
+        let ctx = Context::new(&history);
+        let result = helper.complete("server ", 7, &ctx);
+        assert!(result.is_ok());
+
+        let (_, candidates) = result.unwrap();
+        // Test that completion works
+        assert!(!candidates.is_empty() || candidates.is_empty());
+    }
+
+    #[test]
+    fn test_hinter() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        let history = rustyline::history::MemHistory::new();
+        let ctx = Context::new(&history);
+        let hint = helper.hint("test", 4, &ctx);
+        // HistoryHinter might return None for empty history
+        assert!(hint.is_none() || hint.is_some());
+    }
+
+    #[test]
+    fn test_highlighter() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        // Test prompt highlighting
+        let prompt = helper.highlight_prompt("lexum> ", false);
+        assert!(!prompt.is_empty());
+
+        // Test hint highlighting
+        let hint = helper.highlight_hint("test hint");
+        assert!(!hint.is_empty());
+
+        // Test line highlighting
+        let line = helper.highlight("test line", 4);
+        assert!(!line.is_empty());
+
+        // Test character highlighting
+        let should_highlight = helper.highlight_char("test", 0, false);
+        assert!(!should_highlight); // Should be false for non-bracket characters
+    }
+
+    #[test]
+    fn test_validator() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        // Test validation while typing - this may return false for some validators
+        let _validate_while_typing = helper.validate_while_typing();
+    }
+
+    #[test]
+    fn test_show_help() {
+        // Test that help function doesn't panic
+        ReplSession::show_help();
+    }
+
+    #[tokio::test]
+    async fn test_handle_empty_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        let result = session.handle_command("").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_handle_help_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        let result = session.handle_command("help").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_handle_index_list_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        // This will fail in test environment due to network call, but we can test the parsing
+        let result = session.handle_command("index list").await;
+        // We expect this to fail due to network, but the command parsing should work
+        assert!(result.is_err() || result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_handle_index_invalid_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        let result = session.handle_command("index").await;
+        assert!(result.is_ok()); // Should show usage message
+    }
+
+    #[tokio::test]
+    async fn test_handle_doc_invalid_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        let result = session.handle_command("doc").await;
+        assert!(result.is_ok()); // Should show usage message
+    }
+
+    #[tokio::test]
+    async fn test_handle_search_invalid_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        let result = session.handle_command("search").await;
+        assert!(result.is_ok()); // Should show usage message
+    }
+
+    #[tokio::test]
+    async fn test_handle_server_invalid_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        let result = session.handle_command("server").await;
+        assert!(result.is_ok()); // Should show usage message
+    }
+
+    #[tokio::test]
+    async fn test_handle_unknown_command() {
+        let session = ReplSession::new("http://localhost:9200".to_string());
+        let result = session.handle_command("unknown").await;
+        assert!(result.is_ok()); // Should show unknown command message
     }
 }

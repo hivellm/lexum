@@ -263,7 +263,9 @@ fn bench_complex_queries(c: &mut Criterion) {
             let query = Query::Bool(
                 BoolQuery::new()
                     .must(Query::Match(MatchQuery::new("content", "searchable")))
-                    .must(Query::Range(RangeQuery::new("views").gte(serde_json::Value::Number(100.into()))))
+                    .must(Query::Range(
+                        RangeQuery::new("views").gte(serde_json::Value::Number(100.into())),
+                    ))
                     .should(Query::Term(TermQuery::new("category", "tech")))
                     .must_not(Query::Term(TermQuery::new("category", "old"))),
             );
