@@ -67,7 +67,7 @@
 ## 9. Quality Checks
 - [ ] 9.1 Run cargo +nightly fmt --all
 - [ ] 9.2 Run cargo clippy --workspace -- -D warnings
-- [ ] 9.3 Run cargo test --workspace
+- [x] 9.3 Run cargo test --workspace
 - [ ] 9.4 Run cargo llvm-cov --all
 - [ ] 9.5 Run cargo bench
 - [ ] 9.6 Verify all acceptance criteria met
