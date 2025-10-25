@@ -2,7 +2,7 @@
 - [x] 1.1 Create lexum-server crate
 - [x] 1.2 Add Axum and Tower dependencies
 - [x] 1.3 Implement basic server configuration
-- [ ] 1.4 Setup graceful shutdown
+- [x] 1.4 Setup graceful shutdown
 - [x] 1.5 Add health check endpoint
 
 ## 2. Index Management Endpoints

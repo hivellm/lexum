@@ -14,7 +14,7 @@
 - [x] 2.3 Add log level configuration (trace, debug, info, warn, error)
 - [x] 2.4 Implement log filtering by target
 - [x] 2.5 Add stdout logger
-- [ ] 2.6 Add file logger with rotation
+- [x] 2.6 Add file logger with rotation
 - [x] 2.7 Implement correlation ID propagation
 - [x] 2.8 Add logging tests
 

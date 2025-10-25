@@ -3,7 +3,7 @@
 - [x] 1.2 Add clap for argument parsing
 - [x] 1.3 Implement command structure
 - [x] 1.4 Add global options (--config, --verbose, --format)
-- [ ] 1.5 Implement output formatting (JSON, table, pretty)
+- [x] 1.5 Implement output formatting (JSON, table, pretty)
 
 ## 2. Server Commands
 - [ ] 2.1 Implement `lexum serve` command
