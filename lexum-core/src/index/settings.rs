@@ -102,8 +102,10 @@ mod tests {
 
     #[test]
     fn test_validation_zero_shards() {
-        let mut settings = IndexSettings::default();
-        settings.number_of_shards = 0;
+        let settings = IndexSettings {
+            number_of_shards: 0,
+            ..Default::default()
+        };
         assert!(settings.validate().is_err());
     }
 }

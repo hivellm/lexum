@@ -90,6 +90,10 @@ mod tests {
             StatusCode::NOT_FOUND
         );
         assert_eq!(
+            ApiError::DocumentNotFound("test".to_string()).status_code(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
             ApiError::InvalidRequest("test".to_string()).status_code(),
             StatusCode::BAD_REQUEST
         );
@@ -97,5 +101,90 @@ mod tests {
             ApiError::Internal("test".to_string()).status_code(),
             StatusCode::INTERNAL_SERVER_ERROR
         );
+        assert_eq!(
+            ApiError::Core(lexum_core::Error::Config("test".to_string())).status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    #[test]
+    fn test_error_response_creation() {
+        let error = ApiError::IndexNotFound("test_index".to_string());
+        let response = error.to_response();
+        
+        assert_eq!(response.error, "Index not found: test_index");
+        assert_eq!(response.details, None);
+    }
+
+    #[test]
+    fn test_error_response_serialization() {
+        let response = ErrorResponse {
+            error: "Test error".to_string(),
+            details: Some("Test details".to_string()),
+        };
+        
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("Test error"));
+        assert!(json.contains("Test details"));
+    }
+
+    #[test]
+    fn test_validation_error() {
+        let validation_error = ValidationError {
+            field: "name".to_string(),
+            message: "Name is required".to_string(),
+        };
+        
+        assert_eq!(validation_error.field, "name");
+        assert_eq!(validation_error.message, "Name is required");
+    }
+
+    #[test]
+    fn test_api_error_display() {
+        let index_error = ApiError::IndexNotFound("test".to_string());
+        assert_eq!(index_error.to_string(), "Index not found: test");
+
+        let doc_error = ApiError::DocumentNotFound("doc123".to_string());
+        assert_eq!(doc_error.to_string(), "Document not found: doc123");
+
+        let invalid_error = ApiError::InvalidRequest("Invalid data".to_string());
+        assert_eq!(invalid_error.to_string(), "Invalid request: Invalid data");
+
+        let internal_error = ApiError::Internal("Database error".to_string());
+        assert_eq!(internal_error.to_string(), "Internal server error: Database error");
+    }
+
+    #[test]
+    fn test_core_error_conversion() {
+        let core_error = lexum_core::Error::Config("Configuration error".to_string());
+        let api_error: ApiError = core_error.into();
+        
+        match api_error {
+            ApiError::Core(_) => (),
+            _ => panic!("Expected Core error variant"),
+        }
+    }
+
+    #[test]
+    fn test_into_response() {
+        let error = ApiError::IndexNotFound("test".to_string());
+        let response = error.into_response();
+        
+        // The response should be a valid HTTP response
+        assert!(response.status().is_client_error());
+    }
+
+    #[test]
+    fn test_api_result_type() {
+        fn success_function() -> ApiResult<String> {
+            Ok("success".to_string())
+        }
+
+        fn error_function() -> ApiResult<String> {
+            Err(ApiError::InvalidRequest("test".to_string()))
+        }
+
+        assert_eq!(success_function().unwrap(), "success");
+        assert!(error_function().is_err());
     }
 }

@@ -60,3 +60,65 @@ pub async fn search(
 
     Ok(Json(result))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lexum_core::{Query, MatchQuery, SortOrder};
+
+    #[test]
+    fn test_default_limit() {
+        assert_eq!(default_limit(), 10);
+    }
+
+    #[test]
+    fn test_search_request_serialization() {
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test query".to_string()));
+        let request = SearchRequest {
+            query: query.clone(),
+            limit: 20,
+            offset: 5,
+            sort: Some(SortOption::new("title", SortOrder::Asc)),
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(request.limit, deserialized.limit);
+        assert_eq!(request.offset, deserialized.offset);
+        assert!(request.sort.is_some());
+        assert!(deserialized.sort.is_some());
+    }
+
+    #[test]
+    fn test_search_request_defaults() {
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test query".to_string()));
+        let request = SearchRequest {
+            query,
+            limit: 10, // default
+            offset: 0, // default
+            sort: None, // default
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(deserialized.limit, 10);
+        assert_eq!(deserialized.offset, 0);
+        assert!(deserialized.sort.is_none());
+    }
+
+    #[test]
+    fn test_search_request_with_custom_limits() {
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test query".to_string()));
+        let request = SearchRequest {
+            query,
+            limit: 50,
+            offset: 100,
+            sort: None,
+        };
+
+        assert_eq!(request.limit, 50);
+        assert_eq!(request.offset, 100);
+    }
+}

@@ -184,13 +184,11 @@ mod tests {
     fn test_openapi_generation() {
         // Test basic OpenAPI generation without deep recursion
         // This test verifies the OpenAPI spec can be generated without stack overflow
-        let result = std::panic::catch_unwind(|| {
-            ApiDoc::openapi()
-        });
-        
+        let result = std::panic::catch_unwind(ApiDoc::openapi);
+
         // The test should not panic due to stack overflow
         assert!(result.is_ok(), "OpenAPI generation should not panic");
-        
+
         if let Ok(openapi) = result {
             assert_eq!(openapi.info.title, "Lexum Search Engine API");
             assert_eq!(openapi.info.version, "0.1.0");
@@ -208,13 +206,11 @@ mod tests {
     #[ignore = "Stack overflow due to complex OpenAPI type definitions - needs investigation"]
     fn test_openapi_json_generation() {
         // Test JSON generation with error handling to avoid stack overflow
-        let result = std::panic::catch_unwind(|| {
-            generate_openapi_json()
-        });
-        
+        let result = std::panic::catch_unwind(|| generate_openapi_json());
+
         // The test should not panic due to stack overflow
         assert!(result.is_ok(), "OpenAPI JSON generation should not panic");
-        
+
         if let Ok(json) = result {
             assert!(json.contains("Lexum Search Engine API"));
             assert!(json.contains("0.1.0"));
@@ -225,13 +221,11 @@ mod tests {
     #[ignore = "Stack overflow due to complex OpenAPI type definitions - needs investigation"]
     fn test_openapi_yaml_generation() {
         // Test YAML generation with error handling to avoid stack overflow
-        let result = std::panic::catch_unwind(|| {
-            generate_openapi_yaml()
-        });
-        
+        let result = std::panic::catch_unwind(|| generate_openapi_yaml());
+
         // The test should not panic due to stack overflow
         assert!(result.is_ok(), "OpenAPI YAML generation should not panic");
-        
+
         if let Ok(yaml) = result {
             assert!(yaml.contains("Lexum Search Engine API"));
             assert!(yaml.contains("0.1.0"));

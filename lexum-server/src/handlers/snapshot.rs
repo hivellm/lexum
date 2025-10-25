@@ -97,14 +97,34 @@ pub async fn create_or_update_repository(
         name: repository_name.clone(),
         repository_type: request.repository_type.clone(),
         settings: lexum_core::config::SnapshotRepositorySettings {
-            location: request.settings.get("location").cloned().unwrap_or_default(),
-            compress: request.settings.get("compress")
+            location: request
+                .settings
+                .get("location")
+                .cloned()
+                .unwrap_or_default(),
+            compress: request
+                .settings
+                .get("compress")
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(true),
-            chunk_size: request.settings.get("chunk_size").cloned().unwrap_or_else(|| "1gb".to_string()),
-            max_restore_bytes_per_sec: request.settings.get("max_restore_bytes_per_sec").cloned().unwrap_or_else(|| "40mb".to_string()),
-            max_snapshot_bytes_per_sec: request.settings.get("max_snapshot_bytes_per_sec").cloned().unwrap_or_else(|| "40mb".to_string()),
-            readonly: request.settings.get("readonly")
+            chunk_size: request
+                .settings
+                .get("chunk_size")
+                .cloned()
+                .unwrap_or_else(|| "1gb".to_string()),
+            max_restore_bytes_per_sec: request
+                .settings
+                .get("max_restore_bytes_per_sec")
+                .cloned()
+                .unwrap_or_else(|| "40mb".to_string()),
+            max_snapshot_bytes_per_sec: request
+                .settings
+                .get("max_snapshot_bytes_per_sec")
+                .cloned()
+                .unwrap_or_else(|| "40mb".to_string()),
+            readonly: request
+                .settings
+                .get("readonly")
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(false),
             ..Default::default()
@@ -535,12 +555,9 @@ mod tests {
         };
 
         let state = AppState::default();
-        let result = create_or_update_repository(
-            State(state),
-            Path("s3_repo".to_string()),
-            Json(request),
-        )
-        .await;
+        let result =
+            create_or_update_repository(State(state), Path("s3_repo".to_string()), Json(request))
+                .await;
 
         // S3 is not yet implemented, so this should fail
         assert!(result.is_err());
@@ -616,7 +633,7 @@ mod tests {
         };
 
         let state = AppState::default();
-        
+
         // Create first repository
         let result1 = create_or_update_repository(
             State(state.clone()),
@@ -649,8 +666,17 @@ mod tests {
         assert_eq!(response.name, "update_repo");
         assert_eq!(response.repository_type, "fs");
         // Should have updated settings
-        assert_eq!(response.settings.get("location"), Some(&"/tmp/repo2".to_string()));
-        assert_eq!(response.settings.get("compress"), Some(&"false".to_string()));
-        assert_eq!(response.settings.get("chunk_size"), Some(&"2gb".to_string()));
+        assert_eq!(
+            response.settings.get("location"),
+            Some(&"/tmp/repo2".to_string())
+        );
+        assert_eq!(
+            response.settings.get("compress"),
+            Some(&"false".to_string())
+        );
+        assert_eq!(
+            response.settings.get("chunk_size"),
+            Some(&"2gb".to_string())
+        );
     }
 }

@@ -29,20 +29,22 @@ impl Default for AppState {
 
         // Create default config for snapshot manager
         let config = lexum_core::config::Config::default();
-        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(|_| {
-            // Fallback to a minimal config if default fails
-            let mut fallback_config = config;
-            fallback_config.snapshots.repositories =
-                vec![lexum_core::config::SnapshotRepositoryConfig {
-                    name: "default".to_string(),
-                    repository_type: "fs".to_string(),
-                    settings: lexum_core::config::SnapshotRepositorySettings {
-                        location: temp_dir.join("snapshots").to_string_lossy().to_string(),
-                        ..Default::default()
-                    },
-                }];
-            SnapshotManager::new(&fallback_config).unwrap()
-        })));
+        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(
+            |_| {
+                // Fallback to a minimal config if default fails
+                let mut fallback_config = config;
+                fallback_config.snapshots.repositories =
+                    vec![lexum_core::config::SnapshotRepositoryConfig {
+                        name: "default".to_string(),
+                        repository_type: "fs".to_string(),
+                        settings: lexum_core::config::SnapshotRepositorySettings {
+                            location: temp_dir.join("snapshots").to_string_lossy().to_string(),
+                            ..Default::default()
+                        },
+                    }];
+                SnapshotManager::new(&fallback_config).unwrap()
+            },
+        )));
 
         Self {
             index_manager: Arc::new(IndexManager::new(&temp_dir)),

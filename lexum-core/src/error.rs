@@ -61,3 +61,85 @@ impl From<notify::Error> for Error {
         Error::FileWatch(err.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn test_error_display() {
+        let config_error = Error::Config("Invalid configuration".to_string());
+        assert_eq!(config_error.to_string(), "Configuration error: Invalid configuration");
+
+        let io_error = Error::Io(io::Error::new(io::ErrorKind::NotFound, "File not found"));
+        assert!(io_error.to_string().contains("I/O error"));
+
+        let yaml_error = Error::YamlParse("Invalid YAML".to_string());
+        assert_eq!(yaml_error.to_string(), "YAML parsing error: Invalid YAML");
+
+        let validation_error = Error::Validation("Invalid input".to_string());
+        assert_eq!(validation_error.to_string(), "Validation error: Invalid input");
+
+        let env_error = Error::EnvVar(std::env::VarError::NotPresent);
+        assert!(env_error.to_string().contains("Environment variable error"));
+
+        let not_found_error = Error::NotFound("Resource not found".to_string());
+        assert_eq!(not_found_error.to_string(), "Not found: Resource not found");
+
+        let json_error = Error::JsonParse("Invalid JSON".to_string());
+        assert_eq!(json_error.to_string(), "JSON parsing error: Invalid JSON");
+
+        let file_watch_error = Error::FileWatch("Watch failed".to_string());
+        assert_eq!(file_watch_error.to_string(), "File watching error: Watch failed");
+    }
+
+    #[test]
+    fn test_error_from_io() {
+        let io_error = io::Error::new(io::ErrorKind::PermissionDenied, "Permission denied");
+        let lexum_error: Error = io_error.into();
+        
+        match lexum_error {
+            Error::Io(_) => (),
+            _ => panic!("Expected Io error variant"),
+        }
+    }
+
+    #[test]
+    fn test_error_from_env_var() {
+        let env_error = std::env::VarError::NotPresent;
+        let lexum_error: Error = env_error.into();
+        
+        match lexum_error {
+            Error::EnvVar(_) => (),
+            _ => panic!("Expected EnvVar error variant"),
+        }
+    }
+
+    #[test]
+    fn test_error_types_coverage() {
+        // Test all error variants are accessible
+        let _config = Error::Config("test".to_string());
+        let _io = Error::Io(io::Error::new(io::ErrorKind::Other, "test"));
+        let _yaml = Error::YamlParse("test".to_string());
+        let _validation = Error::Validation("test".to_string());
+        let _env = Error::EnvVar(std::env::VarError::NotPresent);
+        let _not_found = Error::NotFound("test".to_string());
+        let _json = Error::JsonParse("test".to_string());
+        let _file_watch = Error::FileWatch("test".to_string());
+    }
+
+    #[test]
+    fn test_result_type_alias() {
+        fn test_function() -> Result<String> {
+            Ok("success".to_string())
+        }
+
+        fn test_error_function() -> Result<String> {
+            Err(Error::Config("test error".to_string()))
+        }
+
+        assert_eq!(test_function().unwrap(), "success");
+        assert!(test_error_function().is_err());
+    }
+}

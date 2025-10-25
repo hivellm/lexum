@@ -7,8 +7,8 @@ use lexum_core::{IndexManager, SnapshotManager};
 use lexum_server::{handlers::index::AppState, router::build_router};
 use serde_json::json;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tempfile::TempDir;
+use tokio::sync::RwLock;
 use tower::ServiceExt;
 
 async fn setup_test_server() -> (AppState, TempDir) {
@@ -17,24 +17,26 @@ async fn setup_test_server() -> (AppState, TempDir) {
 
     // Create a minimal config for snapshot manager
     let config = lexum_core::config::Config::default();
-    let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(|_| {
-        // Fallback to a minimal config if default fails
-        let mut fallback_config = config;
-        fallback_config.snapshots.repositories =
-            vec![lexum_core::config::SnapshotRepositoryConfig {
-                name: "default".to_string(),
-                repository_type: "fs".to_string(),
-                settings: lexum_core::config::SnapshotRepositorySettings {
-                    location: temp_dir
-                        .path()
-                        .join("snapshots")
-                        .to_string_lossy()
-                        .to_string(),
-                    ..Default::default()
-                },
-            }];
-        SnapshotManager::new(&fallback_config).unwrap()
-    })));
+    let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(
+        |_| {
+            // Fallback to a minimal config if default fails
+            let mut fallback_config = config;
+            fallback_config.snapshots.repositories =
+                vec![lexum_core::config::SnapshotRepositoryConfig {
+                    name: "default".to_string(),
+                    repository_type: "fs".to_string(),
+                    settings: lexum_core::config::SnapshotRepositorySettings {
+                        location: temp_dir
+                            .path()
+                            .join("snapshots")
+                            .to_string_lossy()
+                            .to_string(),
+                        ..Default::default()
+                    },
+                }];
+            SnapshotManager::new(&fallback_config).unwrap()
+        },
+    )));
 
     let state = AppState {
         index_manager,
@@ -155,7 +157,9 @@ async fn test_create_snapshot_repository() {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(response_json["name"], "test_repo");
@@ -209,7 +213,9 @@ async fn test_get_snapshot_repository() {
 
     assert_eq!(get_response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(get_response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(get_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert_eq!(response_json["name"], "test_repo");
@@ -263,7 +269,9 @@ async fn test_list_snapshot_repositories() {
 
     assert_eq!(list_response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(list_response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(list_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
     assert!(response_json.is_array());

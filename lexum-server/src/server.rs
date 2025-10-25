@@ -5,8 +5,8 @@ use crate::router::build_router;
 use lexum_core::{IndexManager, SnapshotManager, config::Config};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tokio::net::TcpListener;
+use tokio::sync::RwLock;
 
 /// Server configuration
 #[derive(Debug, Clone)]

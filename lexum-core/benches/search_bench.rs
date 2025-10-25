@@ -203,6 +203,141 @@ fn bench_sorting(c: &mut Criterion) {
     });
 }
 
+fn bench_scaling(c: &mut Criterion) {
+    let mut group = c.benchmark_group("scaling");
+
+    for size in [100, 1000, 10000].iter() {
+        let (_temp_dir, index) = create_test_index_with_docs(*size);
+        let executor = SearchExecutor::new(index);
+
+        group.bench_with_input(BenchmarkId::new("match_query", size), size, |b, _| {
+            b.iter(|| {
+                let query = QueryBuilder::match_query("content", "searchable");
+                tokio::runtime::Runtime::new().unwrap().block_on(async {
+                    executor
+                        .search(black_box(query), 10, 0, None)
+                        .await
+                        .unwrap()
+                })
+            })
+        });
+    }
+    group.finish();
+}
+
+fn bench_pagination(c: &mut Criterion) {
+    let (_temp_dir, index) = create_test_index_with_docs(10000);
+    let executor = SearchExecutor::new(index);
+
+    c.bench_function("pagination_first_page", |b| {
+        b.iter(|| {
+            let query = QueryBuilder::match_all();
+            tokio::runtime::Runtime::new().unwrap().block_on(async {
+                executor
+                    .search(black_box(query), 10, 0, None)
+                    .await
+                    .unwrap()
+            })
+        })
+    });
+
+    c.bench_function("pagination_last_page", |b| {
+        b.iter(|| {
+            let query = QueryBuilder::match_all();
+            tokio::runtime::Runtime::new().unwrap().block_on(async {
+                executor
+                    .search(black_box(query), 10, 9990, None)
+                    .await
+                    .unwrap()
+            })
+        })
+    });
+}
+
+fn bench_complex_queries(c: &mut Criterion) {
+    let (_temp_dir, index) = create_test_index_with_docs(10000);
+    let executor = SearchExecutor::new(index);
+
+    c.bench_function("complex_bool_query", |b| {
+        b.iter(|| {
+            let query = Query::Bool(
+                BoolQuery::new()
+                    .must(Query::Match(MatchQuery::new("content", "searchable")))
+                    .must(Query::Range(RangeQuery::new("views").gte(serde_json::Value::Number(100.into()))))
+                    .should(Query::Term(TermQuery::new("category", "tech")))
+                    .must_not(Query::Term(TermQuery::new("category", "old"))),
+            );
+            tokio::runtime::Runtime::new().unwrap().block_on(async {
+                executor
+                    .search(black_box(query), 20, 0, None)
+                    .await
+                    .unwrap()
+            })
+        })
+    });
+
+    c.bench_function("multi_field_search", |b| {
+        b.iter(|| {
+            let query = Query::Bool(
+                BoolQuery::new()
+                    .should(Query::Match(MatchQuery::new("title", "Document")))
+                    .should(Query::Match(MatchQuery::new("content", "searchable"))),
+            );
+            tokio::runtime::Runtime::new().unwrap().block_on(async {
+                executor
+                    .search(black_box(query), 10, 0, None)
+                    .await
+                    .unwrap()
+            })
+        })
+    });
+}
+
+fn bench_indexing_performance(c: &mut Criterion) {
+    let mut group = c.benchmark_group("indexing");
+
+    for batch_size in [1, 10, 100, 1000].iter() {
+        group.bench_with_input(
+            BenchmarkId::new("batch_indexing", batch_size),
+            batch_size,
+            |b, &batch_size| {
+                b.iter(|| {
+                    let temp_dir = TempDir::new().unwrap();
+                    let manager = IndexManager::new(temp_dir.path());
+
+                    let (schema, _) = SchemaBuilder::new()
+                        .add_text_field("title")
+                        .add_text_field("content")
+                        .add_keyword_field("category")
+                        .build()
+                        .unwrap();
+
+                    let index = tokio::runtime::Runtime::new().unwrap().block_on(async {
+                        manager
+                            .create_index("perf_index", schema, IndexSettings::default())
+                            .await
+                            .unwrap()
+                    });
+
+                    let store = DocumentStore::new(Arc::new(index));
+
+                    tokio::runtime::Runtime::new().unwrap().block_on(async {
+                        for i in 0..batch_size {
+                            let doc = json!({
+                                "title": format!("Document {}", i),
+                                "content": format!("Content {}", i),
+                                "category": "test"
+                            });
+                            store.add_document(doc).await.unwrap();
+                        }
+                    });
+                })
+            },
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_match_query,
@@ -211,6 +346,10 @@ criterion_group!(
     bench_phrase_query,
     bench_bool_query,
     bench_query_cache,
-    bench_sorting
+    bench_sorting,
+    bench_scaling,
+    bench_pagination,
+    bench_complex_queries,
+    bench_indexing_performance
 );
 criterion_main!(benches);

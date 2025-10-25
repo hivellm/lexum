@@ -315,7 +315,7 @@ fn test_search_result_with_multiple_hits() {
 
     let hits = (0..10)
         .map(|i| SearchHit {
-            id: DocumentId::new(format!("doc{}", i)),
+            id: DocumentId::new(format!("doc{i}")),
             score: Score::new(1.0 - (i as f32 * 0.1)),
             source: json!({"id": i}),
         })
@@ -351,7 +351,7 @@ fn test_sort_option_new() {
 #[test]
 fn test_error_display() {
     let err = Error::Validation("test error".to_string());
-    let display = format!("{}", err);
+    let display = format!("{err}");
     assert!(display.contains("test error"));
 }
 
@@ -387,7 +387,7 @@ fn test_document_id_clone() {
 fn test_document_id_display() {
     use lexum_core::types::DocumentId;
     let id = DocumentId::new("test-id-123");
-    let display = format!("{}", id);
+    let display = format!("{id}");
     assert_eq!(display, "test-id-123");
 }
 

@@ -1369,7 +1369,7 @@ mod tests {
                 assert_eq!(notified_config.network.http_port, 9400);
             }
             Ok(Err(e)) => {
-                panic!("Failed to receive configuration change: {}", e);
+                panic!("Failed to receive configuration change: {e}");
             }
             Err(_) => {
                 panic!("Timeout waiting for configuration change");
@@ -1412,22 +1412,28 @@ mod tests {
 
     #[test]
     fn test_snapshot_config_validation_empty_path() {
-        let mut config = SnapshotConfig::default();
-        config.path = "".to_string();
+        let config = SnapshotConfig {
+            path: "".to_string(),
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_snapshot_config_validation_zero_max_snapshots() {
-        let mut config = SnapshotConfig::default();
-        config.max_snapshots = 0;
+        let config = SnapshotConfig {
+            max_snapshots: 0,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
     #[test]
     fn test_snapshot_config_validation_too_many_snapshots() {
-        let mut config = SnapshotConfig::default();
-        config.max_snapshots = 10001;
+        let config = SnapshotConfig {
+            max_snapshots: 10001,
+            ..Default::default()
+        };
         assert!(config.validate().is_err());
     }
 
@@ -1558,7 +1564,7 @@ mod tests {
                 chunk_size: size.to_string(),
                 ..Default::default()
             };
-            assert!(settings.validate("fs").is_ok(), "Failed for size: {}", size);
+            assert!(settings.validate("fs").is_ok(), "Failed for size: {size}");
         }
     }
 

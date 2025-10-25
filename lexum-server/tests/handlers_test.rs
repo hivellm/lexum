@@ -1,8 +1,8 @@
 //! Handler tests for lexum-server
 
 use lexum_core::*;
-use lexum_server::handlers::document::*;
 use lexum_server::handlers::document::BulkOperation as ServerBulkOperation;
+use lexum_server::handlers::document::*;
 use lexum_server::handlers::search::*;
 use serde_json::json;
 

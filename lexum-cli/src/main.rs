@@ -50,11 +50,17 @@ enum Commands {
     Search {
         /// Index name
         index: String,
-        /// Query text
+        /// Query text or file path (use @file for file input)
         query: String,
         /// Limit results
         #[arg(short, long, default_value = "10")]
         limit: usize,
+        /// Sort by field (format: field:asc or field:desc)
+        #[arg(long)]
+        sort: Option<Vec<String>>,
+        /// Fields to return
+        #[arg(long)]
+        fields: Option<Vec<String>>,
     },
 }
 
@@ -208,8 +214,42 @@ async fn main() -> Result<()> {
             index,
             query,
             limit,
+            sort,
+            fields,
         }) => {
-            commands::search::search(&cli.url, &index, &query, limit).await?;
+            if let Some(file_path) = query.strip_prefix('@') {
+                // Query from file
+                commands::search::search_from_file(&cli.url, &index, file_path, limit).await?;
+            } else {
+                // Parse sort options
+                let sort_options = sort.map(|sort_fields| {
+                    sort_fields
+                        .into_iter()
+                        .map(|s| {
+                            if s.ends_with(":asc") {
+                                let field = s[..s.len() - 4].to_string();
+                                (field, commands::search::SortOrder::Asc)
+                            } else if s.ends_with(":desc") {
+                                let field = s[..s.len() - 5].to_string();
+                                (field, commands::search::SortOrder::Desc)
+                            } else {
+                                (s, commands::search::SortOrder::Desc) // Default to desc
+                            }
+                        })
+                        .collect()
+                });
+
+                // Direct query with advanced options
+                commands::search::search_advanced(
+                    &cli.url,
+                    &index,
+                    &query,
+                    limit,
+                    sort_options,
+                    fields,
+                )
+                .await?;
+            }
         }
         None => {
             // No command provided, start REPL by default
@@ -222,4 +262,319 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn test_cli_parsing_default() {
+        let cli = Cli::try_parse_from(&["lexum"]).unwrap();
+        assert_eq!(cli.url, "http://localhost:9200");
+        assert_eq!(cli.format, "table");
+        assert!(cli.command.is_none());
+    }
+
+    #[test]
+    fn test_cli_parsing_with_url() {
+        let cli = Cli::try_parse_from(&["lexum", "--url", "http://example.com:8080"]).unwrap();
+        assert_eq!(cli.url, "http://example.com:8080");
+        assert_eq!(cli.format, "table");
+    }
+
+    #[test]
+    fn test_cli_parsing_with_format() {
+        let cli = Cli::try_parse_from(&["lexum", "--format", "json"]).unwrap();
+        assert_eq!(cli.url, "http://localhost:9200");
+        assert_eq!(cli.format, "json");
+    }
+
+    #[test]
+    fn test_repl_command() {
+        let cli = Cli::try_parse_from(&["lexum", "repl"]).unwrap();
+        match cli.command {
+            Some(Commands::Repl) => (),
+            _ => panic!("Expected Repl command"),
+        }
+    }
+
+    #[test]
+    fn test_server_start_command() {
+        let cli = Cli::try_parse_from(&["lexum", "server", "start", "--config", "test.yml"]).unwrap();
+        match cli.command {
+            Some(Commands::Server { action }) => {
+                match action {
+                    ServerAction::Start { config, daemon } => {
+                        assert_eq!(config, "test.yml");
+                        assert!(!daemon);
+                    }
+                    _ => panic!("Expected Start action"),
+                }
+            }
+            _ => panic!("Expected Server command"),
+        }
+    }
+
+    #[test]
+    fn test_server_start_daemon() {
+        let cli = Cli::try_parse_from(&["lexum", "server", "start", "--daemon"]).unwrap();
+        match cli.command {
+            Some(Commands::Server { action }) => {
+                match action {
+                    ServerAction::Start { daemon, .. } => {
+                        assert!(daemon);
+                    }
+                    _ => panic!("Expected Start action"),
+                }
+            }
+            _ => panic!("Expected Server command"),
+        }
+    }
+
+    #[test]
+    fn test_server_stop_command() {
+        let cli = Cli::try_parse_from(&["lexum", "server", "stop"]).unwrap();
+        match cli.command {
+            Some(Commands::Server { action }) => {
+                match action {
+                    ServerAction::Stop => (),
+                    _ => panic!("Expected Stop action"),
+                }
+            }
+            _ => panic!("Expected Server command"),
+        }
+    }
+
+    #[test]
+    fn test_server_status_command() {
+        let cli = Cli::try_parse_from(&["lexum", "server", "status"]).unwrap();
+        match cli.command {
+            Some(Commands::Server { action }) => {
+                match action {
+                    ServerAction::Status => (),
+                    _ => panic!("Expected Status action"),
+                }
+            }
+            _ => panic!("Expected Server command"),
+        }
+    }
+
+    #[test]
+    fn test_server_config_command() {
+        let cli = Cli::try_parse_from(&["lexum", "server", "config", "--file", "config.yml"]).unwrap();
+        match cli.command {
+            Some(Commands::Server { action }) => {
+                match action {
+                    ServerAction::Config { file } => {
+                        assert_eq!(file, "config.yml");
+                    }
+                    _ => panic!("Expected Config action"),
+                }
+            }
+            _ => panic!("Expected Server command"),
+        }
+    }
+
+    #[test]
+    fn test_index_create_command() {
+        let cli = Cli::try_parse_from(&["lexum", "index", "create", "test_index", "--schema", "schema.yml"]).unwrap();
+        match cli.command {
+            Some(Commands::Index { action }) => {
+                match action {
+                    IndexAction::Create { name, schema } => {
+                        assert_eq!(name, "test_index");
+                        assert_eq!(schema, "schema.yml");
+                    }
+                    _ => panic!("Expected Create action"),
+                }
+            }
+            _ => panic!("Expected Index command"),
+        }
+    }
+
+    #[test]
+    fn test_index_list_command() {
+        let cli = Cli::try_parse_from(&["lexum", "index", "list"]).unwrap();
+        match cli.command {
+            Some(Commands::Index { action }) => {
+                match action {
+                    IndexAction::List => (),
+                    _ => panic!("Expected List action"),
+                }
+            }
+            _ => panic!("Expected Index command"),
+        }
+    }
+
+    #[test]
+    fn test_index_get_command() {
+        let cli = Cli::try_parse_from(&["lexum", "index", "get", "test_index"]).unwrap();
+        match cli.command {
+            Some(Commands::Index { action }) => {
+                match action {
+                    IndexAction::Get { name } => {
+                        assert_eq!(name, "test_index");
+                    }
+                    _ => panic!("Expected Get action"),
+                }
+            }
+            _ => panic!("Expected Index command"),
+        }
+    }
+
+    #[test]
+    fn test_index_stats_command() {
+        let cli = Cli::try_parse_from(&["lexum", "index", "stats", "test_index"]).unwrap();
+        match cli.command {
+            Some(Commands::Index { action }) => {
+                match action {
+                    IndexAction::Stats { name } => {
+                        assert_eq!(name, "test_index");
+                    }
+                    _ => panic!("Expected Stats action"),
+                }
+            }
+            _ => panic!("Expected Index command"),
+        }
+    }
+
+    #[test]
+    fn test_index_delete_command() {
+        let cli = Cli::try_parse_from(&["lexum", "index", "delete", "test_index"]).unwrap();
+        match cli.command {
+            Some(Commands::Index { action }) => {
+                match action {
+                    IndexAction::Delete { name } => {
+                        assert_eq!(name, "test_index");
+                    }
+                    _ => panic!("Expected Delete action"),
+                }
+            }
+            _ => panic!("Expected Index command"),
+        }
+    }
+
+    #[test]
+    fn test_doc_add_command() {
+        let cli = Cli::try_parse_from(&["lexum", "doc", "add", "test_index", "--file", "doc.json"]).unwrap();
+        match cli.command {
+            Some(Commands::Doc { action }) => {
+                match action {
+                    DocAction::Add { index, file } => {
+                        assert_eq!(index, "test_index");
+                        assert_eq!(file, "doc.json");
+                    }
+                    _ => panic!("Expected Add action"),
+                }
+            }
+            _ => panic!("Expected Doc command"),
+        }
+    }
+
+    #[test]
+    fn test_doc_get_command() {
+        let cli = Cli::try_parse_from(&["lexum", "doc", "get", "test_index", "doc123"]).unwrap();
+        match cli.command {
+            Some(Commands::Doc { action }) => {
+                match action {
+                    DocAction::Get { index, id } => {
+                        assert_eq!(index, "test_index");
+                        assert_eq!(id, "doc123");
+                    }
+                    _ => panic!("Expected Get action"),
+                }
+            }
+            _ => panic!("Expected Doc command"),
+        }
+    }
+
+    #[test]
+    fn test_doc_delete_command() {
+        let cli = Cli::try_parse_from(&["lexum", "doc", "delete", "test_index", "doc123"]).unwrap();
+        match cli.command {
+            Some(Commands::Doc { action }) => {
+                match action {
+                    DocAction::Delete { index, id } => {
+                        assert_eq!(index, "test_index");
+                        assert_eq!(id, "doc123");
+                    }
+                    _ => panic!("Expected Delete action"),
+                }
+            }
+            _ => panic!("Expected Doc command"),
+        }
+    }
+
+    #[test]
+    fn test_doc_bulk_command() {
+        let cli = Cli::try_parse_from(&["lexum", "doc", "bulk", "test_index", "--file", "docs.json"]).unwrap();
+        match cli.command {
+            Some(Commands::Doc { action }) => {
+                match action {
+                    DocAction::Bulk { index, file } => {
+                        assert_eq!(index, "test_index");
+                        assert_eq!(file, "docs.json");
+                    }
+                    _ => panic!("Expected Bulk action"),
+                }
+            }
+            _ => panic!("Expected Doc command"),
+        }
+    }
+
+    #[test]
+    fn test_search_command() {
+        let cli = Cli::try_parse_from(&["lexum", "search", "test_index", "test query", "--limit", "5"]).unwrap();
+        match cli.command {
+            Some(Commands::Search { index, query, limit, sort, fields }) => {
+                assert_eq!(index, "test_index");
+                assert_eq!(query, "test query");
+                assert_eq!(limit, 5);
+                assert!(sort.is_none());
+                assert!(fields.is_none());
+            }
+            _ => panic!("Expected Search command"),
+        }
+    }
+
+    #[test]
+    fn test_search_command_with_sort() {
+        let cli = Cli::try_parse_from(&["lexum", "search", "test_index", "test query", "--sort", "field1:asc", "--sort", "field2:desc"]).unwrap();
+        match cli.command {
+            Some(Commands::Search { sort, .. }) => {
+                let sort_fields = sort.unwrap();
+                assert_eq!(sort_fields.len(), 2);
+                assert_eq!(sort_fields[0], "field1:asc");
+                assert_eq!(sort_fields[1], "field2:desc");
+            }
+            _ => panic!("Expected Search command"),
+        }
+    }
+
+    #[test]
+    fn test_search_command_with_fields() {
+        let cli = Cli::try_parse_from(&["lexum", "search", "test_index", "test query", "--fields", "field1", "--fields", "field2"]).unwrap();
+        match cli.command {
+            Some(Commands::Search { fields, .. }) => {
+                let field_list = fields.unwrap();
+                assert_eq!(field_list.len(), 2);
+                assert_eq!(field_list[0], "field1");
+                assert_eq!(field_list[1], "field2");
+            }
+            _ => panic!("Expected Search command"),
+        }
+    }
+
+    #[test]
+    fn test_search_command_file_input() {
+        let cli = Cli::try_parse_from(&["lexum", "search", "test_index", "@query.json"]).unwrap();
+        match cli.command {
+            Some(Commands::Search { query, .. }) => {
+                assert_eq!(query, "@query.json");
+            }
+            _ => panic!("Expected Search command"),
+        }
+    }
 }

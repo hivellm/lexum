@@ -440,3 +440,102 @@ pub async fn bulk_operations(
         items: results,
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_document_request_serialization() {
+        let request = AddDocumentRequest {
+            document: serde_json::json!({
+                "title": "Test Document",
+                "content": "This is test content"
+            }),
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: AddDocumentRequest = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(request.document, deserialized.document);
+    }
+
+    #[test]
+    fn test_add_document_response_serialization() {
+        let response = AddDocumentResponse {
+            id: "doc123".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: AddDocumentResponse = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(response.id, deserialized.id);
+    }
+
+    #[test]
+    fn test_bulk_response_serialization() {
+        let response = BulkResponse {
+            errors: false,
+            took_ms: 100,
+            items: vec![
+                BulkOperationResult {
+                    success: true,
+                    action: "index".to_string(),
+                    index: "test_index".to_string(),
+                    id: Some("doc1".to_string()),
+                    error: None,
+                },
+                BulkOperationResult {
+                    success: false,
+                    action: "index".to_string(),
+                    index: "test_index".to_string(),
+                    id: Some("doc2".to_string()),
+                    error: Some("Invalid document".to_string()),
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: BulkResponse = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(response.errors, deserialized.errors);
+        assert_eq!(response.took_ms, deserialized.took_ms);
+        assert_eq!(response.items.len(), deserialized.items.len());
+    }
+
+    #[test]
+    fn test_bulk_operation_serialization() {
+        let operations = vec![
+            BulkOperation::Index {
+                index: "test_index".to_string(),
+                id: Some("doc1".to_string()),
+                document: serde_json::json!({"title": "Doc 1"}),
+            },
+            BulkOperation::Create {
+                index: "test_index".to_string(),
+                id: "doc2".to_string(),
+                document: serde_json::json!({"title": "Doc 2"}),
+            },
+            BulkOperation::Update {
+                index: "test_index".to_string(),
+                id: "doc3".to_string(),
+                document: serde_json::json!({"title": "Doc 3"}),
+            },
+            BulkOperation::Delete { 
+                index: "test_index".to_string(),
+                id: "doc4".to_string() 
+            },
+        ];
+
+        for operation in operations {
+            let json = serde_json::to_string(&operation).unwrap();
+            let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+            
+            // Verify the operation can be serialized and deserialized
+            assert!(matches!(operation, BulkOperation::Index { .. }) || 
+                   matches!(operation, BulkOperation::Create { .. }) ||
+                   matches!(operation, BulkOperation::Update { .. }) ||
+                   matches!(operation, BulkOperation::Delete { .. }));
+        }
+    }
+}
