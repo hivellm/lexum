@@ -57,8 +57,8 @@
 - [ ] 7.7 Add search benchmarks
 
 ## 8. Testing & Documentation
-- [ ] 8.1 Achieve >95% test coverage
-- [ ] 8.2 Add integration tests for complete workflows
+- [x] 8.1 Achieve >95% test coverage
+- [x] 8.2 Add integration tests for complete workflows
 - [x] 8.3 Write API documentation with examples
 - [x] 8.4 Create usage examples
 - [ ] 8.5 Run performance benchmarks
