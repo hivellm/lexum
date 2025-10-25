@@ -1,24 +1,24 @@
 ## 1. Server Setup
-- [ ] 1.1 Create lexum-server crate
-- [ ] 1.2 Add Axum and Tower dependencies
-- [ ] 1.3 Implement basic server configuration
+- [x] 1.1 Create lexum-server crate
+- [x] 1.2 Add Axum and Tower dependencies
+- [x] 1.3 Implement basic server configuration
 - [ ] 1.4 Setup graceful shutdown
-- [ ] 1.5 Add health check endpoint
+- [x] 1.5 Add health check endpoint
 
 ## 2. Index Management Endpoints
-- [ ] 2.1 Implement PUT /{index} - Create index
-- [ ] 2.2 Implement GET /{index} - Get index info
-- [ ] 2.3 Implement DELETE /{index} - Delete index
+- [x] 2.1 Implement PUT /{index} - Create index
+- [x] 2.2 Implement GET /{index} - Get index info
+- [x] 2.3 Implement DELETE /{index} - Delete index
 - [ ] 2.4 Implement GET /_cat/indices - List indices
 - [ ] 2.5 Add request validation
 - [ ] 2.6 Add integration tests
 
 ## 3. Document Endpoints
-- [ ] 3.1 Implement POST /{index}/_doc - Index document (auto ID)
-- [ ] 3.2 Implement PUT /{index}/_doc/{id} - Index with ID
-- [ ] 3.3 Implement GET /{index}/_doc/{id} - Get document
-- [ ] 3.4 Implement POST /{index}/_update/{id} - Update document
-- [ ] 3.5 Implement DELETE /{index}/_doc/{id} - Delete document
+- [x] 3.1 Implement POST /{index}/_doc - Index document (auto ID)
+- [x] 3.2 Implement PUT /{index}/_doc/{id} - Index with ID
+- [x] 3.3 Implement GET /{index}/_doc/{id} - Get document
+- [x] 3.4 Implement POST /{index}/_update/{id} - Update document
+- [x] 3.5 Implement DELETE /{index}/_doc/{id} - Delete document
 - [ ] 3.6 Add validation and error handling
 - [ ] 3.7 Add tests
 
@@ -31,12 +31,12 @@
 - [ ] 4.6 Add performance tests
 
 ## 5. Search Endpoints
-- [ ] 5.1 Implement POST /{index}/_search
+- [x] 5.1 Implement POST /{index}/_search
 - [ ] 5.2 Support query DSL parsing
-- [ ] 5.3 Add pagination parameters
+- [x] 5.3 Add pagination parameters
 - [ ] 5.4 Add sorting parameters
-- [ ] 5.5 Add field selection
-- [ ] 5.6 Implement result formatting
+- [x] 5.5 Add field selection
+- [x] 5.6 Implement result formatting
 - [ ] 5.7 Add search tests
 
 ## 6. Cluster Endpoints
@@ -55,9 +55,9 @@
 - [ ] 7.6 Test middleware chain
 
 ## 8. Error Handling
-- [ ] 8.1 Define error response format
-- [ ] 8.2 Implement error mapping from core
-- [ ] 8.3 Add proper HTTP status codes
+- [x] 8.1 Define error response format
+- [x] 8.2 Implement error mapping from core
+- [x] 8.3 Add proper HTTP status codes
 - [ ] 8.4 Implement error logging
 - [ ] 8.5 Add error response tests
 

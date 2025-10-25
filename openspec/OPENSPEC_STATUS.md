@@ -1,64 +1,146 @@
 # OpenSpec Status
 
-**Last Updated**: 2024-10-25  
+**Last Updated**: 2025-10-25  
 **Project**: Lexum - Distributed Search Engine  
-**Status**: Complete Coverage ✅
+**Status**: Phase 1 In Progress 🚧
 
 ## Summary
 
-Complete OpenSpec specifications created for ALL major features of Lexum based on comprehensive documentation (ROADMAP.md, DAG.md, ARCHITECTURE.md). Total coverage of all 6 development phases.
+Complete OpenSpec specifications created for ALL major features of Lexum based on comprehensive documentation (ROADMAP.md, DAG.md, ARCHITECTURE.md). Total coverage of all 6 development phases. Phase 1 (Core Foundation) implementation in progress with 4 specs active.
 
-## Active Changes (12 Total)
+## Active Changes (18 Total)
 
 ### Phase 1: Core Foundation (v0.1.0)
 
 #### 1. add-configuration-logging
-**Status**: Draft | **Priority**: Critical | **Phase**: 1
+**Status**: In Progress 🚧 | **Priority**: Critical | **Phase**: 1  
+**Progress**: 24/33 tasks completed (73%)
 
 **Files**: ✅ proposal.md, ✅ tasks.md, ✅ specs/configuration/spec.md  
-**Tasks**: 17 tasks across 4 sections  
+**Tasks**: 33 tasks across 4 sections  
 **Requirements**: 6 requirements, 10+ scenarios
 
 **Summary**: YAML configuration, environment variables, structured logging with tracing, correlation IDs.
 
+**Completed**: 
+- ✅ Configuration structure with serde
+- ✅ YAML file parsing
+- ✅ Environment variable overrides
+- ✅ JSON and pretty logging
+- ✅ Correlation ID propagation
+- ✅ Config validation and defaults
+
+**Pending**: 
+- ⏳ File logger with rotation
+- ⏳ Configuration hot-reload
+- ⏳ Troubleshooting guide
+
 ---
 
 #### 2. add-core-search-engine
-**Status**: Draft | **Priority**: Critical | **Phase**: 1
+**Status**: In Progress 🚧 | **Priority**: Critical | **Phase**: 1  
+**Progress**: 40/74 tasks completed (54%)
 
 **Files**: ✅ proposal.md, ✅ tasks.md, ✅ design.md, ✅ specs/core-search/spec.md  
-**Tasks**: 60+ tasks across 9 sections  
+**Tasks**: 74 tasks across 9 sections  
 **Requirements**: 15 requirements, 40+ scenarios
 
 **Summary**: Foundation search engine with Tantivy, index management, document operations, multiple query types, BM25 scoring.
 
 **Performance**: 10K docs/sec indexing, <50ms p95 search
 
+**Completed**:
+- ✅ Rust workspace with edition 2024
+- ✅ Tantivy integration
+- ✅ Config and logging modules
+- ✅ Error types with thiserror
+- ✅ Index management (create, delete, info)
+- ✅ Schema builder with field types
+- ✅ Document operations (add, get, update, delete)
+- ✅ Query engine (Match, Term, Range, Boolean)
+- ✅ Search executor with BM25
+- ✅ Result pagination
+
+**Pending**:
+- ⏳ Storage abstraction
+- ⏳ FuzzyQuery and PhraseQuery
+- ⏳ Sorting and query cache
+- ⏳ Bulk operations
+- ⏳ >95% test coverage
+- ⏳ CI/CD pipeline
+- ⏳ Performance benchmarks
+
 ---
 
 #### 3. add-rest-api
-**Status**: Draft | **Priority**: Critical | **Phase**: 1  
-**Dependencies**: add-core-search-engine
+**Status**: In Progress 🚧 | **Priority**: Critical | **Phase**: 1  
+**Dependencies**: add-core-search-engine  
+**Progress**: 19/50 tasks completed (38%)
 
 **Files**: ✅ proposal.md, ✅ tasks.md, ✅ specs/rest-api/spec.md  
-**Tasks**: 50+ tasks across 10 sections  
+**Tasks**: 50 tasks across 10 sections  
 **Requirements**: 20 requirements, 60+ scenarios
 
 **Summary**: Axum-based REST API with all CRUD endpoints, authentication, rate limiting, bulk operations.
 
 **Performance**: 1K req/sec, <10ms routing overhead
 
+**Completed**:
+- ✅ lexum-server crate
+- ✅ Axum and Tower setup
+- ✅ Basic server configuration
+- ✅ Health check endpoint
+- ✅ Index management endpoints (create, get, delete)
+- ✅ Document CRUD endpoints
+- ✅ Search endpoint with pagination
+- ✅ Error response format
+- ✅ HTTP status codes
+
+**Pending**:
+- ⏳ Graceful shutdown
+- ⏳ List indices endpoint
+- ⏳ Bulk operations
+- ⏳ Query DSL parsing
+- ⏳ Sorting support
+- ⏳ Cluster endpoints
+- ⏳ Middleware (auth, rate limiting, CORS)
+- ⏳ OpenAPI specification
+- ⏳ Integration tests
+
 ---
 
 #### 4. add-cli-tool
-**Status**: Draft | **Priority**: High | **Phase**: 1  
-**Dependencies**: add-rest-api
+**Status**: In Progress 🚧 | **Priority**: High | **Phase**: 1  
+**Dependencies**: add-rest-api  
+**Progress**: 14/30 tasks completed (47%)
 
 **Files**: ✅ proposal.md, ✅ tasks.md, ✅ specs/cli-tool/spec.md  
-**Tasks**: 30+ tasks across 7 sections  
+**Tasks**: 30 tasks across 7 sections  
 **Requirements**: 6 requirements, 12+ scenarios
 
 **Summary**: Command-line interface with server management, index operations, document commands, query execution, interactive mode.
+
+**Completed**:
+- ✅ lexum-cli crate
+- ✅ Clap for argument parsing
+- ✅ Command structure
+- ✅ Global options (url)
+- ✅ Index commands (create, list, get, delete)
+- ✅ Document commands (add, get)
+- ✅ Search command
+- ✅ REPL session
+- ✅ Help for all commands
+
+**Pending**:
+- ⏳ Output formatting (JSON, table, pretty)
+- ⏳ Server management commands
+- ⏳ Document delete command
+- ⏳ Bulk operations
+- ⏳ LQL query support
+- ⏳ Command history and autocomplete
+- ⏳ Interactive help system
+- ⏳ Integration tests
+- ⏳ User manual
 
 ---
 
