@@ -78,6 +78,9 @@ async-trait = "0.1"
 # Search engine
 tantivy = "0.25"
 
+# Compression
+flate2 = "1.0"
+
 # OpenAPI documentation
 utoipa = { version = "5.4", features = ["axum_extras", "chrono", "uuid"] }
 

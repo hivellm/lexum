@@ -41,6 +41,9 @@ async-trait = { workspace = true }
 # Search engine
 tantivy = { workspace = true }
 
+# Compression
+flate2 = { workspace = true }
+
 # Hostname detection
 hostname = "0.4"
 
