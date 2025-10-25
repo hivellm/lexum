@@ -5,6 +5,7 @@ use crate::router::build_router;
 use lexum_core::{IndexManager, SnapshotManager, config::Config};
 use std::net::SocketAddr;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use tokio::net::TcpListener;
 
 /// Server configuration
@@ -32,14 +33,14 @@ impl Default for ServerConfig {
 pub struct Server {
     config: ServerConfig,
     index_manager: Arc<IndexManager>,
-    snapshot_manager: Arc<SnapshotManager>,
+    snapshot_manager: Arc<RwLock<SnapshotManager>>,
 }
 
 impl Server {
     /// Create new server
     pub fn new(config: ServerConfig) -> anyhow::Result<Self> {
         let index_manager = Arc::new(IndexManager::new(&config.data_dir));
-        let snapshot_manager = Arc::new(SnapshotManager::new(&config.config)?);
+        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config.config)?));
 
         Ok(Self {
             config,

@@ -159,6 +159,36 @@ impl SnapshotManager {
     pub fn repository_count(&self) -> usize {
         self.repositories.len()
     }
+
+    /// Create or update a repository
+    pub async fn create_or_update_repository(
+        &mut self,
+        name: RepositoryName,
+        config: SnapshotRepositoryConfig,
+    ) -> Result<RepositoryInfo> {
+        // Validate the configuration
+        config.validate()?;
+
+        // Create the repository based on type
+        let repository = Self::create_repository(&config)?;
+        let repository_info = repository.get_info().await?;
+
+        // Insert or update the repository
+        self.repositories.insert(
+            name.clone(),
+            Arc::new(repository) as Arc<dyn SnapshotRepository>,
+        );
+
+        Ok(repository_info)
+    }
+
+    /// Remove a repository
+    pub fn remove_repository(&mut self, name: &RepositoryName) -> Result<()> {
+        self.repositories
+            .remove(name)
+            .ok_or_else(|| Error::NotFound(format!("Repository '{}' not found", name.as_str())))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

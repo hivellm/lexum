@@ -7,6 +7,7 @@ use axum::{
     response::Json,
 };
 use lexum_core::{
+    config::SnapshotRepositoryConfig,
     snapshot::{CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo, SnapshotStats},
     types::{RepositoryName, SnapshotName},
 };
@@ -85,27 +86,45 @@ pub struct SnapshotStatsResponse {
     tag = "Snapshots"
 )]
 pub async fn create_or_update_repository(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(repository_name): Path<String>,
     Json(request): Json<CreateRepositoryRequest>,
 ) -> Result<Json<RepositoryResponse>, StatusCode> {
-    let _repo_name = RepositoryName::new(repository_name.clone());
+    let repo_name = RepositoryName::new(repository_name.clone());
 
-    // TODO: Implement repository create/update logic
-    // This would involve:
-    // 1. Check if repository exists
-    // 2. If exists: validate and update settings
-    // 3. If not exists: create new repository
-    // 4. Handle any migration if repository type changes
-    // 5. Return appropriate response
+    // Convert the request to a SnapshotRepositoryConfig
+    let config = SnapshotRepositoryConfig {
+        name: repository_name.clone(),
+        repository_type: request.repository_type.clone(),
+        settings: lexum_core::config::SnapshotRepositorySettings {
+            location: request.settings.get("location").cloned().unwrap_or_default(),
+            compress: request.settings.get("compress")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(true),
+            chunk_size: request.settings.get("chunk_size").cloned().unwrap_or_else(|| "1gb".to_string()),
+            max_restore_bytes_per_sec: request.settings.get("max_restore_bytes_per_sec").cloned().unwrap_or_else(|| "40mb".to_string()),
+            max_snapshot_bytes_per_sec: request.settings.get("max_snapshot_bytes_per_sec").cloned().unwrap_or_else(|| "40mb".to_string()),
+            readonly: request.settings.get("readonly")
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(false),
+            ..Default::default()
+        },
+    };
 
-    // For now, return a placeholder response
+    // Create or update the repository
+    let mut snapshot_manager = state.snapshot_manager.write().await;
+    let repository_info = snapshot_manager
+        .create_or_update_repository(repo_name.clone(), config)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Convert RepositoryInfo to RepositoryResponse
     let response = RepositoryResponse {
-        name: repository_name,
-        repository_type: request.repository_type,
-        settings: request.settings,
-        snapshot_count: 0, // TODO: Get actual count from state
-        total_size: 0,     // TODO: Get actual size from state
+        name: repository_info.name.as_str().to_string(),
+        repository_type: repository_info.repository_type,
+        settings: repository_info.settings,
+        snapshot_count: repository_info.snapshot_count,
+        total_size: repository_info.total_size,
     };
 
     Ok(Json(response))
@@ -126,23 +145,23 @@ pub async fn create_or_update_repository(
     tag = "Snapshots"
 )]
 pub async fn get_repository(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(repository_name): Path<String>,
 ) -> Result<Json<RepositoryResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
 
-    // TODO: Get actual repository from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // let info = snapshot_manager.get_repository_info(&repo_name).await
-    //     .map_err(|_| StatusCode::NOT_FOUND)?;
+    let snapshot_manager = state.snapshot_manager.read().await;
+    let info = snapshot_manager
+        .get_repository_info(&repo_name)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    // For now, return a placeholder response
     let response = RepositoryResponse {
-        name: repo_name.as_str().to_string(),
-        repository_type: "fs".to_string(),
-        settings: HashMap::new(),
-        snapshot_count: 0,
-        total_size: 0,
+        name: info.name.as_str().to_string(),
+        repository_type: info.repository_type,
+        settings: info.settings,
+        snapshot_count: info.snapshot_count,
+        total_size: info.total_size,
     };
 
     Ok(Json(response))
@@ -159,15 +178,26 @@ pub async fn get_repository(
     tag = "Snapshots"
 )]
 pub async fn list_repositories(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
 ) -> Result<Json<Vec<RepositoryResponse>>, StatusCode> {
-    // TODO: Get actual repositories from state
-    // let snapshot_manager = &state.snapshot_manager;
-    // let infos = snapshot_manager.list_repositories_info().await
-    //     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let snapshot_manager = state.snapshot_manager.read().await;
+    let infos = snapshot_manager
+        .list_repositories_info()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // For now, return empty list
-    Ok(Json(vec![]))
+    let responses: Vec<RepositoryResponse> = infos
+        .into_iter()
+        .map(|info| RepositoryResponse {
+            name: info.name.as_str().to_string(),
+            repository_type: info.repository_type,
+            settings: info.settings,
+            snapshot_count: info.snapshot_count,
+            total_size: info.total_size,
+        })
+        .collect();
+
+    Ok(Json(responses))
 }
 
 /// Create a snapshot
@@ -194,8 +224,8 @@ pub async fn create_snapshot(
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    let snapshot_info = state
-        .snapshot_manager
+    let snapshot_manager = state.snapshot_manager.read().await;
+    let snapshot_info = snapshot_manager
         .create_snapshot(&repo_name, snap_name, request)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -230,8 +260,8 @@ pub async fn get_snapshot(
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    let snapshot_info = state
-        .snapshot_manager
+    let snapshot_manager = state.snapshot_manager.read().await;
+    let snapshot_info = snapshot_manager
         .get_snapshot(&repo_name, snap_name)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -258,8 +288,8 @@ pub async fn list_snapshots(
 ) -> Result<Json<SnapshotListResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
 
-    let snapshots = state
-        .snapshot_manager
+    let snapshot_manager = state.snapshot_manager.read().await;
+    let snapshots = snapshot_manager
         .list_snapshots(&repo_name)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -291,8 +321,8 @@ pub async fn delete_snapshot(
     let repo_name = RepositoryName::new(repository_name);
     let snap_name = SnapshotName::new(snapshot_name);
 
-    state
-        .snapshot_manager
+    let snapshot_manager = state.snapshot_manager.read().await;
+    snapshot_manager
         .delete_snapshot(&repo_name, snap_name)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -359,8 +389,8 @@ pub async fn get_snapshot_stats(
 ) -> Result<Json<SnapshotStatsResponse>, StatusCode> {
     let repo_name = RepositoryName::new(repository_name);
 
-    let stats = state
-        .snapshot_manager
+    let snapshot_manager = state.snapshot_manager.read().await;
+    let stats = snapshot_manager
         .get_repository_stats(&repo_name)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -383,8 +413,8 @@ pub async fn get_snapshot_stats(
 pub async fn get_global_snapshot_stats(
     State(state): State<AppState>,
 ) -> Result<Json<SnapshotStatsResponse>, StatusCode> {
-    let stats = state
-        .snapshot_manager
+    let snapshot_manager = state.snapshot_manager.read().await;
+    let stats = snapshot_manager
         .get_global_stats()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -487,5 +517,140 @@ mod tests {
         assert_eq!(response.repository_type, "fs");
         assert_eq!(response.snapshot_count, 0);
         assert_eq!(response.total_size, 0);
+    }
+
+    #[tokio::test]
+    async fn test_create_repository_with_s3_settings() {
+        use axum::Json;
+        use axum::extract::State;
+
+        let mut settings = HashMap::new();
+        settings.insert("location".to_string(), "my-s3-bucket".to_string());
+        settings.insert("compress".to_string(), "true".to_string());
+        settings.insert("chunk_size".to_string(), "512mb".to_string());
+
+        let request = CreateRepositoryRequest {
+            repository_type: "s3".to_string(),
+            settings,
+        };
+
+        let state = AppState::default();
+        let result = create_or_update_repository(
+            State(state),
+            Path("s3_repo".to_string()),
+            Json(request),
+        )
+        .await;
+
+        // S3 is not yet implemented, so this should fail
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_repository_with_invalid_settings() {
+        use axum::Json;
+        use axum::extract::State;
+
+        let mut settings = HashMap::new();
+        settings.insert("location".to_string(), "".to_string()); // Empty location should fail
+
+        let request = CreateRepositoryRequest {
+            repository_type: "fs".to_string(),
+            settings,
+        };
+
+        let state = AppState::default();
+        let result = create_or_update_repository(
+            State(state),
+            Path("invalid_repo".to_string()),
+            Json(request),
+        )
+        .await;
+
+        // Should return an error due to invalid settings
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_repository_with_default_settings() {
+        use axum::Json;
+        use axum::extract::State;
+
+        let mut settings = HashMap::new();
+        settings.insert("location".to_string(), "/tmp/default_repo".to_string());
+
+        let request = CreateRepositoryRequest {
+            repository_type: "fs".to_string(),
+            settings,
+        };
+
+        let state = AppState::default();
+        let result = create_or_update_repository(
+            State(state),
+            Path("default_repo".to_string()),
+            Json(request),
+        )
+        .await;
+
+        assert!(result.is_ok());
+        let response = result.unwrap();
+        assert_eq!(response.name, "default_repo");
+        assert_eq!(response.repository_type, "fs");
+        // Should have default settings
+        assert!(response.settings.contains_key("location"));
+        assert!(response.settings.contains_key("compress"));
+    }
+
+    #[tokio::test]
+    async fn test_update_existing_repository() {
+        use axum::Json;
+        use axum::extract::State;
+
+        let mut settings1 = HashMap::new();
+        settings1.insert("location".to_string(), "/tmp/repo1".to_string());
+        settings1.insert("compress".to_string(), "true".to_string());
+
+        let request1 = CreateRepositoryRequest {
+            repository_type: "fs".to_string(),
+            settings: settings1,
+        };
+
+        let state = AppState::default();
+        
+        // Create first repository
+        let result1 = create_or_update_repository(
+            State(state.clone()),
+            Path("update_repo".to_string()),
+            Json(request1),
+        )
+        .await;
+        assert!(result1.is_ok());
+
+        // Update the same repository with different settings
+        let mut settings2 = HashMap::new();
+        settings2.insert("location".to_string(), "/tmp/repo2".to_string());
+        settings2.insert("compress".to_string(), "false".to_string());
+        settings2.insert("chunk_size".to_string(), "2gb".to_string());
+
+        let request2 = CreateRepositoryRequest {
+            repository_type: "fs".to_string(),
+            settings: settings2,
+        };
+
+        let result2 = create_or_update_repository(
+            State(state),
+            Path("update_repo".to_string()),
+            Json(request2),
+        )
+        .await;
+
+        assert!(result2.is_ok());
+        let response = result2.unwrap();
+        assert_eq!(response.name, "update_repo");
+        assert_eq!(response.repository_type, "fs");
+        // Should have updated settings
+        assert_eq!(response.settings.get("location"), Some(&"/tmp/repo2".to_string()));
+        assert_eq!(response.settings.get("compress"), Some(&"false".to_string()));
+        assert_eq!(response.settings.get("chunk_size"), Some(&"2gb".to_string()));
     }
 }

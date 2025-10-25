@@ -9,6 +9,7 @@ use lexum_core::{
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use utoipa::ToSchema;
 
 /// Application state
@@ -17,7 +18,7 @@ pub struct AppState {
     /// Index manager
     pub index_manager: Arc<IndexManager>,
     /// Snapshot manager
-    pub snapshot_manager: Arc<SnapshotManager>,
+    pub snapshot_manager: Arc<RwLock<SnapshotManager>>,
 }
 
 impl Default for AppState {
@@ -28,7 +29,7 @@ impl Default for AppState {
 
         // Create default config for snapshot manager
         let config = lexum_core::config::Config::default();
-        let snapshot_manager = Arc::new(SnapshotManager::new(&config).unwrap_or_else(|_| {
+        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(|_| {
             // Fallback to a minimal config if default fails
             let mut fallback_config = config;
             fallback_config.snapshots.repositories =
@@ -41,7 +42,7 @@ impl Default for AppState {
                     },
                 }];
             SnapshotManager::new(&fallback_config).unwrap()
-        }));
+        })));
 
         Self {
             index_manager: Arc::new(IndexManager::new(&temp_dir)),

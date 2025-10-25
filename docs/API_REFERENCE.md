@@ -649,14 +649,109 @@ curl -X POST http://localhost:9200/_mcp \
     "method": "search",
     "params": {
       "index": "knowledge_base",
-      "query": "What is Lexum?",
-      "k": 10
+      "## Admin API
+
+### PUT /_snapshot/{repository}
+
+Create or update a snapshot repository.
+
+**Request Body:**
+```json
+{
+  "type": "fs",
+  "settings": {
+    "location": "/path/to/snapshots",
+    "compress": "true",
+    "chunk_size": "1gb",
+    "max_restore_bytes_per_sec": "40mb",
+    "max_snapshot_bytes_per_sec": "40mb",
+    "readonly": "false"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "name": "my_backup",
+  "type": "fs",
+  "settings": {
+    "location": "/path/to/snapshots",
+    "compress": "true",
+    "chunk_size": "1gb",
+    "max_restore_bytes_per_sec": "40mb",
+    "max_snapshot_bytes_per_sec": "40mb",
+    "readonly": "false"
+  },
+  "snapshot_count": 0,
+  "total_size": 0
+}
+```
+
+**Example:**
+```bash
+curl -X PUT http://localhost:9200/_snapshot/my_backup \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "type": "fs",
+    "settings": {
+      "location": "/tmp/snapshots",
+      "compress": "true"
     }
   }'
 ```
 
-**Methods:**
-- `search`: Semantic search
+### GET /_snapshot/{repository}
+
+Get repository information.
+
+**Response:**
+```json
+{
+  "name": "my_backup",
+  "type": "fs",
+  "settings": {
+    "location": "/path/to/snapshots",
+    "compress": "true"
+  },
+  "snapshot_count": 5,
+  "total_size": 1048576
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_snapshot/my_backup
+```
+
+### GET /_snapshot
+
+List all snapshot repositories.
+
+**Response:**
+```json
+[
+  {
+    "name": "my_backup",
+    "type": "fs",
+    "settings": {
+      "location": "/path/to/snapshots",
+      "compress": "true"
+    },
+    "snapshot_count": 5,
+    "total_size": 1048576
+  }
+]
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_snapshot
+```
+
+### POST /_snapshot/{repository}/{snapshot}
+
+Create a snapshot. `search`: Semantic search
 - `retrieve`: Retrieve documents
 - `aggregate`: Run aggregations
 - `index`: Index documents
