@@ -1,14 +1,15 @@
 # Lexum
 
-[![CI](https://github.com/your-org/lexum/workflows/CI/badge.svg)](https://github.com/your-org/lexum/actions/workflows/ci.yml)
-[![Security](https://github.com/your-org/lexum/workflows/Security/badge.svg)](https://github.com/your-org/lexum/actions/workflows/security.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-planning-yellow.svg)](docs/STATUS.md)
 
-**Lexum** is a high-performance, distributed full-text search engine written in Rust, inspired by ElasticSearch but designed from the ground up for modern cloud-native architectures.
+**Lexum** is a planned high-performance, distributed full-text search engine to be written in Rust, inspired by ElasticSearch but designed from the ground up for modern cloud-native architectures.
 
-## Features
+> **⚠️ Project Status**: Currently in **planning/documentation phase**. No implementation code has been written yet. See [STATUS.md](docs/STATUS.md) for details.
 
-- 🚀 **High Performance**: Built with Rust and Tokio for maximum throughput and minimal latency
+## Planned Features
+
+- 🚀 **High Performance**: To be built with Rust and Tokio for maximum throughput and minimal latency
 - 🔍 **Full-Text Search**: Advanced indexing and search powered by Tantivy
 - 🌐 **Distributed**: Native support for sharding and replication
 - 💬 **LQL**: Powerful SQL-like query language (Lexum Query Language)
@@ -18,70 +19,23 @@
 - 🐳 **Cloud Native**: Docker and Kubernetes ready
 - 🔒 **Secure**: TLS, authentication, and role-based access control
 
-## Quick Start
+## Current State
 
-### Installation
+**What exists now:**
+- ✅ Comprehensive technical documentation
+- ✅ Architecture design
+- ✅ API specifications
+- ✅ LQL query language design
+- ✅ Deployment strategies
+- ✅ Development guidelines
 
-```bash
-# Install from crates.io
-cargo install lexum
+**What doesn't exist yet:**
+- ❌ No working code/implementation
+- ❌ No binaries or packages
+- ❌ No running server
+- ❌ No actual search functionality
 
-# Or build from source
-git clone https://github.com/your-org/lexum
-cd lexum
-cargo build --release
-```
-
-### Running
-
-```bash
-# Start single-node instance
-lexum serve --config config.yml
-
-# With Docker
-docker run -d -p 9200:9200 lexum/lexum:latest
-
-# With Docker Compose
-docker-compose up -d
-```
-
-### Basic Usage
-
-```bash
-# Create an index
-curl -X PUT http://localhost:9200/my_index \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "settings": {
-      "number_of_shards": 3,
-      "number_of_replicas": 1
-    }
-  }'
-
-# Index a document
-curl -X POST http://localhost:9200/my_index/_doc \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "title": "Getting Started",
-    "content": "Lexum is a powerful search engine"
-  }'
-
-# Search
-curl -X POST http://localhost:9200/my_index/_search \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": {
-      "match": { "content": "search engine" }
-    }
-  }'
-
-# Using LQL
-curl -X POST http://localhost:9200/_lql \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "FROM my_index | WHERE content MATCH \"search engine\" | LIMIT 10"
-  }'
-```
+See the [ROADMAP](docs/ROADMAP.md) for the planned implementation timeline.
 
 ## Documentation
 
@@ -134,12 +88,14 @@ curl -X POST http://localhost:9200/_lql \
 - **Observability**: OpenTelemetry
 - **GUI**: Electron + React + TypeScript
 
-## Performance
+## Performance Targets
 
-- **Indexing**: ~50K-100K docs/sec per node
-- **Search Latency**: < 10ms p95
-- **Throughput**: 10K+ queries/sec per node
-- **Scalability**: Horizontally scalable
+These are **planned performance targets**, not current measurements:
+
+- **Indexing**: ~50K-100K docs/sec per node (target)
+- **Search Latency**: < 10ms p95 (target)
+- **Throughput**: 10K+ queries/sec per node (target)
+- **Scalability**: Horizontally scalable (planned)
 
 ## Use Cases
 
@@ -150,31 +106,60 @@ curl -X POST http://localhost:9200/_lql \
 - **Monitoring**: Metrics and log aggregation
 - **Security**: SIEM and threat detection
 
-## Comparison with ElasticSearch
+## Planned Comparison with ElasticSearch
 
-| Feature | Lexum | ElasticSearch |
-|---------|-------|---------------|
+| Feature | Lexum (Planned) | ElasticSearch |
+|---------|-----------------|---------------|
 | Language | Rust | Java |
-| Memory Safety | ✅ | ❌ |
-| Performance | Higher | High |
-| Resource Usage | Lower | Higher |
+| Memory Safety | ✅ (planned) | ❌ |
+| Performance | Higher (target) | High |
+| Resource Usage | Lower (target) | Higher |
 | Query Language | LQL (SQL-like) | Query DSL (JSON) |
 | License | Apache 2.0 | Elastic License |
-| Native Protocols | HTTP, MCP, UMICP | HTTP |
+| Native Protocols | HTTP, MCP, UMICP (planned) | HTTP |
+| **Status** | **Documentation Only** | **Production Ready** |
 
 ## Roadmap
 
-- [x] Core search engine
-- [x] Distributed clustering
-- [x] LQL query language
-- [x] REST API
-- [x] Telemetry and monitoring
-- [x] Electron GUI
-- [ ] Vector search (v0.2)
-- [ ] Machine learning integration (v0.3)
-- [ ] Geo-spatial queries (v0.3)
-- [ ] Time-series optimization (v0.4)
-- [ ] Graph queries (v0.5)
+**Phase 1: Documentation** ✅ **COMPLETE**
+- [x] Architecture design
+- [x] API specifications  
+- [x] Query language design (LQL)
+- [x] Development guidelines
+
+**Phase 2: Core Implementation** (Planned - Not Started)
+- [ ] Core search engine
+- [ ] Index management
+- [ ] Query parser and planner
+- [ ] REST API
+- [ ] Basic CLI
+
+**Phase 3: Distributed System** (Planned - Not Started)
+- [ ] Cluster management (Raft)
+- [ ] Sharding
+- [ ] Replication
+- [ ] Inter-node communication
+
+**Phase 4: Advanced Features** (Planned - Not Started)
+- [ ] LQL implementation
+- [ ] Multiple protocol support (MCP, UMICP, WebSocket)
+- [ ] Aggregations framework
+- [ ] Advanced search features
+
+**Phase 5: Production & GUI** (Planned - Not Started)
+- [ ] Telemetry and monitoring
+- [ ] Security (TLS, RBAC)
+- [ ] Electron GUI
+- [ ] Performance optimization
+
+**Future Enhancements** (Post v1.0)
+- [ ] Vector search
+- [ ] Machine learning integration
+- [ ] Geo-spatial queries
+- [ ] Time-series optimization
+- [ ] Graph queries
+
+See [ROADMAP.md](docs/ROADMAP.md) for detailed timeline and milestones.
 
 ## Contributing
 
@@ -182,35 +167,33 @@ We welcome contributions! Please see:
 
 - [Development Guide](docs/DEVELOPMENT.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ### Development
 
+**Note**: There is no working code to build yet. The repository currently contains only documentation.
+
+To contribute to documentation or planning:
+
 ```bash
-# Clone repository
-git clone https://github.com/your-org/lexum
-cd lexum
+# Navigate to the lexum directory in the HiveLLM monorepo
+cd lexum/
 
-# Install Rust nightly
-rustup install nightly
-rustup default nightly
+# Read the documentation
+cd docs/
 
-# Build
-cargo build
-
-# Run tests
-cargo test
-
-# Run locally
-cargo run -- serve --config config.example.yml
+# Review the roadmap and status
+cat STATUS.md
+cat ROADMAP.md
 ```
+
+When implementation begins, we'll use:
+- Rust 2024 Edition
+- Tokio async runtime
+- See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for planned setup
 
 ## Community
 
-- **GitHub**: [Issues](https://github.com/your-org/lexum/issues) | [Discussions](https://github.com/your-org/lexum/discussions)
-- **Discord**: [Join our Discord](https://discord.gg/lexum)
-- **Twitter**: [@LexumSearch](https://twitter.com/lexumsearch)
-- **Blog**: [blog.lexum.io](https://blog.lexum.io)
+Community channels are not yet established. This section will be updated when the project reaches implementation phase.
 
 ## License
 
@@ -225,9 +208,9 @@ Lexum is licensed under the [Apache License 2.0](LICENSE).
 
 ## Security
 
-Please report security vulnerabilities to security@lexum.io. See [SECURITY.md](SECURITY.md) for details.
+Security reporting procedures will be established when the project has actual implementation code.
 
 ---
 
-Built with ❤️ in Rust
+**Ready to be built with ❤️ in Rust**
 
