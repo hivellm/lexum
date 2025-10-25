@@ -1,7 +1,7 @@
 //! Unit tests for lexum-core
 
-use lexum_core::*;
 use lexum_core::types::{DocumentId, Score};
+use lexum_core::*;
 use serde_json::json;
 
 #[test]
@@ -31,7 +31,7 @@ fn test_query_builder_all_types() {
         .must(Query::Match(MatchQuery::new("field", "value")))
         .should(Query::Term(TermQuery::new("status", "active")))
         .must_not(Query::Term(TermQuery::new("deleted", "true")));
-    
+
     assert_eq!(bool_query.must.len(), 1);
     assert_eq!(bool_query.should.len(), 1);
     assert_eq!(bool_query.must_not.len(), 1);
@@ -84,9 +84,7 @@ fn test_bool_query_combinations() {
 
 #[test]
 fn test_range_query_builder() {
-    let query = RangeQuery::new("age")
-        .gte(json!(18))
-        .lte(json!(65));
+    let query = RangeQuery::new("age").gte(json!(18)).lte(json!(65));
 
     assert_eq!(query.field, "age");
     assert!(query.gte.is_some());
@@ -94,9 +92,7 @@ fn test_range_query_builder() {
     assert!(query.gt.is_none());
     assert!(query.lt.is_none());
 
-    let query = RangeQuery::new("score")
-        .gt(json!(0.5))
-        .lt(json!(1.0));
+    let query = RangeQuery::new("score").gt(json!(0.5)).lt(json!(1.0));
 
     assert!(query.gt.is_some());
     assert!(query.lt.is_some());
@@ -145,17 +141,22 @@ fn test_search_result_creation() {
 #[test]
 fn test_config_defaults() {
     let config = Config::default();
-    
+
     assert_eq!(config.cluster.name, "lexum-cluster");
-    assert!(config.cluster.initial_master_nodes.contains(&"node-1".to_string()));
-    
+    assert!(
+        config
+            .cluster
+            .initial_master_nodes
+            .contains(&"node-1".to_string())
+    );
+
     assert_eq!(config.network.http_port, 9200);
     assert_eq!(config.network.transport_port, 9300);
     assert_eq!(config.network.host, "0.0.0.0");
-    
+
     assert_eq!(config.logging.level, "info");
     assert_eq!(config.logging.format, "json");
-    
+
     assert_eq!(config.path.data, "./data");
 }
 
@@ -317,4 +318,3 @@ fn test_search_result_serialization() {
     assert_eq!(deserialized.total, 0);
     assert_eq!(deserialized.took_ms, 5);
 }
-

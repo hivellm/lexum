@@ -13,7 +13,7 @@ fn test_client_creation() {
 fn test_client_url_formats() {
     let client1 = LexumClient::new("http://localhost:9200".to_string());
     assert!(true); // Client created
-    
+
     let client2 = LexumClient::new("https://example.com:9200".to_string());
     assert!(true); // Client created
 }
@@ -23,7 +23,7 @@ fn test_client_different_urls() {
     let client1 = LexumClient::new("http://localhost:9200".to_string());
     let client2 = LexumClient::new("http://127.0.0.1:9200".to_string());
     let client3 = LexumClient::new("http://remote-server:9200".to_string());
-    
+
     // All clients should be created without errors
     assert!(true);
 }
@@ -59,4 +59,3 @@ fn test_repl_session_creation() {
     // Actual interactive tests would be in a separate test harness
     assert!(true); // Placeholder
 }
-

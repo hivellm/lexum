@@ -1,8 +1,8 @@
 //! Comprehensive tests for additional coverage
 
-use lexum_core::*;
-use lexum_core::schema::{FieldConfig, FieldType};
 use lexum_core::index::IndexSettings;
+use lexum_core::schema::{FieldConfig, FieldType};
+use lexum_core::*;
 use serde_json::json;
 
 // ============================================================================
@@ -23,7 +23,7 @@ fn test_index_settings_builder() {
     settings.number_of_shards = 3;
     settings.number_of_replicas = 2;
     settings.refresh_interval = 5;
-    
+
     assert_eq!(settings.number_of_shards, 3);
     assert_eq!(settings.number_of_replicas, 2);
     assert_eq!(settings.refresh_interval, 5);
@@ -34,7 +34,7 @@ fn test_index_settings_shards_range() {
     let mut settings = IndexSettings::default();
     settings.number_of_shards = 5;
     assert_eq!(settings.number_of_shards, 5);
-    
+
     // Valid range test
     settings.number_of_shards = 1;
     assert!(settings.number_of_shards > 0);
@@ -45,7 +45,7 @@ fn test_index_settings_serialization() {
     let settings = IndexSettings::default();
     let json = serde_json::to_string(&settings).unwrap();
     assert!(json.contains("number_of_shards"));
-    
+
     let deserialized: IndexSettings = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.number_of_shards, settings.number_of_shards);
 }
@@ -56,11 +56,9 @@ fn test_index_settings_serialization() {
 
 #[test]
 fn test_schema_builder_single_field() {
-    let result = SchemaBuilder::new()
-        .add_text_field("title")
-        .build();
+    let result = SchemaBuilder::new().add_text_field("title").build();
     assert!(result.is_ok());
-    
+
     let (_, field_map) = result.unwrap();
     assert_eq!(field_map.len(), 1);
     assert!(field_map.contains_key("title"));
@@ -77,7 +75,7 @@ fn test_schema_builder_multiple_fields() {
         .add_date_field("published")
         .build()
         .unwrap();
-    
+
     assert_eq!(field_map.len(), 6);
     assert!(field_map.contains_key("title"));
     assert!(field_map.contains_key("content"));
@@ -97,7 +95,7 @@ fn test_field_config_all_types() {
         fast: false,
     };
     assert_eq!(text_config.name, "text");
-    
+
     let keyword_config = FieldConfig {
         name: "keyword".to_string(),
         field_type: FieldType::Keyword,
@@ -106,7 +104,7 @@ fn test_field_config_all_types() {
         fast: true,
     };
     assert!(keyword_config.fast);
-    
+
     let i64_config = FieldConfig {
         name: "number".to_string(),
         field_type: FieldType::I64,
@@ -115,7 +113,7 @@ fn test_field_config_all_types() {
         fast: true,
     };
     assert!(matches!(i64_config.field_type, FieldType::I64));
-    
+
     let f64_config = FieldConfig {
         name: "decimal".to_string(),
         field_type: FieldType::F64,
@@ -124,7 +122,7 @@ fn test_field_config_all_types() {
         fast: true,
     };
     assert!(matches!(f64_config.field_type, FieldType::F64));
-    
+
     let date_config = FieldConfig {
         name: "timestamp".to_string(),
         field_type: FieldType::Date,
@@ -220,7 +218,7 @@ fn test_range_query_all_bounds() {
         .lte(json!(10))
         .gt(json!(0))
         .lt(json!(11));
-    
+
     assert!(query.gte.is_some());
     assert!(query.lte.is_some());
     assert!(query.gt.is_some());
@@ -245,7 +243,7 @@ fn test_bool_query_complex() {
         .should(Query::Term(TermQuery::new("f4", "v4")))
         .must_not(Query::Term(TermQuery::new("f5", "v5")))
         .filter(Query::Range(RangeQuery::new("f6").gte(json!(0))));
-    
+
     assert_eq!(query.must.len(), 2);
     assert_eq!(query.should.len(), 2);
     assert_eq!(query.must_not.len(), 1);
@@ -266,15 +264,13 @@ fn test_fuzzy_query_max_fuzziness() {
 
 #[test]
 fn test_fuzzy_query_prefix_length() {
-    let query = FuzzyQuery::new("field", "value")
-        .prefix_length(3);
+    let query = FuzzyQuery::new("field", "value").prefix_length(3);
     assert_eq!(query.prefix_length, 3);
 }
 
 #[test]
 fn test_fuzzy_query_no_transpositions() {
-    let query = FuzzyQuery::new("field", "value")
-        .transpositions(false);
+    let query = FuzzyQuery::new("field", "value").transpositions(false);
     assert!(!query.transpositions);
 }
 
@@ -297,7 +293,7 @@ fn test_phrase_query_high_slop() {
 #[test]
 fn test_search_hit_with_complex_source() {
     use lexum_core::types::{DocumentId, Score};
-    
+
     let hit = SearchHit {
         id: DocumentId::new("doc1"),
         score: Score::new(0.95),
@@ -309,7 +305,7 @@ fn test_search_hit_with_complex_source() {
             "array": [1, 2, 3]
         }),
     };
-    
+
     assert_eq!(hit.id.as_str(), "doc1");
     assert_eq!(hit.score.value(), 0.95);
     assert!(hit.source.is_object());
@@ -318,15 +314,15 @@ fn test_search_hit_with_complex_source() {
 #[test]
 fn test_search_result_with_multiple_hits() {
     use lexum_core::types::{DocumentId, Score};
-    
-    let hits = (0..10).map(|i| {
-        SearchHit {
+
+    let hits = (0..10)
+        .map(|i| SearchHit {
             id: DocumentId::new(format!("doc{}", i)),
             score: Score::new(1.0 - (i as f32 * 0.1)),
             source: json!({"id": i}),
-        }
-    }).collect();
-    
+        })
+        .collect();
+
     let result = SearchResult::new(hits, 10, 50);
     assert_eq!(result.total, 10);
     assert_eq!(result.hits.len(), 10);
@@ -372,7 +368,7 @@ fn test_error_from_io() {
 fn test_error_types_coverage() {
     let validation = Error::Validation("test".to_string());
     assert!(matches!(validation, Error::Validation(_)));
-    
+
     let config = Error::Config("test".to_string());
     assert!(matches!(config, Error::Config(_)));
 }
@@ -437,7 +433,7 @@ fn test_logging_init_with_custom_config() {
         format: "pretty".to_string(),
         outputs: vec!["stdout".to_string()],
     };
-    
+
     // We can't actually init twice, but we can validate the config
     assert_eq!(config.level, "debug");
     assert_eq!(config.format, "pretty");
@@ -461,13 +457,12 @@ fn test_query_builder_bool() {
 
 #[test]
 fn test_nested_bool_query() {
-    let inner = BoolQuery::new()
-        .must(Query::Term(TermQuery::new("status", "active")));
-    
+    let inner = BoolQuery::new().must(Query::Term(TermQuery::new("status", "active")));
+
     let outer = BoolQuery::new()
         .must(Query::Bool(inner))
         .should(Query::Match(MatchQuery::new("title", "test")));
-    
+
     assert_eq!(outer.must.len(), 1);
     assert_eq!(outer.should.len(), 1);
 }
@@ -481,7 +476,7 @@ fn test_query_serialization_match_all() {
     let query = QueryBuilder::match_all();
     let json = serde_json::to_string(&query).unwrap();
     assert!(json.contains("match_all"));
-    
+
     let deserialized: Query = serde_json::from_str(&json).unwrap();
     assert!(matches!(deserialized, Query::MatchAll));
 }
@@ -491,13 +486,15 @@ fn test_complex_query_serialization() {
     let query = Query::Bool(
         BoolQuery::new()
             .must(Query::Match(MatchQuery::new("title", "rust")))
-            .should(Query::Fuzzy(FuzzyQuery::new("content", "programing").fuzziness(2)))
-            .must_not(Query::Term(TermQuery::new("draft", "true")))
+            .should(Query::Fuzzy(
+                FuzzyQuery::new("content", "programing").fuzziness(2),
+            ))
+            .must_not(Query::Term(TermQuery::new("draft", "true"))),
     );
-    
+
     let json = serde_json::to_string(&query).unwrap();
     let deserialized: Query = serde_json::from_str(&json).unwrap();
-    
+
     match deserialized {
         Query::Bool(bq) => {
             assert_eq!(bq.must.len(), 1);
@@ -510,10 +507,8 @@ fn test_complex_query_serialization() {
 
 #[test]
 fn test_range_query_serialization() {
-    let query = RangeQuery::new("price")
-        .gte(json!(10.0))
-        .lte(json!(100.0));
-    
+    let query = RangeQuery::new("price").gte(json!(10.0)).lte(json!(100.0));
+
     let json = serde_json::to_string(&Query::Range(query)).unwrap();
     assert!(json.contains("gte"));
     assert!(json.contains("lte"));
@@ -526,13 +521,13 @@ fn test_range_query_serialization() {
 #[test]
 fn test_index_stats_creation() {
     use lexum_core::index::IndexStats;
-    
+
     let stats = IndexStats {
         name: "test_index".to_string(),
         num_docs: 100,
         num_segments: 2,
     };
-    
+
     assert_eq!(stats.name, "test_index");
     assert_eq!(stats.num_docs, 100);
     assert_eq!(stats.num_segments, 2);
@@ -541,21 +536,20 @@ fn test_index_stats_creation() {
 #[test]
 fn test_index_stats_serialization() {
     use lexum_core::index::IndexStats;
-    
+
     let stats = IndexStats {
         name: "my_index".to_string(),
         num_docs: 1000,
         num_segments: 5,
     };
-    
+
     let json = serde_json::to_string(&stats).unwrap();
     assert!(json.contains("my_index"));
     assert!(json.contains("1000"));
     assert!(json.contains("\"num_segments\":5"));
-    
+
     let deserialized: IndexStats = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.name, "my_index");
     assert_eq!(deserialized.num_docs, 1000);
     assert_eq!(deserialized.num_segments, 5);
 }
-

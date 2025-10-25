@@ -87,12 +87,9 @@ pub fn init_with_config(config: &LoggingConfig) -> Result<()> {
         "json" => {
             if has_file_output {
                 // Create rolling file appender (daily rotation)
-                let file_appender = RollingFileAppender::new(
-                    Rotation::DAILY,
-                    "./logs",
-                    "lexum.log",
-                );
-                let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+                let file_appender =
+                    RollingFileAppender::new(Rotation::DAILY, "./logs", "lexum.log");
+                let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
                 if has_stdout_output {
                     // Both stdout and file
@@ -114,9 +111,9 @@ pub fn init_with_config(config: &LoggingConfig) -> Result<()> {
                         .try_init()
                         .map_err(|e| Error::Config(format!("Failed to initialize logging: {e}")))?;
                 }
-                
+
                 // Keep guard alive (in real app, store it)
-                std::mem::forget(_guard);
+                std::mem::forget(guard);
             } else {
                 // Stdout only
                 let subscriber = Registry::default()
@@ -131,12 +128,9 @@ pub fn init_with_config(config: &LoggingConfig) -> Result<()> {
         "pretty" => {
             if has_file_output {
                 // Create rolling file appender
-                let file_appender = RollingFileAppender::new(
-                    Rotation::DAILY,
-                    "./logs",
-                    "lexum.log",
-                );
-                let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+                let file_appender =
+                    RollingFileAppender::new(Rotation::DAILY, "./logs", "lexum.log");
+                let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 
                 if has_stdout_output {
                     // Both stdout and file
@@ -158,8 +152,8 @@ pub fn init_with_config(config: &LoggingConfig) -> Result<()> {
                         .try_init()
                         .map_err(|e| Error::Config(format!("Failed to initialize logging: {e}")))?;
                 }
-                
-                std::mem::forget(_guard);
+
+                std::mem::forget(guard);
             } else {
                 // Stdout only
                 let subscriber = Registry::default()

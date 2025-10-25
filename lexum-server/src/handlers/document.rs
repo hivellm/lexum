@@ -196,7 +196,7 @@ pub async fn bulk_operations(
 ) -> ApiResult<Json<BulkResponse>> {
     use std::time::Instant;
     let start = Instant::now();
-    
+
     let mut results = Vec::new();
     let mut has_errors = false;
 
@@ -206,42 +206,40 @@ pub async fn bulk_operations(
                 index: index_name,
                 id,
                 document,
-            } => {
-                match state.index_manager.get_index(&index_name) {
-                    Ok(index) => {
-                        let store = DocumentStore::new(Arc::new(index));
-                        match store.add_document(document).await {
-                            Ok(doc_id) => BulkOperationResult {
-                                success: true,
+            } => match state.index_manager.get_index(&index_name) {
+                Ok(index) => {
+                    let store = DocumentStore::new(Arc::new(index));
+                    match store.add_document(document).await {
+                        Ok(doc_id) => BulkOperationResult {
+                            success: true,
+                            action: "index".to_string(),
+                            index: index_name,
+                            id: Some(id.unwrap_or_else(|| doc_id.to_string())),
+                            error: None,
+                        },
+                        Err(e) => {
+                            has_errors = true;
+                            BulkOperationResult {
+                                success: false,
                                 action: "index".to_string(),
                                 index: index_name,
-                                id: Some(id.unwrap_or_else(|| doc_id.to_string())),
-                                error: None,
-                            },
-                            Err(e) => {
-                                has_errors = true;
-                                BulkOperationResult {
-                                    success: false,
-                                    action: "index".to_string(),
-                                    index: index_name,
-                                    id,
-                                    error: Some(e.to_string()),
-                                }
+                                id,
+                                error: Some(e.to_string()),
                             }
                         }
                     }
-                    Err(e) => {
-                        has_errors = true;
-                        BulkOperationResult {
-                            success: false,
-                            action: "index".to_string(),
-                            index: index_name,
-                            id,
-                            error: Some(e.to_string()),
-                        }
+                }
+                Err(e) => {
+                    has_errors = true;
+                    BulkOperationResult {
+                        success: false,
+                        action: "index".to_string(),
+                        index: index_name,
+                        id,
+                        error: Some(e.to_string()),
                     }
                 }
-            }
+            },
             BulkOperation::Create {
                 index: index_name,
                 id,
@@ -287,87 +285,83 @@ pub async fn bulk_operations(
                 index: index_name,
                 id,
                 document,
-            } => {
-                match state.index_manager.get_index(&index_name) {
-                    Ok(index) => {
-                        let store = DocumentStore::new(Arc::new(index));
-                        match store
-                            .update_document(&lexum_core::types::DocumentId::new(id.clone()), document)
-                            .await
-                        {
-                            Ok(_) => BulkOperationResult {
-                                success: true,
-                                action: "update".to_string(),
-                                index: index_name,
-                                id: Some(id),
-                                error: None,
-                            },
-                            Err(e) => {
-                                has_errors = true;
-                                BulkOperationResult {
-                                    success: false,
-                                    action: "update".to_string(),
-                                    index: index_name,
-                                    id: Some(id),
-                                    error: Some(e.to_string()),
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        has_errors = true;
-                        BulkOperationResult {
-                            success: false,
+            } => match state.index_manager.get_index(&index_name) {
+                Ok(index) => {
+                    let store = DocumentStore::new(Arc::new(index));
+                    match store
+                        .update_document(&lexum_core::types::DocumentId::new(id.clone()), document)
+                        .await
+                    {
+                        Ok(_) => BulkOperationResult {
+                            success: true,
                             action: "update".to_string(),
                             index: index_name,
                             id: Some(id),
-                            error: Some(e.to_string()),
-                        }
-                    }
-                }
-            }
-            BulkOperation::Delete {
-                index: index_name,
-                id,
-            } => {
-                match state.index_manager.get_index(&index_name) {
-                    Ok(index) => {
-                        let store = DocumentStore::new(Arc::new(index));
-                        match store
-                            .delete_document(&lexum_core::types::DocumentId::new(id.clone()))
-                            .await
-                        {
-                            Ok(_) => BulkOperationResult {
-                                success: true,
-                                action: "delete".to_string(),
+                            error: None,
+                        },
+                        Err(e) => {
+                            has_errors = true;
+                            BulkOperationResult {
+                                success: false,
+                                action: "update".to_string(),
                                 index: index_name,
                                 id: Some(id),
-                                error: None,
-                            },
-                            Err(e) => {
-                                has_errors = true;
-                                BulkOperationResult {
-                                    success: false,
-                                    action: "delete".to_string(),
-                                    index: index_name,
-                                    id: Some(id),
-                                    error: Some(e.to_string()),
-                                }
+                                error: Some(e.to_string()),
                             }
                         }
                     }
-                    Err(e) => {
-                        has_errors = true;
-                        BulkOperationResult {
-                            success: false,
+                }
+                Err(e) => {
+                    has_errors = true;
+                    BulkOperationResult {
+                        success: false,
+                        action: "update".to_string(),
+                        index: index_name,
+                        id: Some(id),
+                        error: Some(e.to_string()),
+                    }
+                }
+            },
+            BulkOperation::Delete {
+                index: index_name,
+                id,
+            } => match state.index_manager.get_index(&index_name) {
+                Ok(index) => {
+                    let store = DocumentStore::new(Arc::new(index));
+                    match store
+                        .delete_document(&lexum_core::types::DocumentId::new(id.clone()))
+                        .await
+                    {
+                        Ok(_) => BulkOperationResult {
+                            success: true,
                             action: "delete".to_string(),
                             index: index_name,
                             id: Some(id),
-                            error: Some(e.to_string()),
+                            error: None,
+                        },
+                        Err(e) => {
+                            has_errors = true;
+                            BulkOperationResult {
+                                success: false,
+                                action: "delete".to_string(),
+                                index: index_name,
+                                id: Some(id),
+                                error: Some(e.to_string()),
+                            }
                         }
                     }
                 }
-            }
+                Err(e) => {
+                    has_errors = true;
+                    BulkOperationResult {
+                        success: false,
+                        action: "delete".to_string(),
+                        index: index_name,
+                        id: Some(id),
+                        error: Some(e.to_string()),
+                    }
+                }
+            },
         };
 
         results.push(result);

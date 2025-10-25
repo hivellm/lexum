@@ -97,6 +97,20 @@ pub async fn get(url: &str, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// Get index statistics
+pub async fn stats(url: &str, name: &str) -> Result<()> {
+    use crate::formatter::{OutputFormat, format_output};
+
+    let client = LexumClient::new(url.to_string());
+    let response: IndexInfo = client.get(&format!("/api/v1/indices/{name}")).await?;
+
+    // Display as table by default
+    let output = format_output(&response, OutputFormat::Table)?;
+    println!("{}", output);
+
+    Ok(())
+}
+
 /// Delete index
 pub async fn delete(url: &str, name: &str) -> Result<()> {
     let client = LexumClient::new(url.to_string());

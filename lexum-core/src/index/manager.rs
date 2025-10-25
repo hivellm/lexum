@@ -180,10 +180,10 @@ impl IndexManager {
         let index = self.get_index(name)?;
         let reader = index.reader()?;
         let searcher = reader.searcher();
-        
+
         let num_docs = searcher.num_docs();
         let num_segments = searcher.segment_readers().len();
-        
+
         Ok(IndexStats {
             name: name.to_string(),
             num_docs,

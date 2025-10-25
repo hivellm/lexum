@@ -1,8 +1,8 @@
 //! Handler tests for lexum-server
 
+use lexum_core::*;
 use lexum_server::handlers::document::*;
 use lexum_server::handlers::search::*;
-use lexum_core::*;
 use serde_json::json;
 
 // ============================================================================
@@ -17,7 +17,7 @@ fn test_add_document_request() {
             "content": "This is a test"
         }),
     };
-    
+
     assert!(request.document.is_object());
     assert_eq!(request.document["title"], "Test Document");
 }
@@ -27,7 +27,7 @@ fn test_add_document_response() {
     let response = AddDocumentResponse {
         id: "doc123".to_string(),
     };
-    
+
     assert_eq!(response.id, "doc123");
 }
 
@@ -38,9 +38,13 @@ fn test_bulk_operation_index() {
         id: Some("1".to_string()),
         document: json!({"title": "Test"}),
     };
-    
+
     match op {
-        BulkOperation::Index { index, id, document } => {
+        BulkOperation::Index {
+            index,
+            id,
+            document,
+        } => {
             assert_eq!(index, "test");
             assert_eq!(id, Some("1".to_string()));
             assert!(document.is_object());
@@ -56,9 +60,13 @@ fn test_bulk_operation_create() {
         id: "2".to_string(),
         document: json!({"title": "New Doc"}),
     };
-    
+
     match op {
-        BulkOperation::Create { index, id, document } => {
+        BulkOperation::Create {
+            index,
+            id,
+            document,
+        } => {
             assert_eq!(index, "test");
             assert_eq!(id, "2");
             assert!(document.is_object());
@@ -74,9 +82,13 @@ fn test_bulk_operation_update() {
         id: "3".to_string(),
         document: json!({"title": "Updated"}),
     };
-    
+
     match op {
-        BulkOperation::Update { index, id, document } => {
+        BulkOperation::Update {
+            index,
+            id,
+            document,
+        } => {
             assert_eq!(index, "test");
             assert_eq!(id, "3");
             assert_eq!(document["title"], "Updated");
@@ -91,7 +103,7 @@ fn test_bulk_operation_delete() {
         index: "test".to_string(),
         id: "4".to_string(),
     };
-    
+
     match op {
         BulkOperation::Delete { index, id } => {
             assert_eq!(index, "test");
@@ -110,7 +122,7 @@ fn test_bulk_operation_result_success() {
         id: Some("1".to_string()),
         error: None,
     };
-    
+
     assert!(result.success);
     assert_eq!(result.action, "index");
     assert!(result.error.is_none());
@@ -125,7 +137,7 @@ fn test_bulk_operation_result_failure() {
         id: Some("1".to_string()),
         error: Some("Index not found".to_string()),
     };
-    
+
     assert!(!result.success);
     assert!(result.error.is_some());
     assert_eq!(result.error.unwrap(), "Index not found");
@@ -151,7 +163,7 @@ fn test_bulk_request_multiple_operations() {
             },
         ],
     };
-    
+
     assert_eq!(request.operations.len(), 3);
 }
 
@@ -160,17 +172,15 @@ fn test_bulk_response_structure() {
     let response = BulkResponse {
         errors: false,
         took_ms: 100,
-        items: vec![
-            BulkOperationResult {
-                success: true,
-                action: "index".to_string(),
-                index: "test".to_string(),
-                id: Some("1".to_string()),
-                error: None,
-            },
-        ],
+        items: vec![BulkOperationResult {
+            success: true,
+            action: "index".to_string(),
+            index: "test".to_string(),
+            id: Some("1".to_string()),
+            error: None,
+        }],
     };
-    
+
     assert!(!response.errors);
     assert_eq!(response.took_ms, 100);
     assert_eq!(response.items.len(), 1);
@@ -188,7 +198,7 @@ fn test_search_request_defaults() {
         offset: 0,
         sort: None,
     };
-    
+
     assert_eq!(request.limit, 10);
     assert_eq!(request.offset, 0);
     assert!(request.sort.is_none());
@@ -202,11 +212,11 @@ fn test_search_request_with_sort() {
         offset: 5,
         sort: Some(SortOption::asc("date")),
     };
-    
+
     assert_eq!(request.limit, 20);
     assert_eq!(request.offset, 5);
     assert!(request.sort.is_some());
-    
+
     let sort = request.sort.unwrap();
     assert_eq!(sort.field, "date");
     assert_eq!(sort.order, SortOrder::Asc);
@@ -220,7 +230,7 @@ fn test_search_request_with_fuzzy_query() {
         offset: 0,
         sort: None,
     };
-    
+
     assert!(matches!(request.query, Query::Fuzzy(_)));
 }
 
@@ -232,7 +242,7 @@ fn test_search_request_with_phrase_query() {
         offset: 0,
         sort: None,
     };
-    
+
     assert!(matches!(request.query, Query::Phrase(_)));
 }
 
@@ -241,14 +251,14 @@ fn test_search_request_with_bool_query() {
     let bool_query = BoolQuery::new()
         .must(Query::Match(MatchQuery::new("title", "rust")))
         .should(Query::Term(TermQuery::new("category", "tutorial")));
-    
+
     let request = SearchRequest {
         query: Query::Bool(bool_query),
         limit: 50,
         offset: 0,
         sort: Some(SortOption::desc("_score")),
     };
-    
+
     assert_eq!(request.limit, 50);
     assert!(matches!(request.query, Query::Bool(_)));
 }
@@ -264,11 +274,11 @@ fn test_bulk_operation_serialization() {
         id: Some("1".to_string()),
         document: json!({"title": "Test"}),
     };
-    
+
     let json = serde_json::to_string(&op).unwrap();
     assert!(json.contains("index"));
     assert!(json.contains("_index"));
-    
+
     let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
     match deserialized {
         BulkOperation::Index { index, id, .. } => {
@@ -287,14 +297,13 @@ fn test_search_request_serialization() {
         offset: 5,
         sort: Some(SortOption::desc("timestamp")),
     };
-    
+
     let json = serde_json::to_string(&request).unwrap();
     assert!(json.contains("query"));
     assert!(json.contains("limit"));
     assert!(json.contains("offset"));
-    
+
     let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.limit, 15);
     assert_eq!(deserialized.offset, 5);
 }
-

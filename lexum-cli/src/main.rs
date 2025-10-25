@@ -69,6 +69,11 @@ enum IndexAction {
         /// Index name
         name: String,
     },
+    /// Get index statistics
+    Stats {
+        /// Index name
+        name: String,
+    },
     /// Delete an index
     Delete {
         /// Index name
@@ -88,6 +93,13 @@ enum DocAction {
     },
     /// Get a document
     Get {
+        /// Index name
+        index: String,
+        /// Document ID
+        id: String,
+    },
+    /// Delete a document
+    Delete {
         /// Index name
         index: String,
         /// Document ID
@@ -120,6 +132,9 @@ async fn main() -> Result<()> {
             IndexAction::Get { name } => {
                 commands::index::get(&cli.url, &name).await?;
             }
+            IndexAction::Stats { name } => {
+                commands::index::stats(&cli.url, &name).await?;
+            }
             IndexAction::Delete { name } => {
                 commands::index::delete(&cli.url, &name).await?;
             }
@@ -130,6 +145,9 @@ async fn main() -> Result<()> {
             }
             DocAction::Get { index, id } => {
                 commands::document::get(&cli.url, &index, &id).await?;
+            }
+            DocAction::Delete { index, id } => {
+                commands::document::delete(&cli.url, &index, &id).await?;
             }
         },
         Some(Commands::Search {

@@ -1,19 +1,19 @@
 //! API integration tests for lexum-server
 
+use axum::body::Body;
+use axum::http::Request;
 use axum::http::StatusCode;
-use lexum_server::{handlers::index::AppState, router::build_router};
 use lexum_core::IndexManager;
+use lexum_server::{handlers::index::AppState, router::build_router};
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::TempDir;
 use tower::ServiceExt;
-use axum::body::Body;
-use axum::http::Request;
 
 async fn setup_test_server() -> (AppState, TempDir) {
     let temp_dir = TempDir::new().unwrap();
     let index_manager = Arc::new(IndexManager::new(temp_dir.path()));
-    
+
     let state = AppState { index_manager };
     (state, temp_dir)
 }
@@ -39,7 +39,7 @@ async fn test_health_check() {
 #[tokio::test]
 async fn test_create_and_get_index() {
     let (state, _temp_dir) = setup_test_server().await;
-    
+
     // Verify initial state
     assert!(state.index_manager.list_indices().is_empty());
 }
@@ -87,8 +87,8 @@ fn test_api_error_types() {
 
 #[test]
 fn test_search_request() {
-    use lexum_server::handlers::search::SearchRequest;
     use lexum_core::{QueryBuilder, SortOption};
+    use lexum_server::handlers::search::SearchRequest;
 
     let request = SearchRequest {
         query: QueryBuilder::match_query("title", "test"),
@@ -101,4 +101,3 @@ fn test_search_request() {
     assert_eq!(request.offset, 10);
     assert!(request.sort.is_some());
 }
-

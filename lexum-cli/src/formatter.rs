@@ -31,12 +31,8 @@ impl OutputFormat {
 /// Format output based on format type
 pub fn format_output<T: Serialize>(data: &T, format: OutputFormat) -> anyhow::Result<String> {
     match format {
-        OutputFormat::Json => {
-            Ok(serde_json::to_string(data)?)
-        }
-        OutputFormat::JsonPretty => {
-            Ok(serde_json::to_string_pretty(data)?)
-        }
+        OutputFormat::Json => Ok(serde_json::to_string(data)?),
+        OutputFormat::JsonPretty => Ok(serde_json::to_string_pretty(data)?),
         OutputFormat::Table => {
             let json_value = serde_json::to_value(data)?;
             Ok(format_as_table(&json_value))
@@ -78,10 +74,7 @@ fn format_as_table(value: &JsonValue) -> String {
             table.set_header(vec!["Key", "Value"]);
 
             for (key, value) in obj {
-                table.add_row(vec![
-                    key.clone(),
-                    format_cell_value(Some(value)),
-                ]);
+                table.add_row(vec![key.clone(), format_cell_value(Some(value))]);
             }
 
             table.to_string()
@@ -130,7 +123,10 @@ mod tests {
     fn test_output_format_from_str() {
         assert_eq!(OutputFormat::from_str("json"), Some(OutputFormat::Json));
         assert_eq!(OutputFormat::from_str("JSON"), Some(OutputFormat::Json));
-        assert_eq!(OutputFormat::from_str("pretty"), Some(OutputFormat::JsonPretty));
+        assert_eq!(
+            OutputFormat::from_str("pretty"),
+            Some(OutputFormat::JsonPretty)
+        );
         assert_eq!(OutputFormat::from_str("table"), Some(OutputFormat::Table));
         assert_eq!(OutputFormat::from_str("invalid"), None);
     }
@@ -181,4 +177,3 @@ mod tests {
         assert!(format_cell_value(None).contains("N/A"));
     }
 }
-

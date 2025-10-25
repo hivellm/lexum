@@ -240,7 +240,7 @@ impl PhraseQuery {
     }
 
     /// Set slop (maximum distance between terms)
-    /// 
+    ///
     /// Slop allows terms to be in different positions.
     /// For example, with slop=1, "quick fox" will match "quick brown fox"
     pub fn slop(mut self, slop: u32) -> Self {

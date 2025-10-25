@@ -49,3 +49,20 @@ pub async fn get(url: &str, index: &str, id: &str) -> Result<()> {
 
     Ok(())
 }
+
+/// Delete document
+pub async fn delete(url: &str, index: &str, id: &str) -> Result<()> {
+    let client = LexumClient::new(url.to_string());
+    client
+        .delete(&format!("/api/v1/indices/{index}/documents/{id}"))
+        .await?;
+
+    println!(
+        "{} Document '{}' deleted from index '{}'",
+        "✓".bright_green().bold(),
+        id.bright_cyan(),
+        index.bright_yellow()
+    );
+
+    Ok(())
+}

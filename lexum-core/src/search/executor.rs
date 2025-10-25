@@ -9,7 +9,9 @@ use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tantivy::TantivyDocument;
-use tantivy::query::{AllQuery, BooleanQuery, FuzzyTermQuery, Occur, PhraseQuery, QueryParser, RangeQuery, TermQuery};
+use tantivy::query::{
+    AllQuery, BooleanQuery, FuzzyTermQuery, Occur, PhraseQuery, QueryParser, RangeQuery, TermQuery,
+};
 use tantivy::schema::*;
 
 /// Cache key for query results
@@ -57,21 +59,21 @@ impl SearchExecutor {
     fn cache_key(query: &Query, limit: usize, offset: usize, sort: &Option<SortOption>) -> String {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         let mut hasher = DefaultHasher::new();
-        
+
         // Hash query as JSON (simple but effective)
         if let Ok(query_json) = serde_json::to_string(query) {
             query_json.hash(&mut hasher);
         }
         limit.hash(&mut hasher);
         offset.hash(&mut hasher);
-        
+
         if let Some(s) = sort {
             s.field.hash(&mut hasher);
             format!("{:?}", s.order).hash(&mut hasher);
         }
-        
+
         format!("{:x}", hasher.finish())
     }
 
@@ -159,14 +161,17 @@ impl SearchExecutor {
                     hits.sort_by(|a, b| {
                         let a_val = a.source.get(&sort_opt.field);
                         let b_val = b.source.get(&sort_opt.field);
-                        
+
                         let cmp = match (a_val, b_val) {
                             (Some(a), Some(b)) => {
                                 // Try numeric comparison first
                                 if let (Some(a_num), Some(b_num)) = (a.as_i64(), b.as_i64()) {
                                     a_num.cmp(&b_num)
-                                } else if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64()) {
-                                    a_num.partial_cmp(&b_num).unwrap_or(std::cmp::Ordering::Equal)
+                                } else if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64())
+                                {
+                                    a_num
+                                        .partial_cmp(&b_num)
+                                        .unwrap_or(std::cmp::Ordering::Equal)
                                 } else {
                                     // Fallback to string comparison
                                     a.to_string().cmp(&b.to_string())
@@ -305,10 +310,10 @@ impl SearchExecutor {
                     .map_err(|e| Error::Config(format!("Field not found: {e}")))?;
 
                 let term = tantivy::Term::from_field_text(field, &fuzzy_query.value);
-                
+
                 // Tantivy uses distance (0, 1, or 2)
                 let distance = fuzzy_query.fuzziness.min(2);
-                
+
                 Ok(Box::new(FuzzyTermQuery::new(
                     term,
                     distance,
@@ -446,7 +451,7 @@ mod tests {
         let query = QueryBuilder::match_query("title", "test");
         let key1 = SearchExecutor::cache_key(&query, 10, 0, &None);
         let key2 = SearchExecutor::cache_key(&query, 10, 0, &None);
-        
+
         // Same parameters should generate same key
         assert_eq!(key1, key2);
 
