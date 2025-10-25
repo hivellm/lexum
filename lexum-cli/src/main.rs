@@ -62,6 +62,12 @@ enum Commands {
         #[arg(long)]
         fields: Option<Vec<String>>,
     },
+
+    /// Snapshot management commands
+    Snapshot {
+        #[command(subcommand)]
+        action: SnapshotAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -147,6 +153,49 @@ enum DocAction {
         /// JSON array file
         #[arg(short, long)]
         file: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum SnapshotAction {
+    /// List all snapshot repositories
+    ListRepos,
+    /// List snapshots in a repository
+    List {
+        /// Repository name
+        repository: String,
+    },
+    /// Get snapshot information
+    Get {
+        /// Repository name
+        repository: String,
+        /// Snapshot name
+        snapshot: String,
+    },
+    /// Create a snapshot
+    Create {
+        /// Repository name
+        repository: String,
+        /// Snapshot name
+        snapshot: String,
+        /// Indices to include (comma-separated)
+        #[arg(short, long)]
+        indices: Option<String>,
+        /// Wait for completion
+        #[arg(short, long)]
+        wait: bool,
+    },
+    /// Delete a snapshot
+    Delete {
+        /// Repository name
+        repository: String,
+        /// Snapshot name
+        snapshot: String,
+    },
+    /// Get repository information
+    Repo {
+        /// Repository name
+        repository: String,
     },
 }
 
@@ -249,6 +298,34 @@ async fn main() -> Result<()> {
                     fields,
                 )
                 .await?;
+            }
+        }
+        Some(Commands::Snapshot { action }) => match action {
+            SnapshotAction::ListRepos => {
+                commands::snapshot::list_repositories(&cli.url).await?;
+            }
+            SnapshotAction::List { repository } => {
+                commands::snapshot::list_snapshots(&cli.url, &repository).await?;
+            }
+            SnapshotAction::Get { repository, snapshot } => {
+                commands::snapshot::get_snapshot(&cli.url, &repository, &snapshot).await?;
+            }
+            SnapshotAction::Create {
+                repository,
+                snapshot,
+                indices,
+                wait,
+            } => {
+                let indices_list = indices
+                    .map(|i| i.split(',').map(|s| s.trim().to_string()).collect())
+                    .unwrap_or_default();
+                commands::snapshot::create_snapshot(&cli.url, &repository, &snapshot, indices_list, wait).await?;
+            }
+            SnapshotAction::Delete { repository, snapshot } => {
+                commands::snapshot::delete_snapshot(&cli.url, &repository, &snapshot).await?;
+            }
+            SnapshotAction::Repo { repository } => {
+                commands::snapshot::get_repository(&cli.url, &repository).await?;
             }
         }
         None => {

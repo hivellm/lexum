@@ -48,6 +48,20 @@ impl LexumClient {
         Ok(response.json().await?)
     }
 
+    /// PUT request
+    pub async fn put<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T) -> Result<R> {
+        let url = format!("{}{}", self.base_url, path);
+        let response = self.client.put(&url).json(body).send().await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            anyhow::bail!("HTTP {status} - {text}");
+        }
+
+        Ok(response.json().await?)
+    }
+
     /// DELETE request
     pub async fn delete(&self, path: &str) -> Result<()> {
         let url = format!("{}{}", self.base_url, path);

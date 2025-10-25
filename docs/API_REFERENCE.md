@@ -749,6 +749,140 @@ List all snapshot repositories.
 curl http://localhost:9200/_snapshot
 ```
 
+### GET /_snapshot/{repository}/_all
+
+List all snapshots in a repository.
+
+**Response:**
+```json
+{
+  "snapshots": [
+    {
+      "name": "snapshot_1",
+      "repository": "my_backup",
+      "state": "SUCCESS",
+      "indices": ["my_index"],
+      "start_time": "2024-01-15T10:30:00Z",
+      "end_time": "2024-01-15T10:35:00Z",
+      "duration_in_millis": 300000,
+      "failures": 0,
+      "shards": {
+        "total": 1,
+        "successful": 1,
+        "failed": 0
+      },
+      "metadata": {
+        "user_metadata": {
+          "description": "Daily backup"
+        },
+        "version": "1.0",
+        "creation_time": "2024-01-15T10:30:00Z"
+      }
+    }
+  ]
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_snapshot/my_backup/_all
+```
+
+### GET /_snapshot/{repository}/{snapshot}
+
+Get information about a specific snapshot.
+
+**Response:**
+```json
+{
+  "name": "snapshot_1",
+  "repository": "my_backup",
+  "state": "SUCCESS",
+  "indices": ["my_index"],
+  "start_time": "2024-01-15T10:30:00Z",
+  "end_time": "2024-01-15T10:35:00Z",
+  "duration_in_millis": 300000,
+  "failures": 0,
+  "shards": {
+    "total": 1,
+    "successful": 1,
+    "failed": 0
+  },
+  "metadata": {
+    "user_metadata": {
+      "description": "Daily backup"
+    },
+    "version": "1.0",
+    "creation_time": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_snapshot/my_backup/snapshot_1
+```
+
+### DELETE /_snapshot/{repository}/{snapshot}
+
+Delete a snapshot.
+
+**Response:**
+```json
+{
+  "acknowledged": true
+}
+```
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:9200/_snapshot/my_backup/snapshot_1
+```
+
+### GET /_snapshot/{repository}/_stats
+
+Get snapshot statistics for a repository.
+
+**Response:**
+```json
+{
+  "stats": {
+    "total_snapshots": 5,
+    "total_size": 1048576,
+    "successful_snapshots": 4,
+    "failed_snapshots": 1,
+    "in_progress_snapshots": 0
+  }
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_snapshot/my_backup/_stats
+```
+
+### GET /_snapshot/_stats
+
+Get global snapshot statistics across all repositories.
+
+**Response:**
+```json
+{
+  "stats": {
+    "total_snapshots": 10,
+    "total_size": 2097152,
+    "successful_snapshots": 8,
+    "failed_snapshots": 2,
+    "in_progress_snapshots": 0
+  }
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_snapshot/_stats
+```
+
 ### POST /_snapshot/{repository}/{snapshot}
 
 Create a snapshot. `search`: Semantic search

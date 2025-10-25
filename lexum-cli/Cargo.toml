@@ -47,6 +47,9 @@ colored = "2.1"
 # Table formatting
 comfy-table = "7.1"
 
+# Date/time handling
+chrono = { version = "0.4", features = ["serde"] }
+
 [dev-dependencies]
 tempfile = { workspace = true }
 

@@ -4,10 +4,10 @@ Command-line interface for the Lexum search engine.
 
 ## Features
 
-- **Interactive REPL**: Start an interactive shell for exploring Lexum
-- **Index Management**: Create, list, and delete indices
+- **Interactive REPL**: Start an interactive shell for exploring - **Index Management**: Create, list, and delete indices
 - **Document Operations**: Add and retrieve documents
 - **Search**: Execute search queries from the command line
+- **Snapshot Management**: Create, list, and manage snapshotsmand line
 - **Colored Output**: Beautiful terminal output with syntax highlighting
 - **Command History**: Navigate previous commands with arrow keys
 
@@ -55,15 +55,37 @@ lexum index delete my_index
 # Add document from JSON file
 lexum doc add my_index --file document.json
 
-# Get document by ID
-lexum doc get my_index doc_123
-```
-
-### Search
+# G### Search
 
 ```bash
 # Search documents
 lexum search my_index "search query" --limit 20
+
+# Match all documents
+lexum search my_index "*"
+```
+
+### Snapshot Management
+
+```bash
+# List snapshot repositories
+lexum snapshot list-repos
+
+# List snapshots in a repository
+lexum snapshot list my_repo
+
+# Get snapshot information
+lexum snapshot get my_repo snapshot_1
+
+# Create a snapshot
+lexum snapshot create my_repo backup_2024 --indices index1,index2 --wait
+
+# Delete a snapshot
+lexum snapshot delete my_repo old_backup
+
+# Get repository information
+lexum snapshot repo my_repo
+```-limit 20
 
 # Match all documents
 lexum search my_index "*"

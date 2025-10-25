@@ -34,7 +34,7 @@ impl Completer for LexumHelper {
 
         if line.trim().is_empty() || !line.contains(' ') {
             // First word - suggest commands
-            let commands = vec!["help", "exit", "quit", "index", "doc", "search", "server"];
+            let commands = vec!["help", "exit", "quit", "index", "doc", "search", "server", "snapshot"];
 
             for cmd in commands {
                 if cmd.starts_with(line.trim()) {
@@ -94,6 +94,17 @@ impl Completer for LexumHelper {
                     }
                     "server" => {
                         let subcommands = vec!["start", "stop", "status", "config"];
+                        for subcmd in subcommands {
+                            if subcmd.starts_with(line.trim()) {
+                                all_candidates.push(Pair {
+                                    display: subcmd.to_string(),
+                                    replacement: subcmd.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    "snapshot" => {
+                        let subcommands = vec!["list-repos", "list", "get", "create", "delete", "repo"];
                         for subcmd in subcommands {
                             if subcmd.starts_with(line.trim()) {
                                 all_candidates.push(Pair {
@@ -498,6 +509,78 @@ impl ReplSession {
                     _ => println!("Unknown server command: {}", parts[1]),
                 }
             }
+            "snapshot" => {
+                if parts.len() < 2 {
+                    println!("Usage: snapshot <list-repos|list|get|create|delete|repo> [args]");
+                    return Ok(());
+                }
+
+                match parts[1] {
+                    "list-repos" => {
+                        crate::commands::snapshot::list_repositories(&self.url).await?;
+                    }
+                    "list" => {
+                        if parts.len() < 3 {
+                            println!("Usage: snapshot list <repository>");
+                            return Ok(());
+                        }
+                        crate::commands::snapshot::list_snapshots(&self.url, parts[2]).await?;
+                    }
+                    "get" => {
+                        if parts.len() < 4 {
+                            println!("Usage: snapshot get <repository> <snapshot>");
+                            return Ok(());
+                        }
+                        crate::commands::snapshot::get_snapshot(&self.url, parts[2], parts[3]).await?;
+                    }
+                    "create" => {
+                        if parts.len() < 4 {
+                            println!("Usage: snapshot create <repository> <snapshot> [--indices INDEX1,INDEX2] [--wait]");
+                            return Ok(());
+                        }
+                        let repository = parts[2];
+                        let snapshot = parts[3];
+                        let mut indices = Vec::new();
+                        let mut wait = false;
+                        
+                        let mut i = 4;
+                        while i < parts.len() {
+                            match parts[i] {
+                                "--indices" => {
+                                    if i + 1 < parts.len() {
+                                        indices.extend(parts[i + 1].split(',').map(|s| s.trim().to_string()));
+                                        i += 2;
+                                    } else {
+                                        i += 1;
+                                    }
+                                }
+                                "--wait" => {
+                                    wait = true;
+                                    i += 1;
+                                }
+                                _ => i += 1,
+                            }
+                        }
+                        
+                        crate::commands::snapshot::create_snapshot(&self.url, repository, snapshot, indices, wait).await?;
+                    }
+                    "delete" => {
+                        if parts.len() < 4 {
+                            println!("Usage: snapshot delete <repository> <snapshot>");
+                            return Ok(());
+                        }
+                        crate::commands::snapshot::delete_snapshot(&self.url, parts[2], parts[3]).await?;
+                    }
+                    "repo" => {
+                        if parts.len() < 3 {
+                            println!("Usage: snapshot repo <repository>");
+                            return Ok(());
+                        }
+                        crate::commands::snapshot::get_repository(&self.url, parts[2]).await?;
+                    }
+                    _ => println!("Unknown snapshot command: {}", parts[1]),
+                }
+            }
             _ => {
                 println!("Unknown command: {}", parts[0]);
                 println!("Type 'help' for available commands");
@@ -612,6 +695,33 @@ impl ReplSession {
         );
         println!();
 
+        println!("{}", "Snapshot Management:".bright_cyan().bold());
+        println!(
+            "  {} - List snapshot repositories",
+            "snapshot list-repos".bright_yellow()
+        );
+        println!(
+            "  {} - List snapshots in repository",
+            "snapshot list <repository>".bright_yellow()
+        );
+        println!(
+            "  {} - Get snapshot information",
+            "snapshot get <repository> <snapshot>".bright_yellow()
+        );
+        println!(
+            "  {} - Create a snapshot",
+            "snapshot create <repository> <snapshot> [--indices INDEX1,INDEX2] [--wait]".bright_yellow()
+        );
+        println!(
+            "  {} - Delete a snapshot",
+            "snapshot delete <repository> <snapshot>".bright_yellow()
+        );
+        println!(
+            "  {} - Get repository information",
+            "snapshot repo <repository>".bright_yellow()
+        );
+        println!();
+
         println!("{}", "Tips:".bright_cyan().bold());
         println!("  • Use Tab for command completion");
         println!("  • Use ↑/↓ arrows for command history");
@@ -620,7 +730,7 @@ impl ReplSession {
     }
 
     fn suggest_commands(input: &str) -> Vec<String> {
-        let commands = vec!["help", "exit", "quit", "index", "doc", "search", "server"];
+        let commands = vec!["help", "exit", "quit", "index", "doc", "search", "server", "snapshot"];
 
         let mut suggestions = Vec::new();
         for cmd in commands {

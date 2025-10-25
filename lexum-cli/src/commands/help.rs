@@ -28,6 +28,10 @@ pub fn show_comprehensive_help() {
     show_search_help();
     println!();
 
+    // Snapshot Commands
+    show_snapshot_help();
+    println!();
+
     // Examples
     show_examples();
 }
@@ -149,6 +153,56 @@ fn show_search_help() {
     println!(
         "      {}",
         "lexum search my_index \"*\" --limit 100".bright_green()
+    );
+}
+
+fn show_snapshot_help() {
+    println!("{}", "SNAPSHOT MANAGEMENT:".bright_cyan().bold());
+    println!(
+        "  {}    List snapshot repositories",
+        "snapshot list-repos".bright_yellow()
+    );
+    println!(
+        "  {}    List snapshots in repository",
+        "snapshot list <REPOSITORY>".bright_yellow()
+    );
+    println!(
+        "  {}    Get snapshot information",
+        "snapshot get <REPOSITORY> <SNAPSHOT>".bright_yellow()
+    );
+    println!(
+        "  {}    Create a snapshot",
+        "snapshot create <REPOSITORY> <SNAPSHOT> [--indices INDEX1,INDEX2] [--wait]".bright_yellow()
+    );
+    println!(
+        "  {}    Delete a snapshot",
+        "snapshot delete <REPOSITORY> <SNAPSHOT>".bright_yellow()
+    );
+    println!(
+        "  {}    Get repository information",
+        "snapshot repo <REPOSITORY>".bright_yellow()
+    );
+    println!();
+    println!("    Examples:");
+    println!(
+        "      {}",
+        "lexum snapshot list-repos".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum snapshot list my_repo".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum snapshot create my_repo backup_2024 --indices index1,index2 --wait".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum snapshot get my_repo backup_2024".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum snapshot delete my_repo old_backup".bright_green()
     );
 }
 
