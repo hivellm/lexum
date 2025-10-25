@@ -15,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = ServerConfig {
         bind_addr: "127.0.0.1:9200".parse().unwrap(),
-        data_dir: "./data".to_string(),
+        data_dir: env::var("LEXUM_DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
         config_path,
     };
 
