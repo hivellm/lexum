@@ -63,6 +63,23 @@ enum Commands {
         fields: Option<Vec<String>>,
     },
 
+    /// LQL (Lexum Query Language) commands
+    Lql {
+        /// Index name
+        index: String,
+        /// LQL query string or file path (use @file for file input)
+        query: String,
+        /// Limit results
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+        /// Sort by field (format: field:asc or field:desc)
+        #[arg(long)]
+        sort: Option<Vec<String>>,
+        /// Fields to return
+        #[arg(long)]
+        fields: Option<Vec<String>>,
+    },
+
     /// Snapshot management commands
     Snapshot {
         #[command(subcommand)]
@@ -298,6 +315,40 @@ async fn main() -> Result<()> {
                     fields,
                 )
                 .await?;
+            }
+        }
+        Some(Commands::Lql {
+            index,
+            query,
+            limit,
+            sort,
+            fields,
+        }) => {
+            if let Some(file_path) = query.strip_prefix('@') {
+                // LQL query from file
+                commands::lql::lql_from_file(&cli.url, &index, file_path, limit).await?;
+            } else {
+                // Parse sort options
+                let sort_options = sort.map(|sort_fields| {
+                    sort_fields
+                        .into_iter()
+                        .map(|s| {
+                            if s.ends_with(":asc") {
+                                let field = s[..s.len() - 4].to_string();
+                                (field, commands::search::SortOrder::Asc)
+                            } else if s.ends_with(":desc") {
+                                let field = s[..s.len() - 5].to_string();
+                                (field, commands::search::SortOrder::Desc)
+                            } else {
+                                (s, commands::search::SortOrder::Desc) // Default to desc
+                            }
+                        })
+                        .collect()
+                });
+
+                // Direct LQL query with advanced options
+                commands::lql::lql_advanced(&cli.url, &index, &query, limit, sort_options, fields)
+                    .await?;
             }
         }
         Some(Commands::Snapshot { action }) => match action {

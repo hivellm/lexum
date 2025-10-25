@@ -35,6 +35,9 @@ pub mod server;
 /// Load testing framework
 pub mod load_test;
 
+/// HTTP load testing framework
+pub mod http_load_test;
+
 // Re-export commonly used items
 pub use error::{ApiError, ApiResult};
 pub use server::Server;

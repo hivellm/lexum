@@ -41,6 +41,10 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 dashmap = { workspace = true }
 clap = { version = "4.4", features = ["derive"] }
+sys-info = "0.9"
+rand = "0.8"
+reqwest = { version = "0.12", features = ["json"] }
+url = "2.5"
 
 # OpenAPI generation
 utoipa = { workspace = true }
@@ -66,3 +70,7 @@ path = "src/main.rs"
 [[bin]]
 name = "lexum-load-test"
 path = "src/bin/load_test.rs"
+
+[[bin]]
+name = "lexum-http-load-test"
+path = "src/bin/http_load_test.rs"

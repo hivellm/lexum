@@ -410,7 +410,7 @@ async fn test_snapshot_deletion_workflow() {
         .unwrap();
     let snapshots_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let snapshots_array = snapshots_json["snapshots"].as_array().unwrap();
-    assert!(snapshots_array.len() >= 1);
+    assert!(!snapshots_array.is_empty());
 
     // Step 4: Delete the snapshot
     let delete_response = app

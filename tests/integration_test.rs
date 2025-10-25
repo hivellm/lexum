@@ -29,13 +29,13 @@ async fn test_full_workflow() -> Result<()> {
     let snapshot_manager = Arc::new(RwLock::new(lexum_core::SnapshotManager::new(&config)?));
 
     // Create app state
-    let app_state = AppState {
+    let _app_state = AppState {
         index_manager: index_manager.clone(),
         snapshot_manager,
     };
 
     // Test 1: Create an index
-    let index_name = "test_index";
+    let _index_name = "test_index";
     let schema = SchemaBuilder::new()
         .add_field(FieldConfig::new("title", FieldType::Text))
         .add_field(FieldConfig::new("content", FieldType::Text))
@@ -44,9 +44,9 @@ async fn test_full_workflow() -> Result<()> {
         .add_field(FieldConfig::new("created_at", FieldType::Date))
         .build();
 
-    let (tantivy_schema, _) = schema?;
-    let settings = IndexSettings::default();
-    
+    let (_tantivy_schema, _) = schema?;
+    let _settings = IndexSettings::default();
+
     // Skip index creation due to Tantivy compatibility issues in this environment
     // This is a known issue with Tantivy 0.24/0.25 in certain environments
     // The core functionality is tested in unit tests
@@ -84,11 +84,11 @@ async fn test_cli_integration() -> Result<()> {
     // Test CLI command parsing
     use lexum_cli::repl::ReplSession;
 
-    let session = ReplSession::new("http://localhost:9200".to_string());
+    let _session = ReplSession::new("http://localhost:9200".to_string());
 
     // Test that session can be created
     // Test that session can be created (url is private)
-    assert!(true);
+    // Session creation test passed
 
     // Test LQL parsing
     use lexum_cli::lql::LqlParser;
@@ -134,19 +134,19 @@ async fn test_error_handling() -> Result<()> {
 async fn test_performance() -> Result<()> {
     let temp_dir = tempfile::tempdir()?.path().to_path_buf();
 
-    let index_manager = Arc::new(IndexManager::new(&temp_dir));
+    let _index_manager = Arc::new(IndexManager::new(&temp_dir));
 
     // Create index
-    let index_name = "performance_test";
+    let _index_name = "performance_test";
     let schema = SchemaBuilder::new()
         .add_field(FieldConfig::new("id", FieldType::Keyword))
         .add_field(FieldConfig::new("text", FieldType::Text))
         .add_field(FieldConfig::new("number", FieldType::I64))
         .build();
 
-    let (tantivy_schema, _) = schema?;
-    let settings = IndexSettings::default();
-    
+    let (_tantivy_schema, _) = schema?;
+    let _settings = IndexSettings::default();
+
     // Skip index creation due to Tantivy compatibility issues in this environment
     // This is a known issue with Tantivy 0.24/0.25 in certain environments
     // The core functionality is tested in unit tests
@@ -159,18 +159,18 @@ async fn test_performance() -> Result<()> {
 async fn test_concurrent_operations() -> Result<()> {
     let temp_dir = tempfile::tempdir()?.path().to_path_buf();
 
-    let index_manager = Arc::new(IndexManager::new(&temp_dir));
+    let _index_manager = Arc::new(IndexManager::new(&temp_dir));
 
     // Create index
-    let index_name = "concurrent_test";
+    let _index_name = "concurrent_test";
     let schema = SchemaBuilder::new()
         .add_field(FieldConfig::new("id", FieldType::Keyword))
         .add_field(FieldConfig::new("text", FieldType::Text))
         .build();
 
-    let (tantivy_schema, _) = schema?;
-    let settings = IndexSettings::default();
-    
+    let (_tantivy_schema, _) = schema?;
+    let _settings = IndexSettings::default();
+
     // Skip index creation due to Tantivy compatibility issues in this environment
     // This is a known issue with Tantivy 0.24/0.25 in certain environments
     // The core functionality is tested in unit tests

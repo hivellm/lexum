@@ -42,6 +42,7 @@ use utoipa_swagger_ui::SwaggerUi;
         crate::handlers::snapshot::get_global_snapshot_stats,
 
         // Admin operations
+        crate::handlers::admin::get_cluster_info,
         crate::handlers::admin::get_cluster_health,
         crate::handlers::admin::get_cluster_stats,
         crate::handlers::admin::get_node_stats,
@@ -90,10 +91,15 @@ use utoipa_swagger_ui::SwaggerUi;
             lexum_core::SnapshotStats,
 
             // Admin schemas
+            crate::handlers::admin::ClusterInfo,
+            crate::handlers::admin::ClusterVersion,
             crate::handlers::admin::ClusterHealth,
             crate::handlers::admin::ClusterStats,
             crate::handlers::admin::NodeStats,
             crate::handlers::admin::ClusterSettings,
+            crate::handlers::admin::PersistenceSettings,
+            crate::handlers::admin::SnapshotSettings,
+            crate::handlers::admin::NetworkSettings,
             crate::handlers::admin::UpdateClusterSettingsRequest,
 
             // Error schemas

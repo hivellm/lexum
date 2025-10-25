@@ -344,7 +344,6 @@ pub fn print_detailed_results(name: &str, result: &LoadTestResults) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[tokio::test]
     async fn test_load_test_runner() -> Result<()> {

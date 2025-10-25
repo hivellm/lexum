@@ -344,7 +344,7 @@ impl SnapshotRepository for FsSnapshotRepository {
         // Restore each index
         for index_name in &indices_to_restore {
             let index_snapshot_path = format!("{}/{}", snapshot_path, index_name.as_str());
-            
+
             // Check if index snapshot exists
             if fs::metadata(&index_snapshot_path).await.is_err() {
                 if !request.ignore_unavailable {
@@ -364,7 +364,10 @@ impl SnapshotRepository for FsSnapshotRepository {
                 }
             }
 
-            match self.restore_index_from_snapshot(index_name, &index_snapshot_path, &request).await {
+            match self
+                .restore_index_from_snapshot(index_name, &index_snapshot_path, &request)
+                .await
+            {
                 Ok(()) => {
                     restored_indices.push(index_name.clone());
                     tracing::info!(
@@ -380,7 +383,7 @@ impl SnapshotRepository for FsSnapshotRepository {
                         error = %e,
                         "Failed to restore index"
                     );
-                    
+
                     if !request.ignore_unavailable {
                         return Err(e);
                     } else {
@@ -786,7 +789,7 @@ impl FsSnapshotRepository {
         // Check if there are any subdirectories (index snapshots) or files
         let mut entries = fs::read_dir(&snapshot_path).await?;
         let mut has_content = false;
-        
+
         while let Some(entry) = entries.next_entry().await? {
             let entry_path = entry.path();
             if entry.file_type().await?.is_dir() {
@@ -855,55 +858,57 @@ impl FsSnapshotRepository {
         request: &RestoreSnapshotRequest,
     ) -> Result<()> {
         // Determine the target index name (considering rename patterns)
-        let target_index_name = if let (Some(pattern), Some(replacement)) = 
-            (&request.rename_pattern, &request.rename_replacement) 
+        let target_index_name = if let (Some(pattern), Some(replacement)) =
+            (&request.rename_pattern, &request.rename_replacement)
         {
             let regex = regex::Regex::new(pattern)
-                .map_err(|e| Error::Validation(format!("Invalid rename pattern: {}", e)))?;
-            regex.replace_all(index_name.as_str(), replacement).to_string()
+                .map_err(|e| Error::Validation(format!("Invalid rename pattern: {e}")))?;
+            regex
+                .replace_all(index_name.as_str(), replacement)
+                .to_string()
         } else {
             index_name.as_str().to_string()
         };
 
         // Read and validate manifest
-        let manifest_path = format!("{}/manifest.json", snapshot_path);
-        let _manifest_content = fs::read_to_string(&manifest_path).await?;
-        let _manifest: serde_json::Value = serde_json::from_str(&_manifest_content)
-            .map_err(|e| Error::Validation(format!("Invalid manifest format: {}", e)))?;
+        let manifest_path = format!("{snapshot_path}/manifest.json");
+        let manifest_content = fs::read_to_string(&manifest_path).await?;
+        let _manifest: serde_json::Value = serde_json::from_str(&manifest_content)
+            .map_err(|e| Error::Validation(format!("Invalid manifest format: {e}")))?;
 
         // Read index metadata
-        let index_metadata_path = format!("{}/index.json", snapshot_path);
+        let index_metadata_path = format!("{snapshot_path}/index.json");
         let index_metadata_content = fs::read_to_string(&index_metadata_path).await?;
         let index_metadata: serde_json::Value = serde_json::from_str(&index_metadata_content)
-            .map_err(|e| Error::Validation(format!("Invalid index metadata format: {}", e)))?;
+            .map_err(|e| Error::Validation(format!("Invalid index metadata format: {e}")))?;
 
         // Read schema data
-        let schema_path = format!("{}/schema.json", snapshot_path);
+        let schema_path = format!("{snapshot_path}/schema.json");
         let schema_content = fs::read_to_string(&schema_path).await?;
         let schema_data: serde_json::Value = serde_json::from_str(&schema_content)
-            .map_err(|e| Error::Validation(format!("Invalid schema format: {}", e)))?;
+            .map_err(|e| Error::Validation(format!("Invalid schema format: {e}")))?;
 
         // Read segments data
-        let segments_path = format!("{}/segments.json", snapshot_path);
+        let segments_path = format!("{snapshot_path}/segments.json");
         let segments_content = fs::read_to_string(&segments_path).await?;
         let segments_data: serde_json::Value = serde_json::from_str(&segments_content)
-            .map_err(|e| Error::Validation(format!("Invalid segments format: {}", e)))?;
+            .map_err(|e| Error::Validation(format!("Invalid segments format: {e}")))?;
 
         // Read and decompress data
-        let data_path = format!("{}/data.bin", snapshot_path);
+        let data_path = format!("{snapshot_path}/data.bin");
         let compressed_data = fs::read(&data_path).await?;
         let decompressed_data = self.decompress_data(&compressed_data).await?;
 
         // Validate checksum if available
-        let checksum_path = format!("{}/checksum.sha256", snapshot_path);
-        if fs::metadata(&checksum_path).await.is_ok() {
-            if !self.validate_checksum(snapshot_path).await? {
-                return Err(Error::Validation("Checksum validation failed".to_string()));
-            }
+        let checksum_path = format!("{snapshot_path}/checksum.sha256");
+        if fs::metadata(&checksum_path).await.is_ok()
+            && !self.validate_checksum(snapshot_path).await?
+        {
+            return Err(Error::Validation("Checksum validation failed".to_string()));
         }
 
         // Create target index directory
-        let target_index_path = format!("./data/{}", target_index_name);
+        let target_index_path = format!("./data/{target_index_name}");
         fs::create_dir_all(&target_index_path).await?;
 
         // Restore index files
@@ -913,7 +918,8 @@ impl FsSnapshotRepository {
             &index_metadata,
             &schema_data,
             &segments_data,
-        ).await?;
+        )
+        .await?;
 
         tracing::info!(
             source_index = %index_name.as_str(),
@@ -947,8 +953,8 @@ impl FsSnapshotRepository {
 
     /// Validate checksum for snapshot files
     async fn validate_checksum(&self, snapshot_path: &str) -> Result<bool> {
-        let checksum_path = format!("{}/checksum.sha256", snapshot_path);
-        
+        let checksum_path = format!("{snapshot_path}/checksum.sha256");
+
         if fs::metadata(&checksum_path).await.is_err() {
             return Ok(true); // No checksum file, skip validation
         }
@@ -971,19 +977,19 @@ impl FsSnapshotRepository {
         segments_data: &serde_json::Value,
     ) -> Result<()> {
         // Write restored data
-        let data_file = format!("{}/restored_data.json", target_path);
+        let data_file = format!("{target_path}/restored_data.json");
         fs::write(&data_file, data).await?;
 
         // Write index metadata
-        let index_file = format!("{}/index_metadata.json", target_path);
+        let index_file = format!("{target_path}/index_metadata.json");
         fs::write(&index_file, serde_json::to_string_pretty(index_metadata)?).await?;
 
         // Write schema
-        let schema_file = format!("{}/schema.json", target_path);
+        let schema_file = format!("{target_path}/schema.json");
         fs::write(&schema_file, serde_json::to_string_pretty(schema_data)?).await?;
 
         // Write segments
-        let segments_file = format!("{}/segments.json", target_path);
+        let segments_file = format!("{target_path}/segments.json");
         fs::write(&segments_file, serde_json::to_string_pretty(segments_data)?).await?;
 
         // Create a restore manifest
@@ -998,13 +1004,13 @@ impl FsSnapshotRepository {
                     "size": data.len()
                 },
                 {
-                    "name": "index_metadata.json", 
+                    "name": "index_metadata.json",
                     "type": "metadata",
                     "size": serde_json::to_string_pretty(index_metadata)?.len()
                 },
                 {
                     "name": "schema.json",
-                    "type": "schema", 
+                    "type": "schema",
                     "size": serde_json::to_string_pretty(schema_data)?.len()
                 },
                 {
@@ -1015,8 +1021,12 @@ impl FsSnapshotRepository {
             ]
         });
 
-        let manifest_file = format!("{}/restore_manifest.json", target_path);
-        fs::write(&manifest_file, serde_json::to_string_pretty(&restore_manifest)?).await?;
+        let manifest_file = format!("{target_path}/restore_manifest.json");
+        fs::write(
+            &manifest_file,
+            serde_json::to_string_pretty(&restore_manifest)?,
+        )
+        .await?;
 
         Ok(())
     }
@@ -1379,9 +1389,7 @@ mod tests {
         let snapshot_name = SnapshotName::new("nonexistent_snapshot");
         let restore_request = RestoreSnapshotRequest::default();
 
-        let result = repo
-            .restore_snapshot(snapshot_name, restore_request)
-            .await;
+        let result = repo.restore_snapshot(snapshot_name, restore_request).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
@@ -1416,11 +1424,14 @@ mod tests {
         repo.save_snapshot_metadata(&snapshot_info).await.unwrap();
 
         let restore_request = RestoreSnapshotRequest::default();
-        let result = repo
-            .restore_snapshot(snapshot_name, restore_request)
-            .await;
+        let result = repo.restore_snapshot(snapshot_name, restore_request).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Cannot restore snapshot"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Cannot restore snapshot")
+        );
     }
 
     #[tokio::test]
@@ -1453,9 +1464,7 @@ mod tests {
             ignore_unavailable: true,
             ..Default::default()
         };
-        let result = repo
-            .restore_snapshot(snapshot_name, restore_request)
-            .await;
+        let result = repo.restore_snapshot(snapshot_name, restore_request).await;
         assert!(result.is_ok());
     }
 
@@ -1490,10 +1499,13 @@ mod tests {
             rename_replacement: Some("new_index".to_string()),
             ..Default::default()
         };
-        let result = repo
-            .restore_snapshot(snapshot_name, restore_request)
-            .await;
+        let result = repo.restore_snapshot(snapshot_name, restore_request).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid rename pattern"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Invalid rename pattern")
+        );
     }
 }

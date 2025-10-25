@@ -846,8 +846,8 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         let deserialized: BulkResponse = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(response.errors, false);
-        assert_eq!(deserialized.errors, false);
+        assert!(!response.errors);
+        assert!(!deserialized.errors);
         assert_eq!(response.items.len(), 2);
     }
 }
