@@ -337,3 +337,178 @@ async fn test_create_repository_missing_required_fields() {
     // Should fail because type field is missing
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[tokio::test]
+async fn test_snapshot_deletion_workflow() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    // Step 1: Create a snapshot repository
+    let repo_request = serde_json::json!({
+        "type": "fs",
+        "settings": {
+            "location": "/tmp/test_snapshots",
+            "compress": "true"
+        }
+    });
+
+    let create_repo_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/_snapshot/test_repo")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&repo_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(create_repo_response.status(), StatusCode::OK);
+
+    // Step 2: Create a snapshot
+    let snapshot_request = serde_json::json!({
+        "indices": ["test_index"],
+        "wait_for_completion": true,
+        "ignore_unavailable": false,
+        "include_global_state": true
+    });
+
+    let create_snapshot_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/_snapshot/test_repo/test_snapshot")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&snapshot_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(create_snapshot_response.status(), StatusCode::OK);
+
+    // Step 3: Verify snapshot exists by listing snapshots
+    let list_snapshots_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/_snapshot/test_repo/_all")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(list_snapshots_response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(list_snapshots_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let snapshots_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let snapshots_array = snapshots_json["snapshots"].as_array().unwrap();
+    assert!(snapshots_array.len() >= 1);
+
+    // Step 4: Delete the snapshot
+    let delete_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/_snapshot/test_repo/test_snapshot")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(delete_response.status(), StatusCode::OK);
+
+    // Step 5: Verify snapshot is deleted by checking the response
+    let body = axum::body::to_bytes(delete_response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let delete_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(delete_json["acknowledged"], true);
+
+    // Step 6: Verify snapshot no longer exists by trying to get it
+    let get_snapshot_response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/_snapshot/test_repo/test_snapshot")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(get_snapshot_response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_delete_nonexistent_snapshot() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    // Create a repository first
+    let repo_request = serde_json::json!({
+        "type": "fs",
+        "settings": {
+            "location": "/tmp/test_snapshots",
+            "compress": "true"
+        }
+    });
+
+    let create_repo_response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/_snapshot/test_repo")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&repo_request).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(create_repo_response.status(), StatusCode::OK);
+
+    // Try to delete a non-existent snapshot
+    let delete_response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/_snapshot/test_repo/nonexistent_snapshot")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(delete_response.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_delete_snapshot_from_nonexistent_repository() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    // Try to delete a snapshot from a non-existent repository
+    let delete_response = app
+        .oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri("/_snapshot/nonexistent_repo/test_snapshot")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(delete_response.status(), StatusCode::NOT_FOUND);
+}
