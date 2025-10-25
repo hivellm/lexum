@@ -15,3 +15,6 @@ pub mod formatter;
 
 /// REPL session
 pub mod repl;
+
+/// LQL (Lexum Query Language) parser and executor
+pub mod lql;

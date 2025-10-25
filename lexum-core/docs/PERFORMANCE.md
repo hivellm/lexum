@@ -148,6 +148,94 @@ memory:
 - **Logging**: Structured JSON logs with performance data
 - **Health Checks**: Automated performance validation
 
+### Load Testing
+
+Lexum includes a comprehensive load testing framework accessible via the `lexum-load-test` binary:
+
+```bash
+# Run a basic load test
+lexum-load-test --clients 10 --requests 100 --duration 60
+
+# Run the full test suite
+lexum-load-test --suite
+
+# Custom load test configuration
+lexum-load-test --clients 50 --requests 200 --delay 50 --duration 120
+```
+
+#### Load Test Features
+
+- **Concurrent Client Simulation**: Multiple clients making simultaneous requests
+- **Configurable Workloads**: Adjustable client count, request rate, and duration
+- **Performance Metrics**: Response time percentiles, throughput, success rates
+- **Test Suites**: Predefined light, medium, and heavy load tests
+- **Real-time Monitoring**: Live performance data during test execution
+
+#### Load Test Results
+
+The load testing framework provides detailed performance metrics:
+
+- **Total Requests**: Number of requests executed
+- **Success Rate**: Percentage of successful requests
+- **Response Times**: Average, min, max, P95, P99 latencies
+- **Throughput**: Requests per second (RPS)
+- **Test Duration**: Actual test execution time
+
+## Running Performance Benchmarks
+
+### Using the Load Testing Framework
+
+1. **Install the load testing tool**:
+   ```bash
+   cargo build --package lexum-server --bin lexum-load-test
+   ```
+
+2. **Run basic performance tests**:
+   ```bash
+   # Light load test (5 clients, 50 requests each)
+   lexum-load-test --clients 5 --requests 50 --duration 30
+   
+   # Medium load test (20 clients, 100 requests each)
+   lexum-load-test --clients 20 --requests 100 --duration 60
+   
+   # Heavy load test (50 clients, 200 requests each)
+   lexum-load-test --clients 50 --requests 200 --duration 120
+   ```
+
+3. **Run the complete test suite**:
+   ```bash
+   lexum-load-test --suite
+   ```
+
+4. **Custom performance testing**:
+   ```bash
+   # High concurrency test
+   lexum-load-test --clients 100 --requests 1000 --delay 10
+   
+   # Sustained load test
+   lexum-load-test --clients 20 --requests 500 --duration 300
+   ```
+
+### Benchmark Interpretation
+
+- **Response Time Percentiles**: P95 and P99 indicate tail latency
+- **Throughput (RPS)**: Higher is better, indicates system capacity
+- **Success Rate**: Should be 100% for healthy systems
+- **Memory Usage**: Monitor for memory leaks during long tests
+
+### Performance Regression Testing
+
+Use the load testing framework in CI/CD pipelines:
+
+```yaml
+# Example GitHub Actions workflow
+- name: Performance Test
+  run: |
+    cargo build --package lexum-server --bin lexum-load-test
+    ./target/debug/lexum-load-test --clients 10 --requests 100 --duration 30
+    # Fail if P95 latency > 10ms or success rate < 99%
+```
+
 ## Best Practices
 
 ### Query Optimization
@@ -243,6 +331,7 @@ memory:
 - **Prometheus**: Metrics collection
 - **Grafana**: Performance visualization
 - **Custom Tools**: Lexum-specific performance tests
+- **Load Testing Framework**: Built-in load testing tool (`lexum-load-test`)
 
 ---
 

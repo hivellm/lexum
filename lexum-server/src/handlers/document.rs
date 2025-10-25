@@ -724,7 +724,7 @@ mod tests {
         assert_eq!(response.errors, deserialized.errors);
         assert_eq!(response.took_ms, deserialized.took_ms);
         assert_eq!(response.items.len(), deserialized.items.len());
-        
+
         // Check that we have both successful and failed operations
         let success_count = response.items.iter().filter(|item| item.success).count();
         let failure_count = response.items.iter().filter(|item| !item.success).count();
@@ -757,7 +757,10 @@ mod tests {
         let json = serde_json::to_string(&operation).unwrap();
         let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
 
-        assert!(matches!(deserialized, BulkOperation::Index { id: None, .. }));
+        assert!(matches!(
+            deserialized,
+            BulkOperation::Index { id: None, .. }
+        ));
     }
 
     #[test]
@@ -808,9 +811,7 @@ mod tests {
 
     #[test]
     fn test_bulk_request_empty_operations() {
-        let request = BulkRequest {
-            operations: vec![],
-        };
+        let request = BulkRequest { operations: vec![] };
 
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: BulkRequest = serde_json::from_str(&json).unwrap();

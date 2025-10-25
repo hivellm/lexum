@@ -393,19 +393,19 @@ mod tests {
     fn test_snapshot_info_serialization() {
         let mut user_metadata = HashMap::new();
         user_metadata.insert("description".to_string(), "test snapshot".to_string());
-        
+
         let metadata = SnapshotMetadata {
             user_metadata,
             version: "1.0".to_string(),
             creation_time: "2024-01-01T00:00:00Z".to_string(),
         };
-        
+
         let shards = ShardInfo {
             total: 5,
             successful: 5,
             failed: 0,
         };
-        
+
         let snapshot = SnapshotInfo {
             name: "test_snapshot".to_string(),
             repository: "test_repo".to_string(),
@@ -418,10 +418,10 @@ mod tests {
             shards,
             metadata,
         };
-        
+
         let json = serde_json::to_string(&snapshot).unwrap();
         let deserialized: SnapshotInfo = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(snapshot.name, deserialized.name);
         assert_eq!(snapshot.repository, deserialized.repository);
         assert_eq!(snapshot.state, deserialized.state);
@@ -434,7 +434,7 @@ mod tests {
     fn test_repository_info_serialization() {
         let mut settings = HashMap::new();
         settings.insert("location".to_string(), "/backup".to_string());
-        
+
         let repo = RepositoryInfo {
             name: "test_repo".to_string(),
             repository_type: "fs".to_string(),
@@ -442,10 +442,10 @@ mod tests {
             snapshot_count: 5,
             total_size: 1024000,
         };
-        
+
         let json = serde_json::to_string(&repo).unwrap();
         let deserialized: RepositoryInfo = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(repo.name, deserialized.name);
         assert_eq!(repo.repository_type, deserialized.repository_type);
         assert_eq!(repo.snapshot_count, deserialized.snapshot_count);
@@ -456,19 +456,19 @@ mod tests {
     fn test_snapshot_list_response_serialization() {
         let mut user_metadata = HashMap::new();
         user_metadata.insert("description".to_string(), "test".to_string());
-        
+
         let metadata = SnapshotMetadata {
             user_metadata,
             version: "1.0".to_string(),
             creation_time: "2024-01-01T00:00:00Z".to_string(),
         };
-        
+
         let shards = ShardInfo {
             total: 3,
             successful: 3,
             failed: 0,
         };
-        
+
         let snapshot = SnapshotInfo {
             name: "snapshot1".to_string(),
             repository: "repo1".to_string(),
@@ -481,14 +481,14 @@ mod tests {
             shards,
             metadata,
         };
-        
+
         let response = SnapshotListResponse {
             snapshots: vec![snapshot],
         };
-        
+
         let json = serde_json::to_string(&response).unwrap();
         let deserialized: SnapshotListResponse = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(response.snapshots.len(), deserialized.snapshots.len());
         assert_eq!(response.snapshots[0].name, deserialized.snapshots[0].name);
     }
@@ -500,10 +500,10 @@ mod tests {
             successful: 8,
             failed: 2,
         };
-        
+
         let json = serde_json::to_string(&shards).unwrap();
         let deserialized: ShardInfo = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(shards.total, deserialized.total);
         assert_eq!(shards.successful, deserialized.successful);
         assert_eq!(shards.failed, deserialized.failed);
@@ -514,20 +514,26 @@ mod tests {
         let mut user_metadata = HashMap::new();
         user_metadata.insert("env".to_string(), "production".to_string());
         user_metadata.insert("backup_type".to_string(), "full".to_string());
-        
+
         let metadata = SnapshotMetadata {
             user_metadata,
             version: "2.0".to_string(),
             creation_time: "2024-01-15T12:30:00Z".to_string(),
         };
-        
+
         let json = serde_json::to_string(&metadata).unwrap();
         let deserialized: SnapshotMetadata = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(metadata.version, deserialized.version);
         assert_eq!(metadata.creation_time, deserialized.creation_time);
-        assert_eq!(metadata.user_metadata.len(), deserialized.user_metadata.len());
-        assert_eq!(metadata.user_metadata.get("env"), deserialized.user_metadata.get("env"));
+        assert_eq!(
+            metadata.user_metadata.len(),
+            deserialized.user_metadata.len()
+        );
+        assert_eq!(
+            metadata.user_metadata.get("env"),
+            deserialized.user_metadata.get("env")
+        );
     }
 
     #[test]
@@ -549,12 +555,12 @@ mod tests {
         assert!(formatted.contains("2024-01-01"));
         assert!(formatted.contains("12:30:45"));
         assert!(formatted.contains("UTC"));
-        
+
         // Test with invalid timestamp (should return as-is)
         let invalid_timestamp = "not-a-timestamp";
         let formatted = format_time(invalid_timestamp);
         assert_eq!(formatted, invalid_timestamp);
-        
+
         // Test with different timezone
         let tz_timestamp = "2024-01-01T12:30:45+00:00";
         let formatted = format_time(tz_timestamp);
@@ -566,19 +572,19 @@ mod tests {
     fn test_snapshot_info_with_optional_fields() {
         let mut user_metadata = HashMap::new();
         user_metadata.insert("test".to_string(), "value".to_string());
-        
+
         let metadata = SnapshotMetadata {
             user_metadata,
             version: "1.0".to_string(),
             creation_time: "2024-01-01T00:00:00Z".to_string(),
         };
-        
+
         let shards = ShardInfo {
             total: 1,
             successful: 1,
             failed: 0,
         };
-        
+
         // Test with all optional fields present
         let snapshot_with_optionals = SnapshotInfo {
             name: "test".to_string(),
@@ -592,7 +598,7 @@ mod tests {
             shards: shards.clone(),
             metadata: metadata.clone(),
         };
-        
+
         // Test with optional fields missing
         let snapshot_without_optionals = SnapshotInfo {
             name: "test2".to_string(),
@@ -606,7 +612,7 @@ mod tests {
             shards,
             metadata,
         };
-        
+
         assert!(snapshot_with_optionals.end_time.is_some());
         assert!(snapshot_with_optionals.duration_in_millis.is_some());
         assert!(snapshot_without_optionals.end_time.is_none());
@@ -622,10 +628,10 @@ mod tests {
             snapshot_count: 0,
             total_size: 0,
         };
-        
+
         let json = serde_json::to_string(&repo).unwrap();
         let deserialized: RepositoryInfo = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(repo.settings.len(), 0);
         assert_eq!(deserialized.settings.len(), 0);
         assert_eq!(repo.snapshot_count, 0);
@@ -635,43 +641,55 @@ mod tests {
     #[test]
     fn test_snapshot_states() {
         let states = vec!["Success", "Failed", "InProgress", "Partial", "Unknown"];
-        
+
         for state in states {
             let mut user_metadata = HashMap::new();
             user_metadata.insert("state".to_string(), state.to_string());
-            
+
             let metadata = SnapshotMetadata {
                 user_metadata,
                 version: "1.0".to_string(),
                 creation_time: "2024-01-01T00:00:00Z".to_string(),
             };
-            
+
             let shards = ShardInfo {
                 total: 1,
                 successful: 1,
                 failed: 0,
             };
-            
+
             let snapshot = SnapshotInfo {
                 name: format!("snapshot_{}", state.to_lowercase()),
                 repository: "test_repo".to_string(),
                 state: state.to_string(),
                 indices: vec!["test_index".to_string()],
                 start_time: "2024-01-01T00:00:00Z".to_string(),
-                end_time: if state == "InProgress" { None } else { Some("2024-01-01T00:01:00Z".to_string()) },
-                duration_in_millis: if state == "InProgress" { None } else { Some(60000) },
+                end_time: if state == "InProgress" {
+                    None
+                } else {
+                    Some("2024-01-01T00:01:00Z".to_string())
+                },
+                duration_in_millis: if state == "InProgress" {
+                    None
+                } else {
+                    Some(60000)
+                },
                 failures: if state == "Failed" { 1 } else { 0 },
-                shards: if state == "Failed" { 
-                    ShardInfo { total: 1, successful: 0, failed: 1 } 
-                } else { 
-                    shards 
+                shards: if state == "Failed" {
+                    ShardInfo {
+                        total: 1,
+                        successful: 0,
+                        failed: 1,
+                    }
+                } else {
+                    shards
                 },
                 metadata,
             };
-            
+
             let json = serde_json::to_string(&snapshot).unwrap();
             let deserialized: SnapshotInfo = serde_json::from_str(&json).unwrap();
-            
+
             assert_eq!(snapshot.state, deserialized.state);
             assert_eq!(snapshot.failures, deserialized.failures);
         }

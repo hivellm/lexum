@@ -4,18 +4,46 @@ Command-line interface for the Lexum search engine.
 
 ## Features
 
-- **Interactive REPL**: Start an interactive shell for exploring - **Index Management**: Create, list, and delete indices
-- **Document Operations**: Add and retrieve documents
+- **Interactive REPL**: Start an interactive shell for exploring your data
+- **Index Management**: Create, list, and delete indices
+- **Document Operations**: Add, retrieve, and delete documents
 - **Search**: Execute search queries from the command line
-- **Snapshot Management**: Create, list, and manage snapshotsmand line
+- **LQL Support**: Advanced query language with SQL-like syntax
+- **Snapshot Management**: Create, list, and manage snapshots
 - **Colored Output**: Beautiful terminal output with syntax highlighting
 - **Command History**: Navigate previous commands with arrow keys
+- **Tab Completion**: Smart autocomplete for commands and options
+- **File Operations**: Load data and queries from filesrow keys
 
 ## Installation
 
 ```bash
-cargo install --path lexum-cli
-```
+cargo install --path lexum-cli## Quick Start
+
+1. **Start the Lexum server**:
+   ```bash
+   lexum-server
+   ```
+
+2. **Open the CLI**:
+   ```bash
+   lexum
+   ```
+
+3. **Create your first index**:
+   ```bash
+   index create my_index --schema schema.yml
+   ```
+
+4. **Add some documents**:
+   ```bash
+   doc add my_index --file documents.json
+   ```
+
+5. **Search your data**:
+   ```bash
+   search my_index "hello world"
+   ```
 
 ## Usage
 
@@ -45,6 +73,9 @@ lexum index create my_index --schema schema.yml
 # Get index info
 lexum index get my_index
 
+# Get index statistics
+lexum index stats my_index
+
 # Delete index
 lexum index delete my_index
 ```
@@ -55,14 +86,33 @@ lexum index delete my_index
 # Add document from JSON file
 lexum doc add my_index --file document.json
 
-# G### Search
+# Add document with specific ID
+lexum doc add my_index --file document.json --id "doc_123"
+
+# Get document by ID
+lexum doc get my_index doc_123
+
+# Delete document by ID
+lexum doc delete my_index doc_123
+
+# Bulk operations
+lexum doc bulk my_index --file documents.json
+```
+
+### Search Operations
 
 ```bash
-# Search documents
+# Basic search
 lexum search my_index "search query" --limit 20
 
-# Match all documents
-lexum search my_index "*"
+# Search with sorting
+lexum search my_index "laptop" --sort price:asc
+
+# Search from file
+lexum search my_index @query.json
+
+# LQL query language
+lexum lql my_index "FROM my_index WHERE title:laptop AND price:[100,500]"
 ```
 
 ### Snapshot Management
@@ -85,9 +135,7 @@ lexum snapshot delete my_repo old_backup
 
 # Get repository information
 lexum snapshot repo my_repo
-```-limit 20
-
-# Match all documents
+```atch all documents
 lexum search my_index "*"
 ```
 
@@ -125,7 +173,13 @@ Supported field types:
 Use the `--url` flag to specify a different server:
 
 ```bash
-lexum --url http://localhost:9200 index list
+lexum -## Documentation
+
+For complete documentation, see the [User Manual](USER_MANUAL.md).
+
+## License
+
+Apache-2.09200 index list
 ```
 
 ## License

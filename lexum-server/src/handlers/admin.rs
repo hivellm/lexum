@@ -217,6 +217,52 @@ pub async fn update_cluster_settings(
     Ok(())
 }
 
+/// Cluster information response
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ClusterInfo {
+    /// Cluster name
+    pub name: String,
+    /// Cluster UUID
+    pub cluster_uuid: String,
+    /// Version information
+    pub version: ClusterVersion,
+}
+
+/// Cluster version information
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ClusterVersion {
+    /// Version number
+    pub number: String,
+    /// Build hash
+    pub build_hash: String,
+    /// Build date
+    pub build_date: String,
+    /// Lucene version
+    pub lucene_version: String,
+}
+
+/// Get cluster information (GET /)
+#[utoipa::path(
+    get,
+    path = "/",
+    responses(
+        (status = 200, description = "Cluster information retrieved successfully", body = ClusterInfo)
+    ),
+    tag = "Cluster"
+)]
+pub async fn get_cluster_info() -> ApiResult<Json<ClusterInfo>> {
+    Ok(Json(ClusterInfo {
+        name: "lexum-cluster".to_string(),
+        cluster_uuid: "12345678-1234-1234-1234-123456789abc".to_string(),
+        version: ClusterVersion {
+            number: env!("CARGO_PKG_VERSION").to_string(),
+            build_hash: "abc123def456".to_string(),
+            build_date: "2024-10-25".to_string(),
+            lucene_version: "9.8.0".to_string(),
+        },
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,6 @@
 //! REPL (Read-Eval-Print Loop) session
 
+use crate::lql::LqlExecutor;
 use anyhow::Result;
 use colored::Colorize;
 use rustyline::{
@@ -35,7 +36,7 @@ impl Completer for LexumHelper {
         if line.trim().is_empty() || !line.contains(' ') {
             // First word - suggest commands
             let commands = vec![
-                "help", "exit", "quit", "index", "doc", "search", "server", "snapshot",
+                "help", "exit", "quit", "index", "doc", "search", "server", "snapshot", "lql",
             ];
 
             for cmd in commands {
@@ -84,8 +85,38 @@ impl Completer for LexumHelper {
                             "+field:value",
                             "-field:value",
                             "@file.json",
+                            "match_all",
+                            "term",
+                            "range",
+                            "bool",
+                            "fuzzy",
+                            "phrase",
                         ];
                         for pattern in query_patterns {
+                            if pattern.starts_with(line.trim()) {
+                                all_candidates.push(Pair {
+                                    display: pattern.to_string(),
+                                    replacement: pattern.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    "lql" => {
+                        // For LQL command, suggest LQL patterns
+                        let lql_patterns = vec![
+                            "FROM index WHERE field:value",
+                            "SELECT * FROM index WHERE field:value",
+                            "MATCH field:value",
+                            "field:value",
+                            "field:\"phrase\"",
+                            "field:[min,max]",
+                            "field:~fuzzy",
+                            "field1:value1 AND field2:value2",
+                            "field1:value1 OR field2:value2",
+                            "@file.lql",
+                            "@query.json",
+                        ];
+                        for pattern in lql_patterns {
                             if pattern.starts_with(line.trim()) {
                                 all_candidates.push(Pair {
                                     display: pattern.to_string(),
@@ -127,13 +158,31 @@ impl Completer for LexumHelper {
                 match command {
                     "search" if parts.len() >= 3 => {
                         // Suggest search options
-                        let options = vec!["--limit", "--sort", "--fields", "--help"];
+                        let options = vec![
+                            "--limit", "--sort", "--fields", "--help", "--offset", "--format",
+                        ];
                         for opt in options {
                             if opt.starts_with(current_word) {
                                 all_candidates.push(Pair {
                                     display: opt.to_string(),
                                     replacement: opt.to_string(),
                                 });
+                            }
+                        }
+
+                        // If current word is --sort, suggest sort options
+                        if current_word == "--sort"
+                            || (parts.len() > 3 && parts[parts.len() - 2] == "--sort")
+                        {
+                            let sort_options =
+                                vec!["score:desc", "score:asc", "field:desc", "field:asc"];
+                            for sort_opt in sort_options {
+                                if sort_opt.starts_with(current_word) {
+                                    all_candidates.push(Pair {
+                                        display: sort_opt.to_string(),
+                                        replacement: sort_opt.to_string(),
+                                    });
+                                }
                             }
                         }
                     }
@@ -347,7 +396,13 @@ impl ReplSession {
                         }
                         crate::commands::index::stats(&self.url, parts[2]).await?;
                     }
-                    _ => println!("Unknown index command: {}", parts[1]),
+                    _ => {
+                        println!("Unknown index command: {}", parts[1]);
+                        let suggestions = Self::suggest_subcommands("index", parts[1]);
+                        if !suggestions.is_empty() {
+                            println!("Did you mean: {}", suggestions.join(", "));
+                        }
+                    }
                 }
             }
             "doc" => {
@@ -385,7 +440,13 @@ impl ReplSession {
                         }
                         crate::commands::document::bulk(&self.url, parts[2], parts[3]).await?;
                     }
-                    _ => println!("Unknown doc command: {}", parts[1]),
+                    _ => {
+                        println!("Unknown doc command: {}", parts[1]);
+                        let suggestions = Self::suggest_subcommands("doc", parts[1]);
+                        if !suggestions.is_empty() {
+                            println!("Did you mean: {}", suggestions.join(", "));
+                        }
+                    }
                 }
             }
             "search" => {
@@ -509,7 +570,54 @@ impl ReplSession {
                         };
                         crate::commands::server::validate_config(file).await?;
                     }
-                    _ => println!("Unknown server command: {}", parts[1]),
+                    _ => {
+                        println!("Unknown server command: {}", parts[1]);
+                        let suggestions = Self::suggest_subcommands("server", parts[1]);
+                        if !suggestions.is_empty() {
+                            println!("Did you mean: {}", suggestions.join(", "));
+                        }
+                    }
+                }
+            }
+            "lql" => {
+                if parts.len() < 3 {
+                    println!("Usage: lql <index> <query>");
+                    println!("       lql <index> @<file>");
+                    println!("Example: lql users \"FROM users WHERE name:john\"");
+                    println!("Example: lql products \"title:rust AND price:[10,100]\"");
+                    return Ok(());
+                }
+
+                let index = parts[1];
+                let query = parts[2..].join(" ");
+
+                let executor = LqlExecutor::new(self.url.clone());
+
+                if let Some(file_path) = query.strip_prefix('@') {
+                    // Query from file
+                    match Self::read_lql_from_file(file_path) {
+                        Ok(file_query) => match executor.execute(index, &file_query).await {
+                            Ok(result) => {
+                                println!("{}", serde_json::to_string_pretty(&result)?);
+                            }
+                            Err(e) => {
+                                println!("{} LQL execution failed: {}", "Error:".red().bold(), e);
+                            }
+                        },
+                        Err(e) => {
+                            println!("{} Failed to read LQL file: {}", "Error:".red().bold(), e);
+                        }
+                    }
+                } else {
+                    // Direct query
+                    match executor.execute(index, &query).await {
+                        Ok(result) => {
+                            println!("{}", serde_json::to_string_pretty(&result)?);
+                        }
+                        Err(e) => {
+                            println!("{} LQL execution failed: {}", "Error:".red().bold(), e);
+                        }
+                    }
                 }
             }
             "snapshot" => {
@@ -590,7 +698,13 @@ impl ReplSession {
                         }
                         crate::commands::snapshot::get_repository(&self.url, parts[2]).await?;
                     }
-                    _ => println!("Unknown snapshot command: {}", parts[1]),
+                    _ => {
+                        println!("Unknown snapshot command: {}", parts[1]);
+                        let suggestions = Self::suggest_subcommands("snapshot", parts[1]);
+                        if !suggestions.is_empty() {
+                            println!("Did you mean: {}", suggestions.join(", "));
+                        }
+                    }
                 }
             }
             _ => {
@@ -662,6 +776,10 @@ impl ReplSession {
         println!(
             "  {} - Search from file",
             "search <index> @<file> [--limit N]".bright_yellow()
+        );
+        println!(
+            "  {} - LQL query language",
+            "lql <index> <query>".bright_yellow()
         );
         println!();
         println!("{}", "Query Examples:".bright_cyan().bold());
@@ -744,7 +862,7 @@ impl ReplSession {
 
     fn suggest_commands(input: &str) -> Vec<String> {
         let commands = vec![
-            "help", "exit", "quit", "index", "doc", "search", "server", "snapshot",
+            "help", "exit", "quit", "index", "doc", "search", "server", "snapshot", "lql",
         ];
 
         let mut suggestions = Vec::new();
@@ -755,6 +873,47 @@ impl ReplSession {
         }
 
         suggestions
+    }
+
+    fn suggest_subcommands(command: &str, subcommand: &str) -> Vec<String> {
+        let subcommands = match command {
+            "index" => vec![
+                "list", "create", "delete", "get", "stats", "refresh", "flush",
+            ],
+            "doc" => vec!["add", "get", "delete", "bulk"],
+            "search" => vec![
+                "--limit", "--sort", "--fields", "--help", "--offset", "--format",
+            ],
+            "server" => vec!["start", "stop", "status", "config"],
+            "snapshot" => vec![
+                "list-repos",
+                "list",
+                "get",
+                "create",
+                "delete",
+                "repo",
+                "restore",
+                "stats",
+            ],
+            _ => return vec![],
+        };
+
+        let mut suggestions = Vec::new();
+        for subcmd in subcommands {
+            if subcmd.starts_with(subcommand) || Self::levenshtein_distance(subcommand, subcmd) <= 2
+            {
+                suggestions.push(subcmd.to_string());
+            }
+        }
+
+        suggestions
+    }
+
+    fn read_lql_from_file(file_path: &str) -> Result<String> {
+        use std::fs;
+
+        let content = fs::read_to_string(file_path)?;
+        Ok(content.trim().to_string())
     }
 
     fn levenshtein_distance(s1: &str, s2: &str) -> usize {
@@ -910,6 +1069,78 @@ mod tests {
         let (_, candidates) = result.unwrap();
         // Test that completion works
         assert!(!candidates.is_empty() || candidates.is_empty());
+    }
+
+    #[test]
+    fn test_completer_search_options() {
+        let helper = LexumHelper {
+            completer: FilenameCompleter::new(),
+            highlighter: MatchingBracketHighlighter::new(),
+            validator: MatchingBracketValidator::new(),
+            hinter: HistoryHinter {},
+        };
+
+        let history = rustyline::history::MemHistory::new();
+        let ctx = Context::new(&history);
+        let result = helper.complete("search index query --", 20, &ctx);
+        assert!(result.is_ok());
+
+        let (_, candidates) = result.unwrap();
+        // Should include --limit, --sort, --fields options
+        assert!(candidates.iter().any(|c| c.display == "--limit"));
+        assert!(candidates.iter().any(|c| c.display == "--sort"));
+        assert!(candidates.iter().any(|c| c.display == "--fields"));
+    }
+
+    #[test]
+    fn test_suggest_commands() {
+        // Test exact match
+        let suggestions = ReplSession::suggest_commands("hel");
+        assert!(suggestions.contains(&"help".to_string()));
+
+        // Test fuzzy match
+        let suggestions = ReplSession::suggest_commands("indx");
+        assert!(suggestions.contains(&"index".to_string()));
+
+        // Test no match
+        let suggestions = ReplSession::suggest_commands("xyz");
+        assert!(suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_suggest_subcommands() {
+        // Test index subcommands
+        let suggestions = ReplSession::suggest_subcommands("index", "lis");
+        assert!(suggestions.contains(&"list".to_string()));
+
+        // Test doc subcommands
+        let suggestions = ReplSession::suggest_subcommands("doc", "ad");
+        assert!(suggestions.contains(&"add".to_string()));
+
+        // Test server subcommands
+        let suggestions = ReplSession::suggest_subcommands("server", "sta");
+        assert!(suggestions.contains(&"start".to_string()));
+        assert!(suggestions.contains(&"status".to_string()));
+    }
+
+    #[test]
+    fn test_read_lql_from_file() {
+        use std::fs;
+        use std::io::Write;
+
+        // Create a temporary file
+        let temp_file = std::env::temp_dir().join("test_lql.lql");
+        let mut file = fs::File::create(&temp_file).unwrap();
+        file.write_all(b"FROM users WHERE name:john").unwrap();
+        drop(file);
+
+        // Test reading the file
+        let result = ReplSession::read_lql_from_file(temp_file.to_str().unwrap());
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "FROM users WHERE name:john");
+
+        // Clean up
+        fs::remove_file(&temp_file).unwrap();
     }
 
     #[test]

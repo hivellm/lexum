@@ -1,7 +1,7 @@
 //! API router configuration
 
 use crate::handlers::index::AppState;
-use crate::handlers::{document, health, index, search, snapshot};
+use crate::handlers::{admin, document, health, index, search, snapshot};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower_http::cors::CorsLayer;
@@ -12,6 +12,13 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         // Health check
         .route("/health", get(health::health_check))
+        // Cluster endpoints
+        .route("/", get(admin::get_cluster_info))
+        .route("/_cluster/health", get(admin::get_cluster_health))
+        .route("/_cluster/stats", get(admin::get_cluster_stats))
+        .route("/_nodes/stats", get(admin::get_node_stats))
+        .route("/_cluster/settings", get(admin::get_cluster_settings))
+        .route("/_cluster/settings", put(admin::update_cluster_settings))
         // Index management
         .route("/api/v1/indices", post(index::create_index))
         .route("/api/v1/indices", get(index::list_indices))
