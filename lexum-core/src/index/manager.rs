@@ -13,9 +13,12 @@ use super::settings::IndexSettings;
 /// Index wrapper around Tantivy index
 #[derive(Clone)]
 pub struct Index {
-    name: IndexName,
-    inner: Arc<TantivyIndex>,
-    settings: IndexSettings,
+    /// Index name
+    pub(crate) name: IndexName,
+    /// Inner Tantivy index
+    pub(crate) inner: Arc<TantivyIndex>,
+    /// Index settings
+    pub(crate) settings: IndexSettings,
 }
 
 impl Index {

@@ -29,6 +29,9 @@
 /// Configuration management
 pub mod config;
 
+/// Document operations
+pub mod document;
+
 /// Error types
 pub mod error;
 
@@ -38,14 +41,23 @@ pub mod index;
 /// Logging and tracing setup
 pub mod logging;
 
+/// Query types and builders
+pub mod query;
+
 /// Schema management
 pub mod schema;
+
+/// Search execution
+pub mod search;
 
 /// Common types
 pub mod types;
 
 // Re-export commonly used items
 pub use config::Config;
+pub use document::DocumentStore;
 pub use error::{Error, Result};
 pub use index::{Index, IndexManager, IndexSettings};
+pub use query::{BoolQuery, MatchQuery, Query, QueryBuilder, RangeQuery, TermQuery};
 pub use schema::{FieldType, SchemaBuilder};
+pub use search::{SearchExecutor, SearchHit, SearchResult};
