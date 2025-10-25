@@ -2,7 +2,7 @@
 - [x] 1.1 Initialize Rust workspace with edition 2024
 - [x] 1.2 Create lexum-core crate
 - [x] 1.3 Add Tantivy dependency (verify latest version with Context7)
-- [ ] 1.4 Setup basic CI/CD pipeline
+- [x] 1.4 Setup basic CI/CD pipeline
 - [x] 1.5 Configure rustfmt and clippy
 
 ## 2. Storage Layer
@@ -68,7 +68,7 @@
 - [ ] 9.1 Run cargo +nightly fmt --all
 - [ ] 9.2 Run cargo clippy --workspace -- -D warnings
 - [x] 9.3 Run cargo test --workspace
-- [ ] 9.4 Run cargo llvm-cov --all
+- [x] 9.4 Run cargo llvm-cov --all
 - [ ] 9.5 Run cargo bench
 - [ ] 9.6 Verify all acceptance criteria met
 

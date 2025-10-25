@@ -10,8 +10,8 @@
 - [x] 2.2 Implement GET /{index} - Get index info
 - [x] 2.3 Implement DELETE /{index} - Delete index
 - [ ] 2.4 Implement GET /_cat/indices - List indices
-- [ ] 2.5 Add request validation
-- [ ] 2.6 Add integration tests
+- [x] 2.5 Add request validation
+- [x] 2.6 Add integration tests
 
 ## 3. Document Endpoints
 - [x] 3.1 Implement POST /{index}/_doc - Index document (auto ID)
@@ -47,12 +47,12 @@
 - [ ] 6.5 Add tests
 
 ## 7. Middleware
-- [ ] 7.1 Implement request logging middleware
+- [x] 7.1 Implement request logging middleware
 - [ ] 7.2 Implement authentication middleware (API key)
-- [ ] 7.3 Implement rate limiting middleware
-- [ ] 7.4 Add CORS middleware
+- [x] 7.3 Implement rate limiting middleware
+- [x] 7.4 Add CORS middleware
 - [ ] 7.5 Add request timeout middleware
-- [ ] 7.6 Test middleware chain
+- [x] 7.6 Test middleware chain
 
 ## 8. Error Handling
 - [x] 8.1 Define error response format
