@@ -3,7 +3,7 @@
 use axum::body::Body;
 use axum::http::Request;
 use axum::http::StatusCode;
-use lexum_core::IndexManager;
+use lexum_core::{IndexManager, SnapshotManager};
 use lexum_server::{handlers::index::AppState, router::build_router};
 use serde_json::json;
 use std::sync::Arc;
@@ -14,7 +14,31 @@ async fn setup_test_server() -> (AppState, TempDir) {
     let temp_dir = TempDir::new().unwrap();
     let index_manager = Arc::new(IndexManager::new(temp_dir.path()));
 
-    let state = AppState { index_manager };
+    // Create a minimal config for snapshot manager
+    let config = lexum_core::config::Config::default();
+    let snapshot_manager = Arc::new(SnapshotManager::new(&config).unwrap_or_else(|_| {
+        // Fallback to a minimal config if default fails
+        let mut fallback_config = config;
+        fallback_config.snapshots.repositories =
+            vec![lexum_core::config::SnapshotRepositoryConfig {
+                name: "default".to_string(),
+                repository_type: "fs".to_string(),
+                settings: lexum_core::config::SnapshotRepositorySettings {
+                    location: temp_dir
+                        .path()
+                        .join("snapshots")
+                        .to_string_lossy()
+                        .to_string(),
+                    ..Default::default()
+                },
+            }];
+        SnapshotManager::new(&fallback_config).unwrap()
+    }));
+
+    let state = AppState {
+        index_manager,
+        snapshot_manager,
+    };
     (state, temp_dir)
 }
 

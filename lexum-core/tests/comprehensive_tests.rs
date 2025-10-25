@@ -188,9 +188,7 @@ fn test_config_ports_distinct() {
 fn test_config_port_ranges() {
     let config = Config::default();
     assert!(config.network.http_port >= 1024);
-    assert!(config.network.http_port <= 65535);
     assert!(config.network.transport_port >= 1024);
-    assert!(config.network.transport_port <= 65535);
 }
 
 // ============================================================================

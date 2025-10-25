@@ -247,3 +247,86 @@ pub async fn delete_index(
     state.index_manager.delete_index(&name).await?;
     Ok(StatusCode::NO_CONTENT)
 }
+
+/// Index statistics
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct IndexStats {
+    /// Index name
+    pub name: String,
+    /// Number of documents
+    pub num_docs: u64,
+    /// Number of segments
+    pub num_segments: usize,
+}
+
+/// Get index statistics
+#[utoipa::path(
+    get,
+    path = "/api/v1/indices/{name}/stats",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    responses(
+        (status = 200, description = "Index statistics retrieved successfully", body = IndexStats),
+        (status = 404, description = "Index not found")
+    ),
+    tag = "Indices"
+)]
+pub async fn get_index_stats(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> ApiResult<Json<IndexStats>> {
+    let core_stats = state.index_manager.get_index_stats(&name)?;
+    let stats = IndexStats {
+        name: core_stats.name,
+        num_docs: core_stats.num_docs,
+        num_segments: core_stats.num_segments,
+    };
+    Ok(Json(stats))
+}
+
+/// Refresh index
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{name}/refresh",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    responses(
+        (status = 200, description = "Index refreshed successfully"),
+        (status = 404, description = "Index not found")
+    ),
+    tag = "Indices"
+)]
+pub async fn refresh_index(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> ApiResult<StatusCode> {
+    // Check if index exists
+    state.index_manager.get_index(&name)?;
+    // TODO: Implement actual refresh logic
+    Ok(StatusCode::OK)
+}
+
+/// Flush index
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{name}/flush",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    responses(
+        (status = 200, description = "Index flushed successfully"),
+        (status = 404, description = "Index not found")
+    ),
+    tag = "Indices"
+)]
+pub async fn flush_index(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> ApiResult<StatusCode> {
+    // Check if index exists
+    state.index_manager.get_index(&name)?;
+    // TODO: Implement actual flush logic
+    Ok(StatusCode::OK)
+}

@@ -25,7 +25,9 @@ impl Default for RateLimitConfig {
 /// Rate limit state for a client
 #[derive(Clone)]
 struct ClientState {
+    #[allow(dead_code)]
     count: usize,
+    #[allow(dead_code)]
     window_start: Instant,
 }
 

@@ -112,7 +112,7 @@ impl DocumentStore {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use lexum_core::{IndexManager, SchemaBuilder, document::DocumentStore, types::DocumentId};
+    /// use lexum_core::{IndexManager, SchemaBuilder, document::DocumentStore, types::DocumentId, document::store::BulkOperation};
     /// use serde_json::json;
     /// use std::sync::Arc;
     ///
@@ -194,7 +194,7 @@ impl DocumentStore {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use lexum_core::{IndexManager, SchemaBuilder, document::DocumentStore, types::DocumentId};
+    /// use lexum_core::{IndexManager, SchemaBuilder, document::DocumentStore, types::DocumentId, document::store::BulkOperation};
     /// use serde_json::json;
     /// use std::sync::Arc;
     ///

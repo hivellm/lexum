@@ -2,6 +2,7 @@
 
 use lexum_core::*;
 use lexum_server::handlers::document::*;
+use lexum_server::handlers::document::BulkOperation as ServerBulkOperation;
 use lexum_server::handlers::search::*;
 use serde_json::json;
 
@@ -33,14 +34,14 @@ fn test_add_document_response() {
 
 #[test]
 fn test_bulk_operation_index() {
-    let op = BulkOperation::Index {
+    let op = ServerBulkOperation::Index {
         index: "test".to_string(),
         id: Some("1".to_string()),
         document: json!({"title": "Test"}),
     };
 
     match op {
-        BulkOperation::Index {
+        ServerBulkOperation::Index {
             index,
             id,
             document,
@@ -55,14 +56,14 @@ fn test_bulk_operation_index() {
 
 #[test]
 fn test_bulk_operation_create() {
-    let op = BulkOperation::Create {
+    let op = ServerBulkOperation::Create {
         index: "test".to_string(),
         id: "2".to_string(),
         document: json!({"title": "New Doc"}),
     };
 
     match op {
-        BulkOperation::Create {
+        ServerBulkOperation::Create {
             index,
             id,
             document,
@@ -77,14 +78,14 @@ fn test_bulk_operation_create() {
 
 #[test]
 fn test_bulk_operation_update() {
-    let op = BulkOperation::Update {
+    let op = ServerBulkOperation::Update {
         index: "test".to_string(),
         id: "3".to_string(),
         document: json!({"title": "Updated"}),
     };
 
     match op {
-        BulkOperation::Update {
+        ServerBulkOperation::Update {
             index,
             id,
             document,
@@ -99,13 +100,13 @@ fn test_bulk_operation_update() {
 
 #[test]
 fn test_bulk_operation_delete() {
-    let op = BulkOperation::Delete {
+    let op = ServerBulkOperation::Delete {
         index: "test".to_string(),
         id: "4".to_string(),
     };
 
     match op {
-        BulkOperation::Delete { index, id } => {
+        ServerBulkOperation::Delete { index, id } => {
             assert_eq!(index, "test");
             assert_eq!(id, "4");
         }
@@ -147,17 +148,17 @@ fn test_bulk_operation_result_failure() {
 fn test_bulk_request_multiple_operations() {
     let request = BulkRequest {
         operations: vec![
-            BulkOperation::Index {
+            ServerBulkOperation::Index {
                 index: "test".to_string(),
                 id: Some("1".to_string()),
                 document: json!({"title": "Doc 1"}),
             },
-            BulkOperation::Create {
+            ServerBulkOperation::Create {
                 index: "test".to_string(),
                 id: "2".to_string(),
                 document: json!({"title": "Doc 2"}),
             },
-            BulkOperation::Delete {
+            ServerBulkOperation::Delete {
                 index: "test".to_string(),
                 id: "3".to_string(),
             },
@@ -269,7 +270,7 @@ fn test_search_request_with_bool_query() {
 
 #[test]
 fn test_bulk_operation_serialization() {
-    let op = BulkOperation::Index {
+    let op = ServerBulkOperation::Index {
         index: "test".to_string(),
         id: Some("1".to_string()),
         document: json!({"title": "Test"}),
@@ -281,7 +282,7 @@ fn test_bulk_operation_serialization() {
 
     let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
     match deserialized {
-        BulkOperation::Index { index, id, .. } => {
+        ServerBulkOperation::Index { index, id, .. } => {
             assert_eq!(index, "test");
             assert_eq!(id, Some("1".to_string()));
         }

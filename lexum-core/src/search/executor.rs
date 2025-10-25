@@ -93,7 +93,7 @@ impl SearchExecutor {
     ///
     /// let query = QueryBuilder::match_query("title", "search terms");
     /// let sort = Some(SortOption::desc("_score"));
-    /// let result = executor.search(query, limit, 0, sort).await.unwrap();
+    /// let result = executor.search(query, 10, 0, sort).await.unwrap();
     ///
     /// println!("Found {} results", result.total);
     /// # });

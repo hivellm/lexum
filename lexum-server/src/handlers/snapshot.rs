@@ -6,7 +6,6 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use chrono::Utc;
 use lexum_core::{
     snapshot::{CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo, SnapshotStats},
     types::{RepositoryName, SnapshotName},
@@ -130,7 +129,7 @@ pub async fn get_repository(
     State(_state): State<AppState>,
     Path(repository_name): Path<String>,
 ) -> Result<Json<RepositoryResponse>, StatusCode> {
-    let _repo_name = RepositoryName::new(repository_name);
+    let repo_name = RepositoryName::new(repository_name);
 
     // TODO: Get actual repository from state
     // let snapshot_manager = &state.snapshot_manager;

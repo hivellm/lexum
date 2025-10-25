@@ -523,7 +523,6 @@ impl Default for S3Settings {
     }
 }
 
-
 impl Default for RetentionPolicy {
     fn default() -> Self {
         Self {
@@ -886,7 +885,7 @@ impl Config {
     ///     
     ///     // Listen for config changes
     ///     let mut rx = config_manager.subscribe();
-    ///     while let Some(new_config) = rx.recv().await {
+    ///     while let Ok(new_config) = rx.recv().await {
     ///         println!("Config reloaded: {:?}", new_config);
     ///     }
     ///     
@@ -1671,7 +1670,7 @@ mod tests {
 
     #[test]
     fn test_snapshot_repository_settings_size_validation() {
-        let settings = SnapshotRepositorySettings::default();
+        let _settings = SnapshotRepositorySettings::default();
 
         // Test valid size strings
         assert!(SnapshotRepositorySettings::is_valid_size_string("1b"));
@@ -1681,7 +1680,7 @@ mod tests {
         assert!(SnapshotRepositorySettings::is_valid_size_string("1tb"));
         assert!(SnapshotRepositorySettings::is_valid_size_string("512mb"));
         assert!(SnapshotRepositorySettings::is_valid_size_string("1024kb"));
-        
+
         // Test invalid size strings
         assert!(!SnapshotRepositorySettings::is_valid_size_string(""));
         assert!(!SnapshotRepositorySettings::is_valid_size_string("invalid"));

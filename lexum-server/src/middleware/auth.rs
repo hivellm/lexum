@@ -125,20 +125,24 @@ impl AuthConfig {
 /// Authentication state for the application
 #[derive(Clone)]
 pub struct AuthState {
+    /// Authentication configuration
     pub config: Arc<RwLock<AuthConfig>>,
 }
 
 impl AuthState {
+    /// Create a new authentication state
     pub fn new(config: AuthConfig) -> Self {
         Self {
             config: Arc::new(RwLock::new(config)),
         }
     }
 
+    /// Get the current authentication configuration
     pub async fn get_config(&self) -> AuthConfig {
         self.config.read().await.clone()
     }
 
+    /// Update the authentication configuration
     pub async fn update_config<F>(&self, f: F) -> Result<(), String>
     where
         F: FnOnce(&mut AuthConfig),
@@ -210,8 +214,7 @@ fn extract_api_key(headers: &HeaderMap) -> Option<String> {
     // Try Authorization header with Bearer token
     if let Some(auth_header) = headers.get(AUTHORIZATION_HEADER) {
         if let Ok(auth_str) = auth_header.to_str() {
-            if auth_str.starts_with("Bearer ") {
-                let token = &auth_str[7..]; // Remove "Bearer " prefix
+            if let Some(token) = auth_str.strip_prefix("Bearer ") {
                 if !token.is_empty() {
                     return Some(token.to_string());
                 }

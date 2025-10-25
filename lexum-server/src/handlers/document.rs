@@ -1,6 +1,6 @@
 //! Document operation handlers
 
-use crate::error::{ApiError, ApiResult};
+use crate::error::{ApiError, ApiResult, ErrorResponse};
 use crate::handlers::index::AppState;
 use axum::Json;
 use axum::extract::{Path, State};
@@ -247,6 +247,16 @@ pub struct BulkResponse {
 }
 
 /// Bulk operations handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/bulk",
+    request_body = BulkRequest,
+    responses(
+        (status = 200, description = "Bulk operations completed", body = BulkResponse),
+        (status = 400, description = "Invalid request")
+    ),
+    tag = "Documents"
+)]
 pub async fn bulk_operations(
     State(state): State<AppState>,
     Json(request): Json<BulkRequest>,

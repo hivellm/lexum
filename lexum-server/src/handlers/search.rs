@@ -29,6 +29,20 @@ fn default_limit() -> usize {
 }
 
 /// Search handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{index_name}/search",
+    params(
+        ("index_name" = String, Path, description = "Index name")
+    ),
+    request_body = SearchRequest,
+    responses(
+        (status = 200, description = "Search completed successfully", body = SearchResult),
+        (status = 404, description = "Index not found"),
+        (status = 400, description = "Invalid request")
+    ),
+    tag = "Search"
+)]
 pub async fn search(
     State(state): State<AppState>,
     Path(index_name): Path<String>,

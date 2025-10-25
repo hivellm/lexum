@@ -28,6 +28,12 @@ enum Commands {
     /// Start interactive REPL session
     Repl,
 
+    /// Server management commands
+    Server {
+        #[command(subcommand)]
+        action: ServerAction,
+    },
+
     /// Index management commands
     Index {
         #[command(subcommand)]
@@ -49,6 +55,29 @@ enum Commands {
         /// Limit results
         #[arg(short, long, default_value = "10")]
         limit: usize,
+    },
+}
+
+#[derive(Subcommand)]
+enum ServerAction {
+    /// Start the Lexum server
+    Start {
+        /// Configuration file path
+        #[arg(short, long, default_value = "config.yml")]
+        config: String,
+        /// Run as daemon
+        #[arg(short, long)]
+        daemon: bool,
+    },
+    /// Stop the Lexum server
+    Stop,
+    /// Get server status
+    Status,
+    /// Validate configuration file
+    Config {
+        /// Configuration file path
+        #[arg(short, long, default_value = "config.yml")]
+        file: String,
     },
 }
 
@@ -130,6 +159,20 @@ async fn main() -> Result<()> {
             let mut repl = ReplSession::new(cli.url);
             repl.run().await?;
         }
+        Some(Commands::Server { action }) => match action {
+            ServerAction::Start { config, daemon } => {
+                commands::server::start(&config, daemon).await?;
+            }
+            ServerAction::Stop => {
+                commands::server::stop(&cli.url).await?;
+            }
+            ServerAction::Status => {
+                commands::server::status(&cli.url).await?;
+            }
+            ServerAction::Config { file } => {
+                commands::server::validate_config(&file).await?;
+            }
+        },
         Some(Commands::Index { action }) => match action {
             IndexAction::Create { name, schema } => {
                 commands::index::create(&cli.url, &name, &schema).await?;
