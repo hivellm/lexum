@@ -83,7 +83,7 @@ fn test_help_system() {
 #[test]
 fn test_cli_help_command() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lexum-cli", "--", "--help"])
+        .args(["run", "--bin", "lexum-cli", "--", "--help"])
         .current_dir(".")
         .output()
         .expect("Failed to execute command");
@@ -106,7 +106,7 @@ fn test_cli_help_command() {
 #[test]
 fn test_cli_version_command() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lexum-cli", "--", "--version"])
+        .args(["run", "--bin", "lexum-cli", "--", "--version"])
         .current_dir(".")
         .output()
         .expect("Failed to execute command");
@@ -122,7 +122,7 @@ fn test_cli_version_command() {
 #[test]
 fn test_cli_invalid_command() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lexum-cli", "--", "invalid-command"])
+        .args(["run", "--bin", "lexum-cli", "--", "invalid-command"])
         .current_dir(".")
         .output()
         .expect("Failed to execute command");
@@ -169,9 +169,9 @@ async fn test_server_config_validation_invalid() {
     let config_path = temp_dir.path().join("invalid_config.yml");
 
     // Create an invalid config file (missing required sections)
-    let config_content = r#"
+    let config_content = r"
 # Missing server, storage, and logging sections
-"#;
+";
 
     fs::write(&config_path, config_content).expect("Failed to write config file");
 
@@ -271,7 +271,7 @@ async fn test_search_command_without_server() {
 fn test_cli_binary_exists() {
     // Test that the CLI binary can be built and exists
     let output = Command::new("cargo")
-        .args(&["build", "--package", "lexum-cli"])
+        .args(["build", "--package", "lexum-cli"])
         .output()
         .expect("Failed to execute cargo build");
 
@@ -285,7 +285,7 @@ fn test_cli_binary_exists() {
 #[test]
 fn test_cli_help_output_contains_expected_commands() {
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lexum-cli", "--", "--help"])
+        .args(["run", "--bin", "lexum-cli", "--", "--help"])
         .current_dir(".")
         .output()
         .expect("Failed to execute command");
@@ -317,7 +317,7 @@ fn test_cli_help_output_contains_examples() {
 fn test_cli_handles_missing_arguments() {
     // Test index create without required arguments
     let output = Command::new("cargo")
-        .args(&["run", "--bin", "lexum-cli", "--", "index", "create"])
+        .args(["run", "--bin", "lexum-cli", "--", "index", "create"])
         .current_dir(".")
         .output()
         .expect("Failed to execute command");
@@ -330,7 +330,7 @@ fn test_cli_handles_missing_arguments() {
 fn test_cli_handles_invalid_format() {
     // Test with invalid format option - clap doesn't validate format values
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--bin",
             "lexum-cli",

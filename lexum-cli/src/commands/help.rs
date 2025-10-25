@@ -138,10 +138,11 @@ fn show_search_help() {
     println!("{}", "SEARCH:".bright_cyan().bold());
     println!(
         "  {}    Search documents",
-        "search <INDEX> <QUERY> [--limit N]".bright_yellow()
+        "search <INDEX> <QUERY> [--limit N] [--sort field:asc/desc] [--fields field1,field2]"
+            .bright_yellow()
     );
     println!();
-    println!("    Examples:");
+    println!("    Basic Examples:");
     println!(
         "      {}",
         "lexum search my_index \"search query\"".bright_green()
@@ -153,6 +154,34 @@ fn show_search_help() {
     println!(
         "      {}",
         "lexum search my_index \"*\" --limit 100".bright_green()
+    );
+    println!();
+    println!("    Advanced Query Examples:");
+    println!(
+        "      {}",
+        "lexum search my_index \"title:rust\" --sort title:asc".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search my_index \"content:\"exact phrase\"\" --fields title,content".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search my_index \"price:[100,500]\" --sort price:desc".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search my_index \"+category:tech -status:deprecated\"".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search my_index \"name:~fuzzy\" --limit 50".bright_green()
+    );
+    println!();
+    println!("    File-based Queries:");
+    println!(
+        "      {}",
+        "lexum search my_index @query.json --limit 100".bright_green()
     );
 }
 
@@ -172,7 +201,8 @@ fn show_snapshot_help() {
     );
     println!(
         "  {}    Create a snapshot",
-        "snapshot create <REPOSITORY> <SNAPSHOT> [--indices INDEX1,INDEX2] [--wait]".bright_yellow()
+        "snapshot create <REPOSITORY> <SNAPSHOT> [--indices INDEX1,INDEX2] [--wait]"
+            .bright_yellow()
     );
     println!(
         "  {}    Delete a snapshot",
@@ -184,14 +214,8 @@ fn show_snapshot_help() {
     );
     println!();
     println!("    Examples:");
-    println!(
-        "      {}",
-        "lexum snapshot list-repos".bright_green()
-    );
-    println!(
-        "      {}",
-        "lexum snapshot list my_repo".bright_green()
-    );
+    println!("      {}", "lexum snapshot list-repos".bright_green());
+    println!("      {}", "lexum snapshot list my_repo".bright_green());
     println!(
         "      {}",
         "lexum snapshot create my_repo backup_2024 --indices index1,index2 --wait".bright_green()

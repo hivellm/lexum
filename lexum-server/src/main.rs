@@ -1,15 +1,30 @@
 //! Lexum server binary
 
 use lexum_server::{Server, server::ServerConfig};
+use std::env;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize logging
     tracing_subscriber::fmt::init();
 
-    // Create and run server
-    let config = ServerConfig::default();
-    let server = Server::new(config)?;
+    // Get configuration file path from environment or command line
+    let config_path = env::args()
+        .nth(1)
+        .or_else(|| env::var("LEXUM_CONFIG_FILE").ok());
+
+    let config = ServerConfig {
+        bind_addr: "127.0.0.1:9200".parse().unwrap(),
+        data_dir: "./data".to_string(),
+        config_path,
+    };
+
+    // Create server with or without hot-reload
+    let server = if config.config_path.is_some() {
+        Server::new_with_hot_reload(config).await?
+    } else {
+        Server::new(config)?
+    };
 
     server.run().await
 }
@@ -29,9 +44,9 @@ mod tests {
 
     #[test]
     fn test_server_config_default() {
-        let config = ServerConfig::default();
+        let _config = ServerConfig::default();
         // Verify that default config can be created
         // This ensures the main function can initialize properly
-        assert!(true); // Placeholder - actual assertions would depend on ServerConfig implementation
+        // Note: Actual assertions would depend on ServerConfig implementation
     }
 }

@@ -75,7 +75,7 @@ async fn test_create_and_get_index() {
 async fn test_bulk_operations_structure() {
     use lexum_server::handlers::document::*;
 
-    let operations = vec![
+    let operations = [
         BulkOperation::Index {
             index: "test".to_string(),
             id: Some("1".to_string()),
@@ -244,7 +244,7 @@ async fn test_list_snapshot_repositories() {
             .oneshot(
                 Request::builder()
                     .method("PUT")
-                    .uri(format!("/_snapshot/{}", repo))
+                    .uri(format!("/_snapshot/{repo}"))
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_vec(&request_body).unwrap()))
                     .unwrap(),

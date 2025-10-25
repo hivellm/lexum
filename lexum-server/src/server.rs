@@ -2,7 +2,10 @@
 
 use crate::handlers::index::AppState;
 use crate::router::build_router;
-use lexum_core::{IndexManager, SnapshotManager, config::Config};
+use lexum_core::{
+    IndexManager, SnapshotManager,
+    config::{Config, ConfigManager},
+};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -15,8 +18,8 @@ pub struct ServerConfig {
     pub bind_addr: SocketAddr,
     /// Data directory
     pub data_dir: String,
-    /// Configuration
-    pub config: Config,
+    /// Configuration file path (optional, for hot-reload)
+    pub config_path: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -24,7 +27,7 @@ impl Default for ServerConfig {
         Self {
             bind_addr: "127.0.0.1:9200".parse().unwrap(),
             data_dir: "./data".to_string(),
-            config: Config::default(),
+            config_path: None,
         }
     }
 }
@@ -34,19 +37,53 @@ pub struct Server {
     config: ServerConfig,
     index_manager: Arc<IndexManager>,
     snapshot_manager: Arc<RwLock<SnapshotManager>>,
+    config_manager: Option<Arc<ConfigManager>>,
 }
 
 impl Server {
     /// Create new server
     pub fn new(config: ServerConfig) -> anyhow::Result<Self> {
         let index_manager = Arc::new(IndexManager::new(&config.data_dir));
-        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config.config)?));
+
+        // Use default config if no config file specified
+        let default_config = Config::default();
+        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&default_config)?));
 
         Ok(Self {
             config,
             index_manager,
             snapshot_manager,
+            config_manager: None,
         })
+    }
+
+    /// Create new server with configuration hot-reload
+    pub async fn new_with_hot_reload(config: ServerConfig) -> anyhow::Result<Self> {
+        let index_manager = Arc::new(IndexManager::new(&config.data_dir));
+
+        if let Some(config_path) = &config.config_path {
+            let manager = Config::from_file_with_hot_reload(config_path).await?;
+            let current_config = manager.get_config().await;
+            let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&current_config)?));
+
+            Ok(Self {
+                config,
+                index_manager,
+                snapshot_manager,
+                config_manager: Some(Arc::new(manager)),
+            })
+        } else {
+            // Fallback to default config
+            let default_config = Config::default();
+            let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&default_config)?));
+
+            Ok(Self {
+                config,
+                index_manager,
+                snapshot_manager,
+                config_manager: None,
+            })
+        }
     }
 
     /// Run server
@@ -63,6 +100,20 @@ impl Server {
         let listener = TcpListener::bind(&self.config.bind_addr).await?;
 
         tracing::info!("Lexum server listening on {}", self.config.bind_addr);
+
+        // Start configuration hot-reload task if enabled
+        if let Some(config_manager) = &self.config_manager {
+            let config_manager = Arc::clone(config_manager);
+            tokio::spawn(async move {
+                let mut rx = config_manager.subscribe();
+                while let Ok(new_config) = rx.recv().await {
+                    tracing::info!("Configuration reloaded, updating server settings");
+                    // Here we could update server settings like rate limits, auth config, etc.
+                    // For now, we just log the event
+                    tracing::debug!("New configuration: {:?}", new_config);
+                }
+            });
+        }
 
         // Serve with graceful shutdown
         axum::serve(listener, app)
@@ -106,4 +157,58 @@ async fn shutdown_signal() {
     }
 
     tracing::info!("Starting graceful shutdown...");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_server_creation() {
+        let config = ServerConfig::default();
+        let server = Server::new(config);
+        assert!(server.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_server_with_hot_reload() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.yml");
+
+        // Create a test config file
+        let test_config = r#"
+cluster:
+  name: "test-cluster"
+node:
+  name: "test-node"
+  roles: ["data", "master"]
+network:
+  host: "127.0.0.1"
+  http_port: 9200
+  transport_port: 9300
+path:
+  data: "./data"
+  logs: "./logs"
+logging:
+  level: "info"
+  format: "pretty"
+snapshots:
+  repositories:
+    - name: "default"
+      repository_type: "fs"
+      settings:
+        location: "./snapshots"
+"#;
+        std::fs::write(&config_path, test_config).unwrap();
+
+        let config = ServerConfig {
+            bind_addr: "127.0.0.1:9201".parse().unwrap(),
+            data_dir: temp_dir.path().join("data").to_string_lossy().to_string(),
+            config_path: Some(config_path.to_string_lossy().to_string()),
+        };
+
+        let server = Server::new_with_hot_reload(config).await;
+        assert!(server.is_ok());
+    }
 }

@@ -540,4 +540,313 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_bulk_operation_result_serialization() {
+        let result = BulkOperationResult {
+            success: true,
+            action: "index".to_string(),
+            index: "test_index".to_string(),
+            id: Some("doc123".to_string()),
+            error: None,
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: BulkOperationResult = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(result.success, deserialized.success);
+        assert_eq!(result.action, deserialized.action);
+        assert_eq!(result.index, deserialized.index);
+        assert_eq!(result.id, deserialized.id);
+        assert_eq!(result.error, deserialized.error);
+    }
+
+    #[test]
+    fn test_bulk_operation_result_with_error() {
+        let result = BulkOperationResult {
+            success: false,
+            action: "create".to_string(),
+            index: "test_index".to_string(),
+            id: Some("doc456".to_string()),
+            error: Some("Document already exists".to_string()),
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: BulkOperationResult = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(result.success, deserialized.success);
+        assert_eq!(result.error, deserialized.error);
+    }
+
+    #[test]
+    fn test_bulk_request_serialization() {
+        let request = BulkRequest {
+            operations: vec![
+                BulkOperation::Index {
+                    index: "test_index".to_string(),
+                    id: None,
+                    document: serde_json::json!({"title": "Test"}),
+                },
+                BulkOperation::Delete {
+                    index: "test_index".to_string(),
+                    id: "doc1".to_string(),
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: BulkRequest = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(request.operations.len(), deserialized.operations.len());
+    }
+
+    #[test]
+    fn test_bulk_operation_variants() {
+        // Test Index operation with ID
+        let index_with_id = BulkOperation::Index {
+            index: "test".to_string(),
+            id: Some("doc1".to_string()),
+            document: serde_json::json!({"title": "Test"}),
+        };
+        let json = serde_json::to_string(&index_with_id).unwrap();
+        let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, BulkOperation::Index { .. }));
+
+        // Test Index operation without ID
+        let index_without_id = BulkOperation::Index {
+            index: "test".to_string(),
+            id: None,
+            document: serde_json::json!({"title": "Test"}),
+        };
+        let json = serde_json::to_string(&index_without_id).unwrap();
+        let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, BulkOperation::Index { .. }));
+
+        // Test Create operation
+        let create_op = BulkOperation::Create {
+            index: "test".to_string(),
+            id: "doc2".to_string(),
+            document: serde_json::json!({"title": "Test"}),
+        };
+        let json = serde_json::to_string(&create_op).unwrap();
+        let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, BulkOperation::Create { .. }));
+
+        // Test Update operation
+        let update_op = BulkOperation::Update {
+            index: "test".to_string(),
+            id: "doc3".to_string(),
+            document: serde_json::json!({"title": "Updated"}),
+        };
+        let json = serde_json::to_string(&update_op).unwrap();
+        let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, BulkOperation::Update { .. }));
+
+        // Test Delete operation
+        let delete_op = BulkOperation::Delete {
+            index: "test".to_string(),
+            id: "doc4".to_string(),
+        };
+        let json = serde_json::to_string(&delete_op).unwrap();
+        let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, BulkOperation::Delete { .. }));
+    }
+
+    #[test]
+    fn test_add_document_request_with_complex_json() {
+        let complex_doc = serde_json::json!({
+            "title": "Complex Document",
+            "content": "This is a complex document with nested structures",
+            "metadata": {
+                "author": "Test Author",
+                "tags": ["test", "document", "complex"],
+                "nested": {
+                    "level1": {
+                        "level2": "deep value"
+                    }
+                }
+            },
+            "numbers": [1, 2, 3, 4, 5],
+            "boolean": true,
+            "null_value": null
+        });
+
+        let request = AddDocumentRequest {
+            document: complex_doc,
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: AddDocumentRequest = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(request.document, deserialized.document);
+    }
+
+    #[test]
+    fn test_bulk_response_with_mixed_results() {
+        let response = BulkResponse {
+            errors: true, // Some operations failed
+            took_ms: 250,
+            items: vec![
+                BulkOperationResult {
+                    success: true,
+                    action: "index".to_string(),
+                    index: "test_index".to_string(),
+                    id: Some("doc1".to_string()),
+                    error: None,
+                },
+                BulkOperationResult {
+                    success: false,
+                    action: "create".to_string(),
+                    index: "test_index".to_string(),
+                    id: Some("doc2".to_string()),
+                    error: Some("Document already exists".to_string()),
+                },
+                BulkOperationResult {
+                    success: true,
+                    action: "update".to_string(),
+                    index: "test_index".to_string(),
+                    id: Some("doc3".to_string()),
+                    error: None,
+                },
+                BulkOperationResult {
+                    success: false,
+                    action: "delete".to_string(),
+                    index: "nonexistent_index".to_string(),
+                    id: Some("doc4".to_string()),
+                    error: Some("Index not found".to_string()),
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: BulkResponse = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(response.errors, deserialized.errors);
+        assert_eq!(response.took_ms, deserialized.took_ms);
+        assert_eq!(response.items.len(), deserialized.items.len());
+        
+        // Check that we have both successful and failed operations
+        let success_count = response.items.iter().filter(|item| item.success).count();
+        let failure_count = response.items.iter().filter(|item| !item.success).count();
+        assert_eq!(success_count, 2);
+        assert_eq!(failure_count, 2);
+    }
+
+    #[test]
+    fn test_bulk_operation_with_empty_document() {
+        let operation = BulkOperation::Index {
+            index: "test_index".to_string(),
+            id: None,
+            document: serde_json::json!({}),
+        };
+
+        let json = serde_json::to_string(&operation).unwrap();
+        let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+
+        assert!(matches!(deserialized, BulkOperation::Index { .. }));
+    }
+
+    #[test]
+    fn test_bulk_operation_with_null_id() {
+        let operation = BulkOperation::Index {
+            index: "test_index".to_string(),
+            id: None,
+            document: serde_json::json!({"title": "Test"}),
+        };
+
+        let json = serde_json::to_string(&operation).unwrap();
+        let deserialized: BulkOperation = serde_json::from_str(&json).unwrap();
+
+        assert!(matches!(deserialized, BulkOperation::Index { id: None, .. }));
+    }
+
+    #[test]
+    fn test_bulk_operation_result_without_id() {
+        let result = BulkOperationResult {
+            success: true,
+            action: "index".to_string(),
+            index: "test_index".to_string(),
+            id: None,
+            error: None,
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: BulkOperationResult = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(result.id, deserialized.id);
+        assert!(deserialized.id.is_none());
+    }
+
+    #[test]
+    fn test_bulk_operation_result_without_error() {
+        let result = BulkOperationResult {
+            success: true,
+            action: "index".to_string(),
+            index: "test_index".to_string(),
+            id: Some("doc123".to_string()),
+            error: None,
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: BulkOperationResult = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(result.error, deserialized.error);
+        assert!(deserialized.error.is_none());
+    }
+
+    #[test]
+    fn test_add_document_response_with_uuid() {
+        let response = AddDocumentResponse {
+            id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: AddDocumentResponse = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(response.id, deserialized.id);
+    }
+
+    #[test]
+    fn test_bulk_request_empty_operations() {
+        let request = BulkRequest {
+            operations: vec![],
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: BulkRequest = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(request.operations.len(), 0);
+        assert_eq!(deserialized.operations.len(), 0);
+    }
+
+    #[test]
+    fn test_bulk_response_no_errors() {
+        let response = BulkResponse {
+            errors: false,
+            took_ms: 50,
+            items: vec![
+                BulkOperationResult {
+                    success: true,
+                    action: "index".to_string(),
+                    index: "test_index".to_string(),
+                    id: Some("doc1".to_string()),
+                    error: None,
+                },
+                BulkOperationResult {
+                    success: true,
+                    action: "index".to_string(),
+                    index: "test_index".to_string(),
+                    id: Some("doc2".to_string()),
+                    error: None,
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        let deserialized: BulkResponse = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(response.errors, false);
+        assert_eq!(deserialized.errors, false);
+        assert_eq!(response.items.len(), 2);
+    }
 }

@@ -307,7 +307,10 @@ async fn main() -> Result<()> {
             SnapshotAction::List { repository } => {
                 commands::snapshot::list_snapshots(&cli.url, &repository).await?;
             }
-            SnapshotAction::Get { repository, snapshot } => {
+            SnapshotAction::Get {
+                repository,
+                snapshot,
+            } => {
                 commands::snapshot::get_snapshot(&cli.url, &repository, &snapshot).await?;
             }
             SnapshotAction::Create {
@@ -319,15 +322,25 @@ async fn main() -> Result<()> {
                 let indices_list = indices
                     .map(|i| i.split(',').map(|s| s.trim().to_string()).collect())
                     .unwrap_or_default();
-                commands::snapshot::create_snapshot(&cli.url, &repository, &snapshot, indices_list, wait).await?;
+                commands::snapshot::create_snapshot(
+                    &cli.url,
+                    &repository,
+                    &snapshot,
+                    indices_list,
+                    wait,
+                )
+                .await?;
             }
-            SnapshotAction::Delete { repository, snapshot } => {
+            SnapshotAction::Delete {
+                repository,
+                snapshot,
+            } => {
                 commands::snapshot::delete_snapshot(&cli.url, &repository, &snapshot).await?;
             }
             SnapshotAction::Repo { repository } => {
                 commands::snapshot::get_repository(&cli.url, &repository).await?;
             }
-        }
+        },
         None => {
             // No command provided, start REPL by default
             println!("{}", "Lexum Interactive Shell".bright_cyan().bold());
@@ -348,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_cli_parsing_default() {
-        let cli = Cli::try_parse_from(&["lexum"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum"]).unwrap();
         assert_eq!(cli.url, "http://localhost:9200");
         assert_eq!(cli.format, "table");
         assert!(cli.command.is_none());
@@ -356,21 +369,21 @@ mod tests {
 
     #[test]
     fn test_cli_parsing_with_url() {
-        let cli = Cli::try_parse_from(&["lexum", "--url", "http://example.com:8080"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "--url", "http://example.com:8080"]).unwrap();
         assert_eq!(cli.url, "http://example.com:8080");
         assert_eq!(cli.format, "table");
     }
 
     #[test]
     fn test_cli_parsing_with_format() {
-        let cli = Cli::try_parse_from(&["lexum", "--format", "json"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "--format", "json"]).unwrap();
         assert_eq!(cli.url, "http://localhost:9200");
         assert_eq!(cli.format, "json");
     }
 
     #[test]
     fn test_repl_command() {
-        let cli = Cli::try_parse_from(&["lexum", "repl"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "repl"]).unwrap();
         match cli.command {
             Some(Commands::Repl) => (),
             _ => panic!("Expected Repl command"),
@@ -380,7 +393,7 @@ mod tests {
     #[test]
     fn test_server_start_command() {
         let cli =
-            Cli::try_parse_from(&["lexum", "server", "start", "--config", "test.yml"]).unwrap();
+            Cli::try_parse_from(["lexum", "server", "start", "--config", "test.yml"]).unwrap();
         match cli.command {
             Some(Commands::Server { action }) => match action {
                 ServerAction::Start { config, daemon } => {
@@ -395,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_server_start_daemon() {
-        let cli = Cli::try_parse_from(&["lexum", "server", "start", "--daemon"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "server", "start", "--daemon"]).unwrap();
         match cli.command {
             Some(Commands::Server { action }) => match action {
                 ServerAction::Start { daemon, .. } => {
@@ -409,7 +422,7 @@ mod tests {
 
     #[test]
     fn test_server_stop_command() {
-        let cli = Cli::try_parse_from(&["lexum", "server", "stop"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "server", "stop"]).unwrap();
         match cli.command {
             Some(Commands::Server { action }) => match action {
                 ServerAction::Stop => (),
@@ -421,7 +434,7 @@ mod tests {
 
     #[test]
     fn test_server_status_command() {
-        let cli = Cli::try_parse_from(&["lexum", "server", "status"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "server", "status"]).unwrap();
         match cli.command {
             Some(Commands::Server { action }) => match action {
                 ServerAction::Status => (),
@@ -434,7 +447,7 @@ mod tests {
     #[test]
     fn test_server_config_command() {
         let cli =
-            Cli::try_parse_from(&["lexum", "server", "config", "--file", "config.yml"]).unwrap();
+            Cli::try_parse_from(["lexum", "server", "config", "--file", "config.yml"]).unwrap();
         match cli.command {
             Some(Commands::Server { action }) => match action {
                 ServerAction::Config { file } => {
@@ -448,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_index_create_command() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "lexum",
             "index",
             "create",
@@ -471,7 +484,7 @@ mod tests {
 
     #[test]
     fn test_index_list_command() {
-        let cli = Cli::try_parse_from(&["lexum", "index", "list"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "index", "list"]).unwrap();
         match cli.command {
             Some(Commands::Index { action }) => match action {
                 IndexAction::List => (),
@@ -483,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_index_get_command() {
-        let cli = Cli::try_parse_from(&["lexum", "index", "get", "test_index"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "index", "get", "test_index"]).unwrap();
         match cli.command {
             Some(Commands::Index { action }) => match action {
                 IndexAction::Get { name } => {
@@ -497,7 +510,7 @@ mod tests {
 
     #[test]
     fn test_index_stats_command() {
-        let cli = Cli::try_parse_from(&["lexum", "index", "stats", "test_index"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "index", "stats", "test_index"]).unwrap();
         match cli.command {
             Some(Commands::Index { action }) => match action {
                 IndexAction::Stats { name } => {
@@ -511,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_index_delete_command() {
-        let cli = Cli::try_parse_from(&["lexum", "index", "delete", "test_index"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "index", "delete", "test_index"]).unwrap();
         match cli.command {
             Some(Commands::Index { action }) => match action {
                 IndexAction::Delete { name } => {
@@ -525,7 +538,7 @@ mod tests {
 
     #[test]
     fn test_doc_add_command() {
-        let cli = Cli::try_parse_from(&["lexum", "doc", "add", "test_index", "--file", "doc.json"])
+        let cli = Cli::try_parse_from(["lexum", "doc", "add", "test_index", "--file", "doc.json"])
             .unwrap();
         match cli.command {
             Some(Commands::Doc { action }) => match action {
@@ -541,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_doc_get_command() {
-        let cli = Cli::try_parse_from(&["lexum", "doc", "get", "test_index", "doc123"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "doc", "get", "test_index", "doc123"]).unwrap();
         match cli.command {
             Some(Commands::Doc { action }) => match action {
                 DocAction::Get { index, id } => {
@@ -556,7 +569,7 @@ mod tests {
 
     #[test]
     fn test_doc_delete_command() {
-        let cli = Cli::try_parse_from(&["lexum", "doc", "delete", "test_index", "doc123"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "doc", "delete", "test_index", "doc123"]).unwrap();
         match cli.command {
             Some(Commands::Doc { action }) => match action {
                 DocAction::Delete { index, id } => {
@@ -572,7 +585,7 @@ mod tests {
     #[test]
     fn test_doc_bulk_command() {
         let cli =
-            Cli::try_parse_from(&["lexum", "doc", "bulk", "test_index", "--file", "docs.json"])
+            Cli::try_parse_from(["lexum", "doc", "bulk", "test_index", "--file", "docs.json"])
                 .unwrap();
         match cli.command {
             Some(Commands::Doc { action }) => match action {
@@ -588,7 +601,7 @@ mod tests {
 
     #[test]
     fn test_search_command() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "lexum",
             "search",
             "test_index",
@@ -617,7 +630,7 @@ mod tests {
 
     #[test]
     fn test_search_command_with_sort() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "lexum",
             "search",
             "test_index",
@@ -641,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_search_command_with_fields() {
-        let cli = Cli::try_parse_from(&[
+        let cli = Cli::try_parse_from([
             "lexum",
             "search",
             "test_index",
@@ -665,7 +678,7 @@ mod tests {
 
     #[test]
     fn test_search_command_file_input() {
-        let cli = Cli::try_parse_from(&["lexum", "search", "test_index", "@query.json"]).unwrap();
+        let cli = Cli::try_parse_from(["lexum", "search", "test_index", "@query.json"]).unwrap();
         match cli.command {
             Some(Commands::Search { query, .. }) => {
                 assert_eq!(query, "@query.json");
