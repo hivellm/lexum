@@ -4,6 +4,52 @@ use crate::types::{DocumentId, Score};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
+/// Sort order for search results
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SortOrder {
+    /// Ascending order
+    Asc,
+    /// Descending order
+    Desc,
+}
+
+impl Default for SortOrder {
+    fn default() -> Self {
+        Self::Desc
+    }
+}
+
+/// Sort option for a field
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SortOption {
+    /// Field to sort by
+    pub field: String,
+    /// Sort order
+    #[serde(default)]
+    pub order: SortOrder,
+}
+
+impl SortOption {
+    /// Create new sort option
+    pub fn new(field: impl Into<String>, order: SortOrder) -> Self {
+        Self {
+            field: field.into(),
+            order,
+        }
+    }
+
+    /// Create ascending sort
+    pub fn asc(field: impl Into<String>) -> Self {
+        Self::new(field, SortOrder::Asc)
+    }
+
+    /// Create descending sort
+    pub fn desc(field: impl Into<String>) -> Self {
+        Self::new(field, SortOrder::Desc)
+    }
+}
+
 /// Search hit containing a document and metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchHit {

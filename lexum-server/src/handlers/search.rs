@@ -4,7 +4,7 @@ use crate::error::{ApiError, ApiResult};
 use crate::handlers::index::AppState;
 use axum::Json;
 use axum::extract::{Path, State};
-use lexum_core::{Query, SearchExecutor, SearchResult};
+use lexum_core::{Query, SearchExecutor, SearchResult, SortOption};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -19,6 +19,9 @@ pub struct SearchRequest {
     /// Offset (default: 0)
     #[serde(default)]
     pub offset: usize,
+    /// Optional sort specification
+    #[serde(default)]
+    pub sort: Option<SortOption>,
 }
 
 fn default_limit() -> usize {
@@ -38,7 +41,7 @@ pub async fn search(
 
     let executor = SearchExecutor::new(Arc::new(index));
     let result = executor
-        .search(request.query, request.limit, request.offset)
+        .search(request.query, request.limit, request.offset, request.sort)
         .await?;
 
     Ok(Json(result))

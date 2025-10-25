@@ -26,6 +26,16 @@ impl QueryBuilder {
         BoolQuery::new()
     }
 
+    /// Create a fuzzy query
+    pub fn fuzzy_query(field: impl Into<String>, value: impl Into<String>) -> Query {
+        Query::Fuzzy(FuzzyQuery::new(field, value))
+    }
+
+    /// Create a phrase query
+    pub fn phrase_query(field: impl Into<String>, phrase: impl Into<String>) -> Query {
+        Query::Phrase(PhraseQuery::new(field, phrase))
+    }
+
     /// Create a match all query
     pub fn match_all() -> Query {
         Query::MatchAll
@@ -46,5 +56,17 @@ mod tests {
 
         let query = QueryBuilder::match_all();
         assert!(matches!(query, Query::MatchAll));
+    }
+
+    #[test]
+    fn test_fuzzy_query_builder() {
+        let query = QueryBuilder::fuzzy_query("name", "jhon");
+        assert!(matches!(query, Query::Fuzzy(_)));
+    }
+
+    #[test]
+    fn test_phrase_query_builder() {
+        let query = QueryBuilder::phrase_query("content", "quick brown fox");
+        assert!(matches!(query, Query::Phrase(_)));
     }
 }

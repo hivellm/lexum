@@ -14,6 +14,10 @@ pub enum Query {
     Range(RangeQuery),
     /// Boolean query (combinations)
     Bool(BoolQuery),
+    /// Fuzzy query (approximate matching)
+    Fuzzy(FuzzyQuery),
+    /// Phrase query (exact phrase matching)
+    Phrase(PhraseQuery),
     /// Match all documents
     MatchAll,
 }
@@ -156,6 +160,95 @@ impl BoolQuery {
     }
 }
 
+/// Fuzzy query for approximate matching with edit distance
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FuzzyQuery {
+    /// Field to search
+    pub field: String,
+    /// Term to match fuzzily
+    pub value: String,
+    /// Maximum edit distance (0-2, default: 2)
+    #[serde(default = "default_fuzzy_distance")]
+    pub fuzziness: u8,
+    /// Whether to include transpositions in edit distance
+    #[serde(default = "default_true")]
+    pub transpositions: bool,
+    /// Minimum prefix length that must match exactly
+    #[serde(default)]
+    pub prefix_length: u32,
+}
+
+fn default_fuzzy_distance() -> u8 {
+    2
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl FuzzyQuery {
+    /// Create new fuzzy query with default fuzziness of 2
+    pub fn new(field: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            value: value.into(),
+            fuzziness: 2,
+            transpositions: true,
+            prefix_length: 0,
+        }
+    }
+
+    /// Set fuzziness (maximum edit distance 0-2)
+    pub fn fuzziness(mut self, distance: u8) -> Self {
+        self.fuzziness = distance.min(2);
+        self
+    }
+
+    /// Set whether to include transpositions
+    pub fn transpositions(mut self, enabled: bool) -> Self {
+        self.transpositions = enabled;
+        self
+    }
+
+    /// Set prefix length that must match exactly
+    pub fn prefix_length(mut self, length: u32) -> Self {
+        self.prefix_length = length;
+        self
+    }
+}
+
+/// Phrase query for exact phrase matching
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PhraseQuery {
+    /// Field to search
+    pub field: String,
+    /// Phrase to match (terms in exact order)
+    pub phrase: String,
+    /// Maximum allowed distance between terms (slop)
+    #[serde(default)]
+    pub slop: u32,
+}
+
+impl PhraseQuery {
+    /// Create new phrase query with no slop (exact phrase)
+    pub fn new(field: impl Into<String>, phrase: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            phrase: phrase.into(),
+            slop: 0,
+        }
+    }
+
+    /// Set slop (maximum distance between terms)
+    /// 
+    /// Slop allows terms to be in different positions.
+    /// For example, with slop=1, "quick fox" will match "quick brown fox"
+    pub fn slop(mut self, slop: u32) -> Self {
+        self.slop = slop;
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -193,5 +286,39 @@ mod tests {
 
         assert_eq!(bool_query.must.len(), 1);
         assert_eq!(bool_query.should.len(), 1);
+    }
+
+    #[test]
+    fn test_fuzzy_query() {
+        let query = FuzzyQuery::new("name", "jhon")
+            .fuzziness(1)
+            .prefix_length(2);
+
+        assert_eq!(query.field, "name");
+        assert_eq!(query.value, "jhon");
+        assert_eq!(query.fuzziness, 1);
+        assert_eq!(query.prefix_length, 2);
+        assert!(query.transpositions);
+    }
+
+    #[test]
+    fn test_fuzzy_query_max_distance() {
+        let query = FuzzyQuery::new("name", "test").fuzziness(10);
+        // Should cap at 2
+        assert_eq!(query.fuzziness, 2);
+    }
+
+    #[test]
+    fn test_phrase_query() {
+        let query = PhraseQuery::new("content", "quick brown fox");
+        assert_eq!(query.field, "content");
+        assert_eq!(query.phrase, "quick brown fox");
+        assert_eq!(query.slop, 0);
+    }
+
+    #[test]
+    fn test_phrase_query_with_slop() {
+        let query = PhraseQuery::new("content", "quick fox").slop(2);
+        assert_eq!(query.slop, 2);
     }
 }
