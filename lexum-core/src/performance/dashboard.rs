@@ -284,7 +284,11 @@ impl DashboardData {
         };
 
         // Calculate overall health
-        health.overall_score = ((health.search_health as u16 + health.memory_health as u16 + health.cpu_health as u16 + health.disk_health as u16) / 4) as u8;
+        health.overall_score = ((u16::from(health.search_health)
+            + u16::from(health.memory_health)
+            + u16::from(health.cpu_health)
+            + u16::from(health.disk_health))
+            / 4) as u8;
 
         // Set status message
         health.status = match health.overall_score {

@@ -465,9 +465,11 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        
+
         // Create first index
-        let result1 = manager.create_index("test_index", schema.clone(), settings.clone()).await;
+        let result1 = manager
+            .create_index("test_index", schema.clone(), settings.clone())
+            .await;
         assert!(result1.is_ok());
 
         // Try to create duplicate
@@ -486,7 +488,10 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("test_index", schema, settings).await.unwrap();
+        manager
+            .create_index("test_index", schema, settings)
+            .await
+            .unwrap();
 
         let index = manager.get_index("test_index").unwrap();
         assert_eq!(index.name().as_str(), "test_index");
@@ -502,14 +507,20 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        
+
         // Initially empty
         let indices = manager.list_indices();
         assert_eq!(indices.len(), 0);
 
         // Create indices
-        manager.create_index("index1", schema.clone(), settings.clone()).await.unwrap();
-        manager.create_index("index2", schema, settings).await.unwrap();
+        manager
+            .create_index("index1", schema.clone(), settings.clone())
+            .await
+            .unwrap();
+        manager
+            .create_index("index2", schema, settings)
+            .await
+            .unwrap();
 
         let indices = manager.list_indices();
         assert_eq!(indices.len(), 2);
@@ -527,7 +538,10 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("test_index", schema, settings).await.unwrap();
+        manager
+            .create_index("test_index", schema, settings)
+            .await
+            .unwrap();
 
         assert!(manager.index_exists("test_index"));
 
@@ -547,7 +561,10 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("test_index", schema, settings).await.unwrap();
+        manager
+            .create_index("test_index", schema, settings)
+            .await
+            .unwrap();
 
         let stats = manager.get_index_stats("test_index").await.unwrap();
         assert_eq!(stats.name, "test_index");
@@ -573,7 +590,10 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("index1", schema, settings).await.unwrap();
+        manager
+            .create_index("index1", schema, settings)
+            .await
+            .unwrap();
 
         let indices = vec![IndexName::new("index1")];
         let result = manager.create_alias("my_alias", indices);
@@ -605,7 +625,10 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("index1", schema, settings).await.unwrap();
+        manager
+            .create_index("index1", schema, settings)
+            .await
+            .unwrap();
 
         let result = manager.resolve_name("index1");
         assert!(result.is_ok());
@@ -624,7 +647,10 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("index1", schema, settings).await.unwrap();
+        manager
+            .create_index("index1", schema, settings)
+            .await
+            .unwrap();
 
         let indices = vec![IndexName::new("index1")];
         manager.create_alias("my_alias", indices).unwrap();
@@ -656,8 +682,14 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("index1", schema.clone(), settings.clone()).await.unwrap();
-        manager.create_index("index2", schema, settings).await.unwrap();
+        manager
+            .create_index("index1", schema.clone(), settings.clone())
+            .await
+            .unwrap();
+        manager
+            .create_index("index2", schema, settings)
+            .await
+            .unwrap();
 
         let indices = vec![IndexName::new("index1")];
         manager.create_alias("my_alias", indices).unwrap();
@@ -680,7 +712,10 @@ mod tests {
         let schema = schema_builder.build();
 
         let settings = IndexSettings::new().with_shards(1);
-        manager.create_index("index1", schema, settings).await.unwrap();
+        manager
+            .create_index("index1", schema, settings)
+            .await
+            .unwrap();
 
         let indices = vec![IndexName::new("index1")];
         manager.create_alias("my_alias", indices).unwrap();

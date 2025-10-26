@@ -3,6 +3,8 @@ resolver = "2"
 members = ["lexum-cli",
     "lexum-core", "lexum-server",
     "tests",
+    "tests/e2e",
+    "tests/chaos",
 ]
 
 [workspace.package]

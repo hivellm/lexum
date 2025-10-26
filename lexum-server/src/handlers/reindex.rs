@@ -1,21 +1,17 @@
 //! Reindexing operations endpoints
 
 use axum::{extract::State, response::Json};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::ToSchema;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
-use crate::handlers::index::AppState;
 use crate::error::{ApiError, ApiResult};
-use lexum_core::{
-    document::store::DocumentStore,
-    query::Query,
-    search::SearchExecutor,
-};
+use crate::handlers::index::AppState;
+use lexum_core::{document::store::DocumentStore, query::Query, search::SearchExecutor};
 
 /// Reindex request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -98,6 +94,12 @@ pub struct ReindexResponse {
 #[derive(Debug, Clone)]
 pub struct TaskManager {
     tasks: Arc<RwLock<HashMap<String, ReindexTask>>>,
+}
+
+impl Default for TaskManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TaskManager {
@@ -236,24 +238,31 @@ async fn perform_reindex(
     let mut total_batches = 0;
 
     // Get source and destination indices
-    let source_index = state.index_manager.get_index(&request.source.index)
-        .map_err(|e| format!("Source index not found: {}", e))?;
-    let dest_index = state.index_manager.get_index(&request.dest.index)
-        .map_err(|e| format!("Destination index not found: {}", e))?;
+    let source_index = state
+        .index_manager
+        .get_index(&request.source.index)
+        .map_err(|e| format!("Source index not found: {e}"))?;
+    let dest_index = state
+        .index_manager
+        .get_index(&request.dest.index)
+        .map_err(|e| format!("Destination index not found: {e}"))?;
 
     // Create document stores
     let _source_store = DocumentStore::new(Arc::new(source_index));
     let dest_store = DocumentStore::new(Arc::new(dest_index));
 
     // Create search executor for source index
-    let search_executor = SearchExecutor::new(Arc::new(state.index_manager.get_index(&request.source.index)
-        .map_err(|e| format!("Failed to get source index: {}", e))?));
+    let search_executor = SearchExecutor::new(Arc::new(
+        state
+            .index_manager
+            .get_index(&request.source.index)
+            .map_err(|e| format!("Failed to get source index: {e}"))?,
+    ));
 
     // Build query - use provided query or match all
     let query = if let Some(query_json) = request.query {
         // Parse custom query from JSON
-        serde_json::from_value(query_json)
-            .map_err(|e| format!("Invalid query format: {}", e))?
+        serde_json::from_value(query_json).map_err(|e| format!("Invalid query format: {e}"))?
     } else {
         Query::MatchAll
     };
@@ -268,8 +277,10 @@ async fn perform_reindex(
         }
 
         // Search for documents in current batch
-        let search_result = search_executor.search(query.clone(), batch_size, offset, None).await
-            .map_err(|e| format!("Search failed: {}", e))?;
+        let search_result = search_executor
+            .search(query.clone(), batch_size, offset, None)
+            .await
+            .map_err(|e| format!("Search failed: {e}"))?;
 
         if search_result.hits.is_empty() {
             // No more documents to process
@@ -283,7 +294,7 @@ async fn perform_reindex(
         for hit in &search_result.hits {
             // Apply field filtering if specified
             let mut document = hit.source.clone();
-            
+
             if let Some(source_fields) = &request.source.source {
                 // Include only specified fields
                 let mut filtered_doc = serde_json::Map::new();
@@ -308,12 +319,18 @@ async fn perform_reindex(
             if let Some(script) = &request.script {
                 // For now, we'll skip script execution as it requires a script engine
                 // In a real implementation, this would execute the script
-                tracing::warn!("Script transformation not yet implemented, skipping script: {}", script.source);
+                tracing::warn!(
+                    "Script transformation not yet implemented, skipping script: {}",
+                    script.source
+                );
             }
 
             // Add document to destination index
             let doc_id = hit.id.clone();
-            match dest_store.add_document_with_id(doc_id.clone(), document.clone()).await {
+            match dest_store
+                .add_document_with_id(doc_id.clone(), document.clone())
+                .await
+            {
                 Ok(_) => {
                     batch_created += 1;
                     total_created += 1;
@@ -376,7 +393,10 @@ async fn perform_reindex(
         task.status.created = total_created;
         task.status.failed = total_failed;
         // Update the task in the manager
-        state.task_manager.update_task(&task_id, task.status.clone()).await;
+        state
+            .task_manager
+            .update_task(&task_id, task.status.clone())
+            .await;
     }
 
     tracing::info!(
@@ -413,26 +433,49 @@ pub async fn reindex(
     );
 
     // Validate source index exists
-    let source_index = state.index_manager.get_index(&request.source.index)
-        .map_err(|e| ApiError::Validation(format!("Source index '{}' not found: {}", request.source.index, e)))?;
+    let source_index = state
+        .index_manager
+        .get_index(&request.source.index)
+        .map_err(|e| {
+            ApiError::Validation(format!(
+                "Source index '{}' not found: {}",
+                request.source.index, e
+            ))
+        })?;
 
     // Check if destination index exists, if not create it
     let _dest_index = if state.index_manager.index_exists(&request.dest.index) {
-        state.index_manager.get_index(&request.dest.index)
-            .map_err(|e| ApiError::Validation(format!("Failed to get destination index '{}': {}", request.dest.index, e)))?
+        state
+            .index_manager
+            .get_index(&request.dest.index)
+            .map_err(|e| {
+                ApiError::Validation(format!(
+                    "Failed to get destination index '{}': {}",
+                    request.dest.index, e
+                ))
+            })?
     } else {
         // Create destination index with same settings as source
         let settings = source_index.settings().clone();
         let schema = source_index.schema();
-        state.index_manager.create_index(&request.dest.index, schema, settings).await
-            .map_err(|e| ApiError::Validation(format!("Failed to create destination index '{}': {}", request.dest.index, e)))?
+        state
+            .index_manager
+            .create_index(&request.dest.index, schema, settings)
+            .await
+            .map_err(|e| {
+                ApiError::Validation(format!(
+                    "Failed to create destination index '{}': {}",
+                    request.dest.index, e
+                ))
+            })?
     };
 
     // Generate unique task ID
-    let task_id = format!("reindex_{}_{}_{}", 
-        request.source.index, 
-        request.dest.index, 
-        Uuid::new_v4().to_string()[..8].to_string()
+    let task_id = format!(
+        "reindex_{}_{}_{}",
+        request.source.index,
+        request.dest.index,
+        &Uuid::new_v4().to_string()[..8]
     );
 
     // Create task
@@ -465,7 +508,7 @@ pub async fn reindex(
     let state_clone = state.clone();
     let request_clone = request.clone();
     let task_id_clone = task_id.clone();
-    
+
     tokio::spawn(async move {
         if let Err(e) = perform_reindex(state_clone, request_clone, task_id_clone).await {
             tracing::error!("Reindex operation failed: {}", e);
@@ -504,8 +547,11 @@ pub async fn get_task(
 ) -> ApiResult<Json<TaskInfo>> {
     tracing::info!("Getting task information for task: {}", task_id);
 
-    let task = state.task_manager.get_task(&task_id).await
-        .ok_or_else(|| ApiError::InvalidRequest(format!("Task {} not found", task_id)))?;
+    let task = state
+        .task_manager
+        .get_task(&task_id)
+        .await
+        .ok_or_else(|| ApiError::InvalidRequest(format!("Task {task_id} not found")))?;
 
     let running_time = if let Some(end_time) = task.end_time {
         ((end_time.timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
@@ -517,7 +563,10 @@ pub async fn get_task(
         task_id: task.task_id,
         task_type: "reindex".to_string(),
         action: "indices:data/write/reindex".to_string(),
-        description: format!("reindex from [{}] to [{}]", task.source_index, task.dest_index),
+        description: format!(
+            "reindex from [{}] to [{}]",
+            task.source_index, task.dest_index
+        ),
         status: task.status,
         start_time_in_millis: task.start_time.timestamp_millis() as u64,
         running_time_in_nanos: running_time,
@@ -545,13 +594,15 @@ pub async fn cancel_task(
     tracing::info!("Cancelling task: {}", task_id);
 
     let cancelled = state.task_manager.cancel_task(&task_id).await;
-    
+
     if cancelled {
         Ok(Json(serde_json::json!({
             "acknowledged": true
         })))
     } else {
-        Err(ApiError::InvalidRequest(format!("Task {} not found", task_id)))
+        Err(ApiError::InvalidRequest(format!(
+            "Task {task_id} not found"
+        )))
     }
 }
 
@@ -564,39 +615,42 @@ pub async fn cancel_task(
     ),
     tag = "Tasks"
 )]
-pub async fn list_tasks(
-    State(state): State<AppState>,
-) -> ApiResult<Json<serde_json::Value>> {
+pub async fn list_tasks(State(state): State<AppState>) -> ApiResult<Json<serde_json::Value>> {
     tracing::info!("Listing all tasks");
 
     let tasks = state.task_manager.list_tasks().await;
-    
+
     let mut nodes = serde_json::Map::new();
     let mut node_tasks = serde_json::Map::new();
-    
+
     for task in tasks {
         let task_info = TaskInfo {
             task_id: task.task_id.clone(),
             task_type: "reindex".to_string(),
             action: "indices:data/write/reindex".to_string(),
-            description: format!("reindex from [{}] to [{}]", task.source_index, task.dest_index),
+            description: format!(
+                "reindex from [{}] to [{}]",
+                task.source_index, task.dest_index
+            ),
             status: task.status,
             start_time_in_millis: task.start_time.timestamp_millis() as u64,
             running_time_in_nanos: if let Some(end_time) = task.end_time {
-                ((end_time.timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
+                ((end_time.timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000)
+                    as u64
             } else {
-                ((Utc::now().timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
+                ((Utc::now().timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000)
+                    as u64
             },
             parent_task_id: None,
             cancellable: !task.cancelled,
             headers: serde_json::json!({}),
         };
-        
+
         node_tasks.insert(task.task_id, serde_json::to_value(task_info).unwrap());
     }
-    
+
     nodes.insert("tasks".to_string(), serde_json::Value::Object(node_tasks));
-    
+
     Ok(Json(serde_json::json!({
         "nodes": {
             "local": {

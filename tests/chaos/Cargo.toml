@@ -1,0 +1,13 @@
+[package]
+name = "lexum-chaos-tests"
+version = "0.1.0-alpha"
+edition = "2024"
+
+[dependencies]
+lexum-core = { path = "../../lexum-core" }
+lexum-server = { path = "../../lexum-server" }
+anyhow = "1.0"
+serde_json = "1.0"
+tempfile = "3.8"
+tokio = { version = "1.0", features = ["full"] }
+rand = "0.8"

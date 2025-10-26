@@ -587,7 +587,7 @@ fn test_alias_concurrent_operations() {
     for i in 0..10 {
         let manager_clone = manager.clone();
         let handle = thread::spawn(move || {
-            let indices = vec![IndexName::new(&format!("index{i}"))];
+            let indices = vec![IndexName::new(format!("index{i}"))];
             manager_clone.create_alias(format!("alias{i}"), indices, None)
         });
         handles.push(handle);

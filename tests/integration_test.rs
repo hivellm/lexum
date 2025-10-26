@@ -34,6 +34,7 @@ async fn test_full_workflow() -> Result<()> {
         index_manager: index_manager.clone(),
         snapshot_manager,
         template_manager: Arc::new(TemplateManager::new()),
+        task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
     };
 
     // Test 1: Create an index
@@ -72,6 +73,7 @@ async fn test_server_integration() -> Result<()> {
         index_manager,
         snapshot_manager,
         template_manager: Arc::new(TemplateManager::new()),
+        task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
     };
 
     // Test that we can create the app state
@@ -198,7 +200,7 @@ async fn test_e2e_document_lifecycle() {
 
     // Wait for server
     for attempt in 1..=3 {
-        match client.get(&format!("{}/health", server_url)).send().await {
+        match client.get(format!("{}/health", server_url)).send().await {
             Ok(response) if response.status().is_success() => {
                 println!("✅ Server is ready after {} attempts", attempt);
                 break;
@@ -250,7 +252,7 @@ async fn test_e2e_document_lifecycle() {
     });
 
     let response = client
-        .post(&format!("{}/api/v1/indices", server_url))
+        .post(format!("{}/api/v1/indices", server_url))
         .json(&json!({
             "name": index_name,
             "schema": schema
@@ -288,7 +290,7 @@ async fn test_e2e_document_lifecycle() {
 
     for doc in &documents {
         let response = client
-            .post(&format!(
+            .post(format!(
                 "{}/api/v1/indices/{}/documents",
                 server_url, index_name
             ))
@@ -322,7 +324,7 @@ async fn test_e2e_document_lifecycle() {
     });
 
     let response = client
-        .post(&format!(
+        .post(format!(
             "{}/api/v1/indices/{}/search",
             server_url, index_name
         ))
@@ -351,7 +353,7 @@ async fn test_e2e_document_lifecycle() {
 
     // Cleanup
     let _ = client
-        .delete(&format!("{}/api/v1/indices/{}", server_url, index_name))
+        .delete(format!("{}/api/v1/indices/{}", server_url, index_name))
         .send()
         .await;
 }

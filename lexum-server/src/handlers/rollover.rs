@@ -162,7 +162,7 @@ pub async fn rollover_index(
 }
 
 /// Check if rollover conditions are met
-fn check_rollover_conditions(
+pub fn check_rollover_conditions(
     conditions: &RolloverConditions,
     stats: &IndexStats,
 ) -> (bool, Option<String>) {
@@ -213,59 +213,61 @@ fn parse_duration(duration: &str) -> Option<u64> {
         return None;
     }
 
-    let (num_str, unit) = if let Some(stripped) = duration.strip_suffix('d') {
-        (stripped, "d")
-    } else if let Some(stripped) = duration.strip_suffix('h') {
-        (stripped, "h")
-    } else if let Some(stripped) = duration.strip_suffix('m') {
-        (stripped, "m")
-    } else if let Some(stripped) = duration.strip_suffix('s') {
-        (stripped, "s")
+    let duration = duration.to_lowercase();
+    let (number, unit) = if duration.ends_with('d') {
+        (duration.trim_end_matches('d'), "days")
+    } else if duration.ends_with('h') {
+        (duration.trim_end_matches('h'), "hours")
+    } else if duration.ends_with('m') {
+        (duration.trim_end_matches('m'), "minutes")
+    } else if duration.ends_with('s') {
+        (duration.trim_end_matches('s'), "seconds")
     } else {
         return None;
     };
 
-    let num: u64 = num_str.parse().ok()?;
+    let number: u64 = number.parse().ok()?;
 
     let millis = match unit {
-        "s" => num * 1000,
-        "m" => num * 60 * 1000,
-        "h" => num * 60 * 60 * 1000,
-        "d" => num * 24 * 60 * 60 * 1000,
+        "days" => number * 24 * 60 * 60 * 1000,
+        "hours" => number * 60 * 60 * 1000,
+        "minutes" => number * 60 * 1000,
+        "seconds" => number * 1000,
         _ => return None,
     };
 
     Some(millis)
 }
 
-/// Parse size string (e.g., "5gb", "1tb", "100mb")
+/// Parse size string (e.g., "5gb", "1tb", "500mb")
 fn parse_size(size: &str) -> Option<u64> {
     if size.is_empty() {
         return None;
     }
 
-    let (num_str, unit) = if let Some(stripped) = size.strip_suffix("gb") {
-        (stripped, "gb")
-    } else if let Some(stripped) = size.strip_suffix("tb") {
-        (stripped, "tb")
-    } else if let Some(stripped) = size.strip_suffix("mb") {
-        (stripped, "mb")
-    } else if let Some(stripped) = size.strip_suffix("kb") {
-        (stripped, "kb")
-    } else if let Some(stripped) = size.strip_suffix("b") {
-        (stripped, "b")
+    let size = size.to_lowercase();
+    let (number, unit) = if size.ends_with("tb") {
+        (size.trim_end_matches("tb"), "terabytes")
+    } else if size.ends_with("gb") {
+        (size.trim_end_matches("gb"), "gigabytes")
+    } else if size.ends_with("mb") {
+        (size.trim_end_matches("mb"), "megabytes")
+    } else if size.ends_with("kb") {
+        (size.trim_end_matches("kb"), "kilobytes")
+    } else if size.ends_with('b') {
+        (size.trim_end_matches('b'), "bytes")
     } else {
         return None;
     };
 
-    let num: f64 = num_str.parse().ok()?;
+    let number: f64 = number.parse().ok()?;
 
     let bytes = match unit {
-        "b" => num as u64,
-        "kb" => (num * 1024.0) as u64,
-        "mb" => (num * 1024.0 * 1024.0) as u64,
-        "gb" => (num * 1024.0 * 1024.0 * 1024.0) as u64,
-        "tb" => (num * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64,
+        "terabytes" => (number * 1024.0 * 1024.0 * 1024.0 * 1024.0) as u64,
+        "gigabytes" => (number * 1024.0 * 1024.0 * 1024.0) as u64,
+        "megabytes" => (number * 1024.0 * 1024.0) as u64,
+        "kilobytes" => (number * 1024.0) as u64,
+        "bytes" => number as u64,
         _ => return None,
     };
 
@@ -273,7 +275,7 @@ fn parse_size(size: &str) -> Option<u64> {
 }
 
 /// Generate rollover index name
-fn generate_rollover_index_name(original_name: &str) -> String {
+pub fn generate_rollover_index_name(original_name: &str) -> String {
     // Find the last dash followed by a number
     if let Some(last_dash) = original_name.rfind('-') {
         let suffix = &original_name[last_dash + 1..];
@@ -330,7 +332,7 @@ async fn perform_rollover(
     get,
     path = "/api/v1/indices/{index_name}/_rollover",
     params(
-        ("index_name" = String, Path, description = "Index name")
+        ("index_name" = String, Path, description = "Index name to get rollover conditions for")
     ),
     responses(
         (status = 200, description = "Rollover conditions retrieved successfully", body = RolloverConditions),
@@ -340,19 +342,19 @@ async fn perform_rollover(
     tag = "Indices"
 )]
 pub async fn get_rollover_conditions(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(index_name): Path<String>,
 ) -> ApiResult<Json<RolloverConditions>> {
     tracing::info!("Getting rollover conditions for index '{}'", index_name);
 
-    // In a real implementation, this would retrieve the configured
-    // rollover conditions for the index from storage
-    let conditions = RolloverConditions {
-        max_age: Some("30d".to_string()),
-        max_size: Some("5gb".to_string()),
-        max_docs: Some(1000000),
-        max_primary_shard_size: Some("1gb".to_string()),
-    };
+    // Check if index exists
+    if !state.index_manager.index_exists(&index_name) {
+        return Err(ApiError::IndexNotFound(index_name));
+    }
+
+    // In a real implementation, we would store and retrieve rollover conditions
+    // For now, return default conditions
+    let conditions = RolloverConditions::default();
 
     Ok(Json(conditions))
 }
@@ -362,26 +364,35 @@ pub async fn get_rollover_conditions(
     put,
     path = "/api/v1/indices/{index_name}/_rollover",
     params(
-        ("index_name" = String, Path, description = "Index name")
+        ("index_name" = String, Path, description = "Index name to update rollover conditions for")
     ),
     request_body = RolloverConditions,
     responses(
-        (status = 200, description = "Rollover conditions updated successfully"),
+        (status = 200, description = "Rollover conditions updated successfully", body = serde_json::Value),
         (status = 404, description = "Index not found", body = ApiError),
         (status = 500, description = "Internal server error", body = ApiError)
     ),
     tag = "Indices"
 )]
 pub async fn update_rollover_conditions(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(index_name): Path<String>,
     Json(conditions): Json<RolloverConditions>,
-) -> ApiResult<()> {
+) -> ApiResult<Json<serde_json::Value>> {
     tracing::info!("Updating rollover conditions for index '{}'", index_name);
 
-    // In a real implementation, this would store the rollover
-    // conditions for the index in persistent storage
-    tracing::debug!("Rollover conditions: {:?}", conditions);
+    // Check if index exists
+    if !state.index_manager.index_exists(&index_name) {
+        return Err(ApiError::IndexNotFound(index_name));
+    }
 
-    Ok(())
+    // In a real implementation, we would store the rollover conditions
+    // For now, just acknowledge the update
+    let response = serde_json::json!({
+        "acknowledged": true,
+        "index": index_name,
+        "conditions": conditions
+    });
+
+    Ok(Json(response))
 }

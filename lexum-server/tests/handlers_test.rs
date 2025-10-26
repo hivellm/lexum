@@ -377,7 +377,7 @@ fn test_rollover_request() {
 
     assert_eq!(request.conditions.max_docs, Some(1000));
     assert_eq!(request.new_index, Some("new-index".to_string()));
-    assert_eq!(request.dry_run, true);
+    assert!(request.dry_run);
 }
 
 #[test]
@@ -401,14 +401,77 @@ fn test_rollover_response() {
         index_stats: stats,
     };
 
-    assert_eq!(response.acknowledged, true);
-    assert_eq!(response.conditions_met, true);
+    assert!(response.acknowledged);
+    assert!(response.conditions_met);
     assert_eq!(response.old_index, "old-index");
     assert_eq!(response.new_index, "new-index");
-    assert_eq!(response.dry_run, false);
+    assert!(!response.dry_run);
     assert_eq!(
         response.rolled_over_due_to,
         Some("max_docs:1000".to_string())
     );
     assert_eq!(response.index_stats.num_docs, 1000);
+}
+
+#[test]
+fn test_rollover_conditions_parsing() {
+    use lexum_server::handlers::rollover::{
+        IndexStats, RolloverConditions, check_rollover_conditions,
+    };
+
+    let conditions = RolloverConditions {
+        max_docs: Some(1000),
+        ..Default::default()
+    };
+
+    let stats = IndexStats {
+        num_docs: 1500, // Exceeds max_docs
+        size_in_bytes: 1024000,
+        age_in_millis: 86400000,
+        num_primary_shards: 1,
+    };
+
+    let (conditions_met, reason) = check_rollover_conditions(&conditions, &stats);
+    assert!(conditions_met);
+    assert_eq!(reason, Some("max_docs:1000".to_string()));
+}
+
+#[test]
+fn test_rollover_conditions_not_met() {
+    use lexum_server::handlers::rollover::{
+        IndexStats, RolloverConditions, check_rollover_conditions,
+    };
+
+    let conditions = RolloverConditions {
+        max_docs: Some(10000),
+        ..Default::default()
+    };
+
+    let stats = IndexStats {
+        num_docs: 1000, // Below max_docs
+        size_in_bytes: 1024000,
+        age_in_millis: 86400000,
+        num_primary_shards: 1,
+    };
+
+    let (conditions_met, reason) = check_rollover_conditions(&conditions, &stats);
+    assert!(!conditions_met);
+    assert_eq!(reason, None);
+}
+
+#[test]
+fn test_rollover_index_name_generation() {
+    use lexum_server::handlers::rollover::generate_rollover_index_name;
+
+    // Test with existing number suffix
+    let result = generate_rollover_index_name("logs-2023-01-01");
+    assert_eq!(result, "logs-2023-01-2");
+
+    // Test with different number
+    let result = generate_rollover_index_name("logs-000001");
+    assert_eq!(result, "logs-2");
+
+    // Test without number suffix
+    let result = generate_rollover_index_name("logs");
+    assert_eq!(result, "logs-000001");
 }

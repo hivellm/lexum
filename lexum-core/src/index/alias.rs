@@ -320,8 +320,7 @@ impl AliasManager {
         for index in indices {
             if !alias.contains_index(&index) {
                 return Err(Error::NotFound(format!(
-                    "Index '{}' not found in alias '{}'",
-                    index, name
+                    "Index '{index}' not found in alias '{name}'"
                 )));
             }
             alias.remove_index(&index);

@@ -170,7 +170,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_client_creation() {
-        let _client = LexumClient::new("http://localhost:9200".to_string());
+        let client = LexumClient::new("http://localhost:9200".to_string());
         assert_eq!(client.base_url, "http://localhost:9200");
     }
 
@@ -178,7 +178,7 @@ mod tests {
     async fn test_get_request_success() {
         // This test would require a mock server in a real scenario
         // For now, we'll test the URL construction logic
-        let _client = LexumClient::new("http://localhost:9200".to_string());
+        let client = LexumClient::new("http://localhost:9200".to_string());
         let path = "/api/test";
         let expected_url = format!("{}{}", client.base_url, path);
         assert_eq!(expected_url, "http://localhost:9200/api/test");
@@ -188,7 +188,7 @@ mod tests {
     async fn test_post_request_success() {
         // This test would require a mock server in a real scenario
         // For now, we'll test the URL construction logic
-        let _client = LexumClient::new("http://localhost:9200".to_string());
+        let client = LexumClient::new("http://localhost:9200".to_string());
         let path = "/api/test";
         let _body = json!({"test": "data"});
         let expected_url = format!("{}{}", client.base_url, path);
@@ -199,7 +199,7 @@ mod tests {
     async fn test_put_request_success() {
         // This test would require a mock server in a real scenario
         // For now, we'll test the URL construction logic
-        let _client = LexumClient::new("http://localhost:9200".to_string());
+        let client = LexumClient::new("http://localhost:9200".to_string());
         let path = "/api/test";
         let _body = json!({"test": "data"});
         let expected_url = format!("{}{}", client.base_url, path);
@@ -210,7 +210,7 @@ mod tests {
     async fn test_delete_request_success() {
         // This test would require a mock server in a real scenario
         // For now, we'll test the URL construction logic
-        let _client = LexumClient::new("http://localhost:9200".to_string());
+        let client = LexumClient::new("http://localhost:9200".to_string());
         let path = "/api/test";
         let expected_url = format!("{}{}", client.base_url, path);
         assert_eq!(expected_url, "http://localhost:9200/api/test");
@@ -250,7 +250,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_url_construction() {
-        let _client = LexumClient::new("http://localhost:9200".to_string());
+        let client = LexumClient::new("http://localhost:9200".to_string());
 
         // Test various path formats
         let paths = vec!["/api/test", "/api/test/", "api/test", "/", ""];
