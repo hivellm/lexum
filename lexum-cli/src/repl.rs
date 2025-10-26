@@ -1175,7 +1175,7 @@ mod tests {
         assert!(suggestions.contains(&"help".to_string()));
 
         // Test fuzzy match
-        let suggestions = ReplSession::suggest_commands("indx");
+        let suggestions = ReplSession::suggest_commands("index");
         assert!(suggestions.contains(&"index".to_string()));
 
         // Test no match

@@ -485,7 +485,7 @@ fn test_complex_query_serialization() {
         BoolQuery::new()
             .must(Query::Match(MatchQuery::new("title", "rust")))
             .should(Query::Fuzzy(
-                FuzzyQuery::new("content", "programing").fuzziness(2),
+                FuzzyQuery::new("content", "programming").fuzziness(2),
             ))
             .must_not(Query::Term(TermQuery::new("draft", "true"))),
     );

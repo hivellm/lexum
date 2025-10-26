@@ -122,14 +122,14 @@ lexum> search products "test" --<TAB>
 When you make a typo or use an invalid command, the REPL provides intelligent suggestions:
 
 ```bash
-lexum> indx list
+lexum> index list
 Error: Command not found
 💡 Did you mean one of these commands?
   index list
   help
   Type 'help' for complete command reference
 
-lexum> serach products "test"
+lexum> search products "test"
 Error: Command not found
 💡 Did you mean one of these commands?
   search <index> <query>

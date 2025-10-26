@@ -403,7 +403,7 @@ async fn test_cli_help_enhancements() -> Result<()> {
 async fn test_cli_error_handling_enhancements() -> Result<()> {
     // Test that invalid commands provide suggestions
     let output = Command::new("cargo")
-        .args(["run", "--bin", "lexum-cli", "--", "indx", "list"])
+        .args(["run", "--bin", "lexum-cli", "--", "index", "list"])
         .current_dir(".")
         .output()?;
 

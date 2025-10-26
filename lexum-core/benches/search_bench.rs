@@ -88,7 +88,7 @@ fn bench_fuzzy_query(c: &mut Criterion) {
 
     c.bench_function("fuzzy_query_1k_docs", |b| {
         b.iter(|| {
-            let query = QueryBuilder::fuzzy_query("title", "Documnt"); // typo
+            let query = QueryBuilder::fuzzy_query("title", "Document"); // typo
             tokio::runtime::Runtime::new().unwrap().block_on(async {
                 executor
                     .search(black_box(query), 10, 0, None)

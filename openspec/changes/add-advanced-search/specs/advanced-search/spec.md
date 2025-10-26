@@ -4,7 +4,7 @@
 The system SHALL support fuzzy matching with configurable edit distance.
 
 #### Scenario: Fuzzy match
-- **WHEN** user searches for "serch" with fuzziness=2
+- **WHEN** user searches for "search" with fuzziness=2
 - **THEN** documents containing "search" are returned
 
 #### Scenario: Auto fuzziness

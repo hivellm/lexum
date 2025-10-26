@@ -493,7 +493,7 @@ curl -X POST http://localhost:9200/my_index/_search \
   "query": {
     "fuzzy": {
       "title": {
-        "value": "serch",
+        "value": "search",
         "fuzziness": 2
       }
     }
