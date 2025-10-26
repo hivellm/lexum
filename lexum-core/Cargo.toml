@@ -43,6 +43,9 @@ tantivy = { workspace = true }
 
 # Compression
 flate2 = { workspace = true }
+zstd = "0.13"
+lz4 = "1.24"
+blake3 = "1.5"
 
 # Regular expressions for restore rename patterns
 regex = "1.10"

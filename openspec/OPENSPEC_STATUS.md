@@ -10,8 +10,9 @@ This document tracks the implementation status of all OpenSpec changes for the L
 
 ### ✅ Completed
 
-#### 1. Core Search Engine (`add-core-search-engine`)
-- **Status**: 98% Complete
+#### 2. Core Search Engine (`add-core-search-engine`)
+- **Status**: 99% Complete
+- **Tasks**: 80/81
 - **Key Achievements**:
   - ✅ Full Tantivy integration with edition 2024
   - ✅ Complete index management (create, delete, get info)
@@ -33,16 +34,9 @@ This document tracks the implementation status of all OpenSpec changes for the L
   - Performance benchmarking documentation
   - Advanced aggregation support
 
-#### 2. Configuration & Logging (`add-configuration-logging`)
-- **Status**: 100% Complete
-- **Key Achievements**:
-  - ✅ YAML configuration with env override
-  - ✅ Structured JSON logging with tracing
-  - ✅ File watcher for hot-reload
-  - ✅ Complete test coverage
-
 #### 3. REST API (`add-rest-api`)
-- **Status**: 95% Complete
+- **Status**: 94% Complete
+- **Tasks**: 82/87
 - **Key Achievements**:
   - ✅ Axum server with graceful shutdown
   - ✅ Health check endpoint (1)
@@ -70,10 +64,23 @@ This document tracks the implementation status of all OpenSpec changes for the L
   - GET / cluster root endpoint
   - Advanced filtering options
 
-### ✅ Completed (Recently)
+### ✅ Completed & Archived
+
+#### 1a. Configuration & Logging (`add-configuration-logging`)
+- **Status**: 100% Complete ✅ **ARCHIVED**
+- **Tasks**: 25/25
+- All configuration and logging features fully implemented and tested
+
+#### 1b. LQL Query Language (`add-lql-query-language`)
+- **Status**: 90% Complete ✅ **ARCHIVED** (Production-ready)
+- **Tasks**: 51/57
+- Fully functional query language, optimization tasks deferred to Phase 2
+
+### 🚀 Near-Complete (90%+)
 
 #### 4. CLI Tool (`add-cli-tool`)
-- **Status**: 93% Complete
+- **Status**: 96% Complete
+- **Tasks**: 66/69
 - **Key Achievements**:
   - ✅ Full clap-based CLI with subcommands
   - ✅ **Server management** (start, stop, status, config validation)
@@ -101,26 +108,11 @@ This document tracks the implementation status of all OpenSpec changes for the L
   - Command suggestions on errors
   - User manual
 
-#### 5. LQL Query Language (`add-lql-query-language`) 🆕
-- **Status**: 95% Complete
-- **Key Achievements**:
-  - ✅ **Complete LQL Parser** (~500 LOC)
-  - ✅ Query cache with LazyLock
-  - ✅ **9 query types**: FROM, SELECT, MATCH, COUNT, GROUP BY, AGGREGATE, JOIN, UNION, EXISTS
-  - ✅ **Advanced syntax**: WHERE, field:value, ranges, fuzzy, phrase, boolean ops
-  - ✅ CLI integration with dedicated `lexum lql` command
-  - ✅ REPL integration
-  - ✅ File-based queries (@file.lql)
-  - ✅ 10+ usage examples in help
-  - ✅ Comprehensive test suite (lql_test.rs)
-  - ✅ Error handling and reporting
+### 🟡 In Progress (50-89%)
 
-- **Remaining**:
-  - Query plan optimization (5%)
-  - Benchmark suite for LQL
-
-#### 6. Admin Operations (`add-admin-operations`)
-- **Status**: 65% Complete
+#### 5. Admin Operations (`add-admin-operations`)
+- **Status**: 69% Complete
+- **Tasks**: 47/68
 - **Key Achievements**:
   - ✅ **Snapshots**: Complete (10 endpoints, 18+ tests)
   - ✅ **Templates**: Complete (4 endpoints, 7+ tests)
@@ -139,8 +131,9 @@ This document tracks the implementation status of all OpenSpec changes for the L
   - Task management
   - Index rollover
 
-#### 7. Comprehensive Testing (`add-comprehensive-testing`)
-- **Status**: 70% Complete
+#### 6. Comprehensive Testing (`add-comprehensive-testing`)
+- **Status**: 44% Complete
+- **Tasks**: 29/66
 - **Key Achievements**:
   - ✅ **574+ unit tests** across all crates
   - ✅ **>95% code coverage**
@@ -160,18 +153,25 @@ This document tracks the implementation status of all OpenSpec changes for the L
   - Security penetration testing
   - Automated CI/CD test runs
 
-### 📋 Planned / Not Started
+### 🔵 Started (<50%)
 
-- SDK Development (`add-sdk-development`)
-- Performance Optimization (`add-performance-optimization`) - Infrastructure ready
-- Advanced Search Features (`add-advanced-search`)
-- Docker & Kubernetes (`add-docker-kubernetes`)
-- Electron GUI (`add-electron-gui`)
-- Aggregations (`add-aggregations`)
-- Security Enhancements (`add-security`) - Auth middleware done
-- Telemetry (`add-telemetry`)
-- Protocol Support (`add-protocol-support`)
-- Distributed Clustering (`add-distributed-clustering`)
+#### 7. Performance Optimization (`add-performance-optimization`)
+- **Status**: 30% Complete (estimated)
+- **Tasks**: ~21/~70
+- Infrastructure ready (benchmarks, load tests, query cache)
+
+### 📋 Not Started (0%)
+
+1. SDK Development (`add-sdk-development`)
+2. Advanced Search Features (`add-advanced-search`)
+3. Docker & Kubernetes (`add-docker-kubernetes`)
+4. Electron GUI (`add-electron-gui`)
+5. Aggregations (`add-aggregations`)
+6. Security Enhancements (`add-security`) - Auth middleware done, Phase 2
+7. Telemetry (`add-telemetry`)
+8. Protocol Support (`add-protocol-support`)
+9. Production Deployment (`add-production-deployment`)
+10. Distributed Clustering (`add-distributed-clustering`)
 
 ## Technical Achievements
 
@@ -317,12 +317,15 @@ This document tracks the implementation status of all OpenSpec changes for the L
 ## Metrics
 
 - **Total OpenSpec Changes**: 18
-- **Completed**: 6 (Core 98%, Config 100%, REST API 95%, CLI 93%, LQL 95%, Testing 70%)
-- **Partially Complete**: 1 (Admin Ops 65%)
-- **Not Started**: 11
-- **Overall Progress**: ~42%
-- **Tests**: 574+ passing (verified 2025-10-25)
+- **Completed & Archived**: 2 (Config 100%, LQL 90%)
+- **Near-Complete (90%+)**: 3 (Core 99%, CLI 96%, REST API 94%)
+- **In Progress (50-89%)**: 2 (Admin Ops 69%, Testing 44%)
+- **Started (<50%)**: 1 (Performance 30%)
+- **Not Started**: 10
+- **Overall Progress**: 38% (verified calculation)
+- **Tests**: 278 passing (45 + 136 + 6 + 91)
 - **Coverage**: >95% on all modules
+- **See**: `PROGRESS_ANALYSIS.md` for detailed breakdown
 
 ### Code Metrics
 - **Total Rust Files**: 129 files
