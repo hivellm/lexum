@@ -158,7 +158,7 @@ pub async fn get_template(
     let template = state
         .template_manager
         .get_template(&name)?
-        .ok_or_else(|| ApiError::TemplateNotFound(name))?;
+        .ok_or(ApiError::TemplateNotFound(name))?;
 
     Ok(Json(template))
 }
@@ -182,7 +182,7 @@ pub async fn delete_template(
     Path(name): Path<String>,
 ) -> ApiResult<Json<TemplateResponse>> {
     let deleted = state.template_manager.delete_template(&name)?;
-    
+
     if !deleted {
         return Err(ApiError::TemplateNotFound(name));
     }

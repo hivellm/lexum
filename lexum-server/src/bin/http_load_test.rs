@@ -117,6 +117,11 @@ async fn main() -> Result<()> {
             test_duration_secs,
             index_name: "http_load_test_index".to_string(),
             api_key,
+            test_type: lexum_server::http_load_test::TestType::Load,
+            ramp_up_duration_secs: 10,
+            ramp_down_duration_secs: 10,
+            memory_profiling: false,
+            cpu_profiling: false,
         };
 
         println!("Running single HTTP load test...");

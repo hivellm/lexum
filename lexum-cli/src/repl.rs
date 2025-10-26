@@ -884,15 +884,129 @@ impl ReplSession {
     }
 
     fn suggest_commands(input: &str) -> Vec<String> {
-        let commands = vec![
-            "help", "exit", "quit", "index", "doc", "search", "server", "snapshot", "lql",
-        ];
-
+        let parts: Vec<&str> = input.split_whitespace().collect();
         let mut suggestions = Vec::new();
-        for cmd in commands {
-            if cmd.starts_with(input) || Self::levenshtein_distance(input, cmd) <= 2 {
-                suggestions.push(cmd.to_string());
+        println!("Input: '{input}', parts: {parts:?}");
+
+        if parts.is_empty() {
+            // Suggest top-level commands
+            suggestions.extend(vec![
+                "help".to_string(),
+                "index list".to_string(),
+                "search <index> <query>".to_string(),
+                "doc add <index> <file>".to_string(),
+                "server status".to_string(),
+            ]);
+        } else if parts.len() == 1 {
+            // Suggest subcommands based on the main command
+            let command = parts[0];
+            match command {
+                "index" => {
+                    suggestions.extend(vec![
+                        "index list".to_string(),
+                        "index create <name>".to_string(),
+                        "index delete <name>".to_string(),
+                        "index get <name>".to_string(),
+                        "index stats <name>".to_string(),
+                    ]);
+                }
+                "doc" => {
+                    suggestions.extend(vec![
+                        "doc add <index> <file>".to_string(),
+                        "doc get <index> <id>".to_string(),
+                        "doc delete <index> <id>".to_string(),
+                        "doc bulk <index> <file>".to_string(),
+                    ]);
+                }
+                "search" => {
+                    suggestions.extend(vec![
+                        "search <index> <query>".to_string(),
+                        "search <index> <query> --limit 10".to_string(),
+                        "search <index> <query> --sort score:desc".to_string(),
+                    ]);
+                }
+                "server" => {
+                    suggestions.extend(vec![
+                        "server start".to_string(),
+                        "server stop".to_string(),
+                        "server status".to_string(),
+                        "server config".to_string(),
+                    ]);
+                }
+                "snapshot" => {
+                    suggestions.extend(vec![
+                        "snapshot list-repos".to_string(),
+                        "snapshot list <repo>".to_string(),
+                        "snapshot create <repo> <name>".to_string(),
+                        "snapshot delete <repo> <name>".to_string(),
+                    ]);
+                }
+                "lql" => {
+                    suggestions.extend(vec![
+                        "lql \"FROM <index> WHERE field:value\"".to_string(),
+                        "lql \"SELECT * FROM <index> LIMIT 10\"".to_string(),
+                        "lql @file.lql".to_string(),
+                    ]);
+                }
+                _ => {
+                    // Fuzzy match against all commands
+                    let all_commands = vec![
+                        "help", "exit", "quit", "index", "doc", "search", "server", "snapshot",
+                        "lql",
+                    ];
+                    for cmd in all_commands {
+                        let distance = Self::levenshtein_distance(command, cmd);
+                        println!("Distance between '{command}' and '{cmd}': {distance}");
+                        if distance <= 2 {
+                            println!("Adding '{cmd}' to suggestions");
+                            suggestions.push(cmd.to_string());
+                        }
+                    }
+                }
             }
+        } else {
+            // Suggest options and parameters
+            let command = parts[0];
+            let current_word = parts.last().unwrap_or(&"");
+
+            match command {
+                "search" if parts.len() >= 2 => {
+                    if current_word.starts_with("--") {
+                        suggestions.extend(vec![
+                            "--limit".to_string(),
+                            "--sort".to_string(),
+                            "--fields".to_string(),
+                            "--offset".to_string(),
+                            "--format".to_string(),
+                            "--help".to_string(),
+                        ]);
+                    } else if parts.len() > 2 && parts[parts.len() - 2] == "--sort" {
+                        suggestions.extend(vec![
+                            "score:desc".to_string(),
+                            "score:asc".to_string(),
+                            "field:desc".to_string(),
+                            "field:asc".to_string(),
+                        ]);
+                    }
+                }
+                "index" if parts.len() >= 2 => {
+                    if parts[1] == "create" && parts.len() == 2 {
+                        suggestions.extend(vec![
+                            "logs".to_string(),
+                            "documents".to_string(),
+                            "products".to_string(),
+                            "users".to_string(),
+                            "events".to_string(),
+                        ]);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // If still no suggestions, provide general help
+        if suggestions.is_empty() {
+            suggestions.push("help".to_string());
         }
 
         suggestions
@@ -1002,6 +1116,133 @@ impl ReplSession {
                 "index list".to_string(),
                 "search <index> <query>".to_string(),
             ]);
+        }
+
+        suggestions
+    }
+
+    /// Enhanced command suggestions with fuzzy matching and context awareness
+    #[allow(dead_code)]
+    fn suggest_commands_enhanced(&self, input: &str) -> Vec<String> {
+        let parts: Vec<&str> = input.split_whitespace().collect();
+        let mut suggestions = Vec::new();
+
+        if parts.is_empty() {
+            // Suggest top-level commands
+            suggestions.extend(vec![
+                "help".to_string(),
+                "index list".to_string(),
+                "search <index> <query>".to_string(),
+                "doc add <index> <file>".to_string(),
+                "server status".to_string(),
+            ]);
+        } else if parts.len() == 1 {
+            // Suggest subcommands based on the main command
+            let command = parts[0];
+            match command {
+                "index" => {
+                    suggestions.extend(vec![
+                        "index list".to_string(),
+                        "index create <name>".to_string(),
+                        "index delete <name>".to_string(),
+                        "index get <name>".to_string(),
+                        "index stats <name>".to_string(),
+                    ]);
+                }
+                "doc" => {
+                    suggestions.extend(vec![
+                        "doc add <index> <file>".to_string(),
+                        "doc get <index> <id>".to_string(),
+                        "doc delete <index> <id>".to_string(),
+                        "doc bulk <index> <file>".to_string(),
+                    ]);
+                }
+                "search" => {
+                    suggestions.extend(vec![
+                        "search <index> <query>".to_string(),
+                        "search <index> <query> --limit 10".to_string(),
+                        "search <index> <query> --sort score:desc".to_string(),
+                    ]);
+                }
+                "server" => {
+                    suggestions.extend(vec![
+                        "server start".to_string(),
+                        "server stop".to_string(),
+                        "server status".to_string(),
+                        "server config".to_string(),
+                    ]);
+                }
+                "snapshot" => {
+                    suggestions.extend(vec![
+                        "snapshot list-repos".to_string(),
+                        "snapshot list <repo>".to_string(),
+                        "snapshot create <repo> <name>".to_string(),
+                        "snapshot delete <repo> <name>".to_string(),
+                    ]);
+                }
+                "lql" => {
+                    suggestions.extend(vec![
+                        "lql \"FROM <index> WHERE field:value\"".to_string(),
+                        "lql \"SELECT * FROM <index> LIMIT 10\"".to_string(),
+                        "lql @file.lql".to_string(),
+                    ]);
+                }
+                _ => {
+                    // Fuzzy match against all commands
+                    let all_commands = vec![
+                        "help", "exit", "quit", "index", "doc", "search", "server", "snapshot",
+                        "lql",
+                    ];
+                    for cmd in all_commands {
+                        if self.is_similar(command, cmd) {
+                            suggestions.push(cmd.to_string());
+                        }
+                    }
+                }
+            }
+        } else {
+            // Suggest options and parameters
+            let command = parts[0];
+            let current_word = parts.last().unwrap_or(&"");
+
+            match command {
+                "search" if parts.len() >= 2 => {
+                    if current_word.starts_with("--") {
+                        suggestions.extend(vec![
+                            "--limit".to_string(),
+                            "--sort".to_string(),
+                            "--fields".to_string(),
+                            "--offset".to_string(),
+                            "--format".to_string(),
+                            "--help".to_string(),
+                        ]);
+                    } else if parts.len() > 2 && parts[parts.len() - 2] == "--sort" {
+                        suggestions.extend(vec![
+                            "score:desc".to_string(),
+                            "score:asc".to_string(),
+                            "field:desc".to_string(),
+                            "field:asc".to_string(),
+                        ]);
+                    }
+                }
+                "index" if parts.len() >= 2 => {
+                    if parts[1] == "create" && parts.len() == 2 {
+                        suggestions.extend(vec![
+                            "logs".to_string(),
+                            "documents".to_string(),
+                            "products".to_string(),
+                            "users".to_string(),
+                            "events".to_string(),
+                        ]);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // If still no suggestions, provide general help
+        if suggestions.is_empty() {
+            suggestions.push("help".to_string());
         }
 
         suggestions
@@ -1176,11 +1417,18 @@ mod tests {
 
         // Test fuzzy match
         let suggestions = ReplSession::suggest_commands("index");
-        assert!(suggestions.contains(&"index".to_string()));
+        assert!(suggestions.contains(&"index list".to_string()));
 
-        // Test no match
+        // Test no fuzzy match - should fallback to help
         let suggestions = ReplSession::suggest_commands("xyz");
-        assert!(suggestions.is_empty());
+        println!("Suggestions for 'xyz': {:?}", suggestions);
+
+        // Test Levenshtein distance manually
+        let distance = ReplSession::levenshtein_distance("xyz", "help");
+        println!("Manual distance between 'xyz' and 'help': {}", distance);
+
+        // Should fallback to help when no fuzzy matches found
+        assert_eq!(suggestions, vec!["help"]);
     }
 
     #[test]

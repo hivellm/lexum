@@ -52,46 +52,73 @@ pub enum SortOrder {
     Desc,
 }
 
+/// Query types for search operations
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "match_all", rename_all = "snake_case")]
-enum Query {
+pub enum Query {
+    /// Match query for full-text search
     #[serde(rename = "match")]
     Match {
+        /// Field to search in
         field: String,
+        /// Query string to match
         query: String,
     },
+    /// Term query for exact matches
     #[serde(rename = "term")]
     Term {
+        /// Field to search in
         field: String,
+        /// Exact value to match
         value: String,
     },
+    /// Range query for numeric ranges
     #[serde(rename = "range")]
     Range {
+        /// Field to search in
         field: String,
+        /// Greater than or equal to value
         gte: Option<f64>,
+        /// Less than or equal to value
         lte: Option<f64>,
+        /// Greater than value
         gt: Option<f64>,
+        /// Less than value
         lt: Option<f64>,
     },
+    /// Boolean query combining multiple queries
     #[serde(rename = "bool")]
     Bool {
+        /// Queries that must match
         must: Option<Vec<Query>>,
+        /// Queries that should match (affects scoring)
         should: Option<Vec<Query>>,
+        /// Queries that must not match
         must_not: Option<Vec<Query>>,
+        /// Queries used for filtering (no scoring)
         filter: Option<Vec<Query>>,
     },
+    /// Fuzzy query for approximate matches
     #[serde(rename = "fuzzy")]
     Fuzzy {
+        /// Field to search in
         field: String,
+        /// Value to match approximately
         value: String,
+        /// Fuzziness level (0-2)
         fuzziness: Option<u8>,
     },
+    /// Phrase query for exact phrase matches
     #[serde(rename = "phrase")]
     Phrase {
+        /// Field to search in
         field: String,
+        /// Phrase to match
         query: String,
+        /// Maximum distance between terms
         slop: Option<u32>,
     },
+    /// Match all documents
     MatchAll,
 }
 
@@ -121,7 +148,19 @@ pub async fn search_advanced(
 
 /// Search documents from file
 pub async fn search_from_file(url: &str, index: &str, file_path: &str, limit: usize) -> Result<()> {
-    let content = fs::read_to_string(file_path)?;
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read file '{file_path}': {e}"))?;
+
+    println!(
+        "{}",
+        format!("Executing search from file: {file_path}")
+            .bright_cyan()
+            .bold()
+    );
+
+    // Validate file extension and content
+    validate_query_file(file_path, &content)?;
+
     let search_query = parse_query(&content);
     execute_search(url, index, search_query, limit, None, None).await
 }
@@ -142,10 +181,15 @@ fn parse_query(query: &str) -> Query {
     if query == "*" {
         Query::MatchAll
     } else {
-        // Simple match query on "content" field for now
-        Query::Match {
-            field: "content".to_string(),
-            query: query.to_string(),
+        // Try to parse as boolean query with + and - operators
+        if let Ok(bool_query) = parse_boolean_query(query) {
+            bool_query
+        } else {
+            // Simple match query on "content" field for now
+            Query::Match {
+                field: "content".to_string(),
+                query: query.to_string(),
+            }
         }
     }
 }
@@ -378,7 +422,19 @@ pub async fn search_from_file_advanced(
     explain: bool,
     min_score: Option<f32>,
 ) -> Result<()> {
-    let content = fs::read_to_string(file_path)?;
+    let content = fs::read_to_string(file_path)
+        .map_err(|e| anyhow::anyhow!("Failed to read file '{file_path}': {e}"))?;
+
+    println!(
+        "{}",
+        format!("Executing advanced search from file: {file_path}")
+            .bright_cyan()
+            .bold()
+    );
+
+    // Validate file extension and content
+    validate_query_file(file_path, &content)?;
+
     let search_query = parse_query(&content);
     execute_search_with_options(
         url,
@@ -393,6 +449,47 @@ pub async fn search_from_file_advanced(
         min_score,
     )
     .await
+}
+
+/// Validate query file format and content
+fn validate_query_file(file_path: &str, content: &str) -> Result<()> {
+    // Check file extension
+    let extension = std::path::Path::new(file_path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    // Validate based on file extension
+    match extension.as_str() {
+        "json" => {
+            // Validate JSON format
+            serde_json::from_str::<serde_json::Value>(content)
+                .map_err(|e| anyhow::anyhow!("Invalid JSON in file '{file_path}': {e}"))?;
+        }
+        "lql" | "sql" => {
+            // Validate LQL format (basic check)
+            if content.trim().is_empty() {
+                return Err(anyhow::anyhow!("Empty LQL file: {file_path}"));
+            }
+        }
+        "txt" | "query" => {
+            // Basic text validation
+            if content.trim().is_empty() {
+                return Err(anyhow::anyhow!("Empty query file: {file_path}"));
+            }
+        }
+        _ => {
+            // Unknown extension, try to parse as JSON first, then as text
+            if serde_json::from_str::<serde_json::Value>(content).is_err()
+                && content.trim().is_empty()
+            {
+                return Err(anyhow::anyhow!("Empty or invalid query file: {file_path}"));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Search documents with all advanced options
@@ -535,5 +632,227 @@ fn display_search_results(response: &SearchResponse, highlight: bool, explain: b
         if let Some(max_score) = response.max_score {
             println!("  {}: {:.4}", "Max score".bright_yellow(), max_score);
         }
+    }
+}
+
+/// Execute search queries from multiple files
+pub async fn search_from_files(
+    url: &str,
+    index: &str,
+    file_paths: Vec<String>,
+    limit: usize,
+) -> Result<()> {
+    if file_paths.is_empty() {
+        return Err(anyhow::anyhow!("No files provided"));
+    }
+
+    println!(
+        "{}",
+        format!("Executing search from {} files", file_paths.len())
+            .bright_cyan()
+            .bold()
+    );
+
+    let mut successful_queries = 0;
+
+    for (i, file_path) in file_paths.iter().enumerate() {
+        println!(
+            "{}",
+            format!(
+                "\n--- File {}/{}: {} ---",
+                i + 1,
+                file_paths.len(),
+                file_path
+            )
+            .bright_blue()
+            .bold()
+        );
+
+        match search_from_file(url, index, file_path, limit).await {
+            Ok(_) => {
+                successful_queries += 1;
+            }
+            Err(e) => {
+                eprintln!(
+                    "{} Failed to execute query from file '{}': {}",
+                    "Error:".bright_red().bold(),
+                    file_path,
+                    e
+                );
+            }
+        }
+    }
+
+    println!(
+        "\n{}",
+        format!(
+            "Batch execution completed: {}/{} queries successful",
+            successful_queries,
+            file_paths.len()
+        )
+        .bright_green()
+        .bold()
+    );
+
+    Ok(())
+}
+
+/// Parse boolean query with + and - operators
+fn parse_boolean_query(query: &str) -> Result<Query> {
+    let query = query.trim();
+
+    // Check if query contains boolean operators
+    if !query.contains('+')
+        && !query.contains('-')
+        && !query.contains(" AND ")
+        && !query.contains(" OR ")
+    {
+        return Err(anyhow::anyhow!("Not a boolean query"));
+    }
+
+    let mut must_queries = Vec::new();
+    let mut should_queries = Vec::new();
+    let mut must_not_queries = Vec::new();
+
+    // Split by spaces and process each term
+    let terms: Vec<&str> = query.split_whitespace().collect();
+
+    for term in terms {
+        if let Some(field_query) = term.strip_prefix('+') {
+            // Must query
+            if let Ok(parsed_query) = parse_advanced_query(field_query) {
+                must_queries.push(parsed_query);
+            } else {
+                // Fallback to simple match
+                must_queries.push(Query::Match {
+                    field: "content".to_string(),
+                    query: field_query.to_string(),
+                });
+            }
+        } else if let Some(field_query) = term.strip_prefix('-') {
+            // Must not query
+            if let Ok(parsed_query) = parse_advanced_query(field_query) {
+                must_not_queries.push(parsed_query);
+            } else {
+                // Fallback to simple match
+                must_not_queries.push(Query::Match {
+                    field: "content".to_string(),
+                    query: field_query.to_string(),
+                });
+            }
+        } else if term == "AND" || term == "OR" {
+            // Skip operators for now - they're handled by the boolean structure
+        } else {
+            // Should query (default)
+            if let Ok(parsed_query) = parse_advanced_query(term) {
+                should_queries.push(parsed_query);
+            } else {
+                // Fallback to simple match
+                should_queries.push(Query::Match {
+                    field: "content".to_string(),
+                    query: term.to_string(),
+                });
+            }
+        }
+    }
+
+    // If we have must queries, create a bool query
+    if !must_queries.is_empty() || !must_not_queries.is_empty() || !should_queries.is_empty() {
+        Ok(Query::Bool {
+            must: if must_queries.is_empty() {
+                None
+            } else {
+                Some(must_queries)
+            },
+            should: if should_queries.is_empty() {
+                None
+            } else {
+                Some(should_queries)
+            },
+            must_not: if must_not_queries.is_empty() {
+                None
+            } else {
+                Some(must_not_queries)
+            },
+            filter: None,
+        })
+    } else {
+        Err(anyhow::anyhow!("No valid queries found"))
+    }
+}
+
+/// Query builder for complex search queries
+pub struct QueryBuilder {
+    must_queries: Vec<Query>,
+    should_queries: Vec<Query>,
+    must_not_queries: Vec<Query>,
+    filter_queries: Vec<Query>,
+}
+
+impl QueryBuilder {
+    /// Create a new query builder
+    pub fn new() -> Self {
+        Self {
+            must_queries: Vec::new(),
+            should_queries: Vec::new(),
+            must_not_queries: Vec::new(),
+            filter_queries: Vec::new(),
+        }
+    }
+
+    /// Add a must query (all must match)
+    pub fn must(mut self, query: Query) -> Self {
+        self.must_queries.push(query);
+        self
+    }
+
+    /// Add a should query (should match for better score)
+    pub fn should(mut self, query: Query) -> Self {
+        self.should_queries.push(query);
+        self
+    }
+
+    /// Add a must not query (must not match)
+    pub fn must_not(mut self, query: Query) -> Self {
+        self.must_not_queries.push(query);
+        self
+    }
+
+    /// Add a filter query (must match, but doesn't affect score)
+    pub fn filter(mut self, query: Query) -> Self {
+        self.filter_queries.push(query);
+        self
+    }
+
+    /// Build the final boolean query
+    pub fn build(self) -> Query {
+        Query::Bool {
+            must: if self.must_queries.is_empty() {
+                None
+            } else {
+                Some(self.must_queries)
+            },
+            should: if self.should_queries.is_empty() {
+                None
+            } else {
+                Some(self.should_queries)
+            },
+            must_not: if self.must_not_queries.is_empty() {
+                None
+            } else {
+                Some(self.must_not_queries)
+            },
+            filter: if self.filter_queries.is_empty() {
+                None
+            } else {
+                Some(self.filter_queries)
+            },
+        }
+    }
+}
+
+impl Default for QueryBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

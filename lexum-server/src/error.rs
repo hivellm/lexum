@@ -53,14 +53,60 @@ pub enum ApiError {
     /// Core error
     #[error("Core error: {0}")]
     Core(#[from] lexum_core::Error),
+
+    /// Validation error with field details
+    #[error("Validation error: {0}")]
+    Validation(String),
+
+    /// Authentication error
+    #[error("Authentication failed: {0}")]
+    Authentication(String),
+
+    /// Authorization error
+    #[error("Authorization failed: {0}")]
+    Authorization(String),
+
+    /// Rate limit exceeded
+    #[error("Rate limit exceeded: {0}")]
+    RateLimitExceeded(String),
+
+    /// Service unavailable
+    #[error("Service unavailable: {0}")]
+    ServiceUnavailable(String),
+
+    /// Timeout error
+    #[error("Request timeout: {0}")]
+    Timeout(String),
+
+    /// Network error
+    #[error("Network error: {0}")]
+    Network(String),
+
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+
+    /// Configuration error
+    #[error("Configuration error: {0}")]
+    Configuration(String),
 }
 
 impl ApiError {
     /// Get HTTP status code for error
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::IndexNotFound(_) | Self::DocumentNotFound(_) | Self::TemplateNotFound(_) => StatusCode::NOT_FOUND,
-            Self::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+            Self::IndexNotFound(_) | Self::DocumentNotFound(_) | Self::TemplateNotFound(_) => {
+                StatusCode::NOT_FOUND
+            }
+            Self::InvalidRequest(_) | Self::Validation(_) => StatusCode::BAD_REQUEST,
+            Self::Authentication(_) => StatusCode::UNAUTHORIZED,
+            Self::Authorization(_) => StatusCode::FORBIDDEN,
+            Self::RateLimitExceeded(_) => StatusCode::TOO_MANY_REQUESTS,
+            Self::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Timeout(_) => StatusCode::REQUEST_TIMEOUT,
+            Self::Network(_) => StatusCode::BAD_GATEWAY,
+            Self::Serialization(_) => StatusCode::BAD_REQUEST,
+            Self::Configuration(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::Internal(_) | Self::Core(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

@@ -404,7 +404,16 @@ async fn test_cli_error_handling_enhancements() -> Result<()> {
     // Test that invalid commands provide suggestions
     // Use a non-existent server URL to ensure connection failure
     let output = Command::new("cargo")
-        .args(["run", "--bin", "lexum-cli", "--", "--url", "http://localhost:9999", "index", "list"])
+        .args([
+            "run",
+            "--bin",
+            "lexum-cli",
+            "--",
+            "--url",
+            "http://localhost:9999",
+            "index",
+            "list",
+        ])
         .current_dir(".")
         .output()?;
 
@@ -414,9 +423,9 @@ async fn test_cli_error_handling_enhancements() -> Result<()> {
     let error_output = String::from_utf8_lossy(&output.stderr);
     // The error should contain connection error information
     assert!(
-        error_output.contains("Connection refused") || 
-        error_output.contains("tcp connect error") ||
-        error_output.contains("error sending request"),
+        error_output.contains("Connection refused")
+            || error_output.contains("tcp connect error")
+            || error_output.contains("error sending request"),
         "Error output should contain connection error: {}",
         error_output
     );

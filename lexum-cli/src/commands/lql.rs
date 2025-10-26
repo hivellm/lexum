@@ -114,6 +114,9 @@ pub fn show_lql_help() {
     println!("  FROM <index> [WHERE <conditions>]");
     println!("  SELECT * FROM <index> [WHERE <conditions>]");
     println!("  MATCH <field>:<value>");
+    println!("  COUNT FROM <index> [WHERE <conditions>]");
+    println!("  GROUP BY <field> FROM <index> [WHERE <conditions>]");
+    println!("  AGGREGATE <function>(<field>) FROM <index> [WHERE <conditions>]");
     println!();
 
     println!("{}", "Query Types:".bright_yellow().bold());
@@ -161,6 +164,33 @@ pub fn show_lql_help() {
     println!(
         "  {} - Boolean search",
         "FROM products WHERE +category:electronics -status:discontinued".bright_green()
+    );
+    println!();
+
+    println!("{}", "Advanced Examples:".bright_yellow().bold());
+    println!(
+        "  {} - Count documents",
+        "COUNT FROM products WHERE category:electronics".bright_green()
+    );
+    println!(
+        "  {} - Group by category",
+        "GROUP BY category FROM products".bright_green()
+    );
+    println!(
+        "  {} - Average price",
+        "AGGREGATE AVG(price) FROM products".bright_green()
+    );
+    println!(
+        "  {} - Max price",
+        "AGGREGATE MAX(price) FROM products WHERE category:electronics".bright_green()
+    );
+    println!(
+        "  {} - Min price",
+        "AGGREGATE MIN(price) FROM products".bright_green()
+    );
+    println!(
+        "  {} - Sum prices",
+        "AGGREGATE SUM(price) FROM products WHERE category:electronics".bright_green()
     );
     println!();
 

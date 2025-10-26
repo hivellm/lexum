@@ -31,9 +31,20 @@
 - [x] 5.1 Implement `lexum search <index> <query>`
 - [x] 5.2 Add limit parameter (--limit)
 - [x] 5.3 Colored output formatting
-- [ ] 5.4 Add `lexum lql <query>` command - Phase 3
-- [ ] 5.5 Add query from file support
-- [ ] 5.6 Advanced query options (sorting, filtering)
+- [x] 5.4 Add `lexum lql <index> <query>` command
+- [x] 5.5 LQL parser with query cache
+- [x] 5.6 LQL query from file support (@file.lql)
+- [x] 5.7 Advanced LQL query options (--sort, --fields, --limit)
+- [x] 5.8 Support for multiple LQL query types:
+  - FROM queries
+  - SELECT queries
+  - MATCH queries
+  - COUNT queries
+  - GROUP BY queries
+  - AGGREGATE queries
+  - JOIN queries
+  - UNION queries
+  - EXISTS/NOT EXISTS queries
 
 ## 6. Interactive Mode
 - [x] 6.1 Implement REPL with rustyline
@@ -59,11 +70,31 @@
 - [x] 8.4 Success/Error/Info formatters
 - [x] 8.5 Table formatting for list commands
 
-## 9. Documentation & Testing
-- [x] 9.1 Add --help for all commands
-- [x] 9.2 Comprehensive REPL help system
-- [ ] 9.3 Create usage examples
-- [ ] 9.4 Add integration tests
-- [ ] 9.5 Write user manual
-- [ ] 9.6 Add command examples in help text
+## 9. Snapshot Commands
+- [x] 9.1 Implement `lexum snapshot repo create`
+- [x] 9.2 Implement `lexum snapshot create`
+- [x] 9.3 Implement `lexum snapshot list`
+- [x] 9.4 Implement `lexum snapshot get`
+- [x] 9.5 Implement `lexum snapshot delete`
+- [x] 9.6 Implement `lexum snapshot list-repos`
+- [x] 9.7 Snapshot with --indices parameter
+- [x] 9.8 Snapshot with --wait flag
+
+## 10. Template Commands
+- [x] 10.1 Implement `lexum template create`
+- [x] 10.2 Implement `lexum template list`
+- [x] 10.3 Implement `lexum template get`
+- [x] 10.4 Implement `lexum template delete`
+- [x] 10.5 Template pattern support
+- [x] 10.6 Template priority configuration
+
+## 11. Documentation & Testing
+- [x] 11.1 Add --help for all commands
+- [x] 11.2 Comprehensive REPL help system with examples
+- [x] 11.3 Create LQL usage examples (10+ examples)
+- [x] 11.4 Add integration tests (comprehensive_integration_test.rs)
+- [x] 11.5 Add CLI tests (cli_test.rs)
+- [x] 11.6 Add command-specific tests (snapshot, lql, search, index, document)
+- [ ] 11.7 Write user manual
+- [x] 11.8 Command examples in help text (extensive)
 

@@ -32,6 +32,10 @@ pub fn show_comprehensive_help() {
     show_snapshot_help();
     println!();
 
+    // LQL Commands
+    show_lql_help();
+    println!();
+
     // Examples
     show_examples();
 }
@@ -300,6 +304,33 @@ fn show_examples() {
     );
     println!();
 
+    println!("{}", "6. Advanced LQL queries:".bright_yellow().bold());
+    println!(
+        "   {}",
+        "lexum lql my_index \"FROM my_index WHERE category:electronics\"".bright_green()
+    );
+    println!(
+        "   {}",
+        "lexum lql my_index \"COUNT FROM my_index WHERE price:[100,500]\"".bright_green()
+    );
+    println!(
+        "   {}",
+        "lexum lql my_index \"GROUP BY category FROM my_index\"".bright_green()
+    );
+    println!();
+
+    println!("{}", "7. Snapshot management:".bright_yellow().bold());
+    println!(
+        "   {}",
+        "lexum snapshot repo create my_repo --type fs --location /backup".bright_green()
+    );
+    println!(
+        "   {}",
+        "lexum snapshot create my_repo backup_2024 --indices my_index".bright_green()
+    );
+    println!("   {}", "lexum snapshot list my_repo".bright_green());
+    println!();
+
     println!(
         "{}",
         "SCHEMA FILE FORMAT (schema.yml):".bright_cyan().bold()
@@ -333,4 +364,70 @@ fn show_examples() {
         "{}",
         "For more information, visit: https://github.com/your-org/lexum".bright_cyan()
     );
+}
+
+fn show_lql_help() {
+    println!("{}", "LQL (LEXUM QUERY LANGUAGE):".bright_cyan().bold());
+    println!(
+        "  {}    Execute LQL query",
+        "lql <INDEX> <LQL_QUERY> [--limit N] [--sort field:asc/desc] [--fields field1,field2]"
+            .bright_yellow()
+    );
+    println!();
+    println!("    Basic LQL Examples:");
+    println!(
+        "      {}",
+        "lexum lql my_index \"FROM my_index WHERE title:hello\"".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum lql my_index \"SELECT * FROM my_index WHERE category:electronics\"".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum lql my_index \"MATCH title:laptop\"".bright_green()
+    );
+    println!();
+    println!("    Advanced LQL Examples:");
+    println!(
+        "      {}",
+        "lexum lql my_index \"FROM my_index WHERE price:[100,500] AND category:electronics\""
+            .bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum lql my_index \"FROM my_index WHERE title:~gaming\"".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum lql my_index \"FROM my_index WHERE description:\\\"wireless headphones\\\"\""
+            .bright_green()
+    );
+    println!();
+    println!("    Aggregation Examples:");
+    println!(
+        "      {}",
+        "lexum lql my_index \"COUNT FROM my_index WHERE category:electronics\"".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum lql my_index \"GROUP BY category FROM my_index\"".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum lql my_index \"AGGREGATE AVG(price) FROM my_index\"".bright_green()
+    );
+    println!();
+    println!("    File-based LQL:");
+    println!(
+        "      {}",
+        "lexum lql my_index @query.lql --limit 100".bright_green()
+    );
+    println!();
+    println!("    LQL with Options:");
+    println!(
+        "      {}",
+        "lexum lql my_index \"FROM my_index WHERE title:laptop\" --sort price:desc --fields title,price".bright_green()
+    );
+    println!();
 }

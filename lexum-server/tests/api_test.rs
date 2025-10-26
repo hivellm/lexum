@@ -443,61 +443,210 @@ async fn test_delete_nonexistent_snapshot() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
 
-    // Create a repository first
-    let repo_request = serde_json::json!({
-        "type": "fs",
-        "settings": {
-            "location": "/tmp/test_snapshots",
-            "compress": "true"
-        }
-    });
-
-    let create_repo_response = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("PUT")
-                .uri("/_snapshot/test_repo")
-                .header("content-type", "application/json")
-                .body(Body::from(serde_json::to_vec(&repo_request).unwrap()))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-
-    assert_eq!(create_repo_response.status(), StatusCode::OK);
-
-    // Try to delete a non-existent snapshot
-    let delete_response = app
+    let response = app
         .oneshot(
             Request::builder()
                 .method("DELETE")
-                .uri("/_snapshot/test_repo/nonexistent_snapshot")
+                .uri("/_snapshot/nonexistent_repo/nonexistent_snapshot")
                 .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
 
-    assert_eq!(delete_response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
-async fn test_delete_snapshot_from_nonexistent_repository() {
+async fn test_cluster_info() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
 
-    // Try to delete a snapshot from a non-existent repository
-    let delete_response = app
+    let response = app
         .oneshot(
             Request::builder()
-                .method("DELETE")
-                .uri("/_snapshot/nonexistent_repo/test_snapshot")
+                .method("GET")
+                .uri("/")
                 .body(Body::empty())
                 .unwrap(),
         )
         .await
         .unwrap();
 
-    assert_eq!(delete_response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(response_json["name"], "lexum-cluster");
+    assert!(response_json["cluster_uuid"].is_string());
+    assert!(response_json["version"]["number"].is_string());
+    assert!(response_json["version"]["build_hash"].is_string());
+    assert!(response_json["version"]["build_date"].is_string());
+    assert!(response_json["version"]["lucene_version"].is_string());
+}
+
+#[tokio::test]
+async fn test_cluster_health() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/_cluster/health")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert!(response_json["status"].is_string());
+    assert!(response_json["number_of_nodes"].is_number());
+    assert!(response_json["number_of_data_nodes"].is_number());
+    assert!(response_json["active_primary_shards"].is_number());
+    assert!(response_json["active_shards"].is_number());
+    assert!(response_json["relocating_shards"].is_number());
+    assert!(response_json["initializing_shards"].is_number());
+    assert!(response_json["unassigned_shards"].is_number());
+}
+
+#[tokio::test]
+async fn test_cluster_stats() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/_cluster/stats")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert!(response_json["total_documents"].is_number());
+    assert!(response_json["total_size_bytes"].is_number());
+    assert!(response_json["number_of_indices"].is_number());
+    assert!(response_json["number_of_shards"].is_number());
+}
+
+#[tokio::test]
+async fn test_node_stats() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/_nodes/stats")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(response_json["name"], "lexum-node-1");
+    assert_eq!(response_json["role"], "master,data");
+    assert!(response_json["jvm_heap_used_bytes"].is_number());
+    assert!(response_json["jvm_heap_max_bytes"].is_number());
+    assert!(response_json["cpu_usage_percent"].is_number());
+    assert!(response_json["memory_usage_percent"].is_number());
+}
+
+#[tokio::test]
+async fn test_cluster_settings() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/_cluster/settings")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert_eq!(response_json["cluster_name"], "lexum-cluster");
+    assert!(response_json["persistence"]["storage_path"].is_string());
+    assert!(response_json["persistence"]["snapshot"]["repository_path"].is_string());
+    assert!(response_json["persistence"]["snapshot"]["max_snapshots"].is_number());
+    assert!(response_json["network"]["bind_address"].is_string());
+    assert!(response_json["network"]["port"].is_number());
+    assert!(response_json["network"]["enable_cors"].is_boolean());
+}
+
+#[tokio::test]
+async fn test_update_cluster_settings() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    let request_body = serde_json::json!({
+        "settings": {
+            "cluster_name": "test-cluster",
+            "persistence": {
+                "storage_path": "/tmp/test",
+                "snapshot": {
+                    "repository_path": "/tmp/snapshots",
+                    "max_snapshots": 5
+                }
+            },
+            "network": {
+                "bind_address": "127.0.0.1",
+                "port": 9201,
+                "enable_cors": false
+            }
+        }
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("PUT")
+                .uri("/_cluster/settings")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&request_body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
 }

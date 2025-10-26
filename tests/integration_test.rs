@@ -6,7 +6,8 @@ use anyhow::Result;
 use lexum_core::config::Config;
 #[allow(unused_imports)]
 use lexum_core::{
-    FieldConfig, FieldType, IndexManager, IndexSettings, Query, SchemaBuilder, SearchExecutor, TemplateManager,
+    FieldConfig, FieldType, IndexManager, IndexSettings, Query, SchemaBuilder, SearchExecutor,
+    TemplateManager,
 };
 #[allow(unused_imports)]
 use lexum_server::handlers::index::AppState;

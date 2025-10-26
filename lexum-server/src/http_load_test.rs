@@ -6,6 +6,21 @@ use serde_json::json;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 
+/// Types of load tests
+#[derive(Debug, Clone, PartialEq)]
+pub enum TestType {
+    /// Normal load testing
+    Load,
+    /// Stress testing - beyond normal capacity
+    Stress,
+    /// Spike testing - sudden load increases
+    Spike,
+    /// Volume testing - large amounts of data
+    Volume,
+    /// Endurance testing - long duration
+    Endurance,
+}
+
 /// HTTP load test configuration
 #[derive(Debug, Clone)]
 pub struct HttpLoadTestConfig {
@@ -23,6 +38,16 @@ pub struct HttpLoadTestConfig {
     pub index_name: String,
     /// API key for authentication (optional)
     pub api_key: Option<String>,
+    /// Test type: load, stress, spike, volume
+    pub test_type: TestType,
+    /// Ramp-up duration (seconds) - gradual increase in load
+    pub ramp_up_duration_secs: u64,
+    /// Ramp-down duration (seconds) - gradual decrease in load
+    pub ramp_down_duration_secs: u64,
+    /// Memory profiling enabled
+    pub memory_profiling: bool,
+    /// CPU profiling enabled
+    pub cpu_profiling: bool,
 }
 
 impl Default for HttpLoadTestConfig {
@@ -35,6 +60,11 @@ impl Default for HttpLoadTestConfig {
             test_duration_secs: 60,
             index_name: "http_load_test_index".to_string(),
             api_key: None,
+            test_type: TestType::Load,
+            ramp_up_duration_secs: 10,
+            ramp_down_duration_secs: 10,
+            memory_profiling: false,
+            cpu_profiling: false,
         }
     }
 }
@@ -64,6 +94,36 @@ pub struct HttpLoadTestResults {
     pub test_duration_secs: f64,
     /// Error breakdown
     pub error_breakdown: std::collections::HashMap<String, usize>,
+    /// Memory usage statistics (if profiling enabled)
+    pub memory_stats: Option<MemoryStats>,
+    /// CPU usage statistics (if profiling enabled)
+    pub cpu_stats: Option<CpuStats>,
+    /// Throughput over time (requests per second per time window)
+    pub throughput_over_time: Vec<(f64, f64)>, // (timestamp, rps)
+    /// Response time distribution
+    pub response_time_distribution: Vec<(f64, usize)>, // (time_ms, count)
+}
+
+/// Memory usage statistics
+#[derive(Debug, Clone)]
+pub struct MemoryStats {
+    /// Peak memory usage (bytes)
+    pub peak_memory_bytes: u64,
+    /// Average memory usage (bytes)
+    pub avg_memory_bytes: u64,
+    /// Memory usage over time
+    pub memory_over_time: Vec<(f64, u64)>, // (timestamp, memory_bytes)
+}
+
+/// CPU usage statistics
+#[derive(Debug, Clone)]
+pub struct CpuStats {
+    /// Peak CPU usage (percentage)
+    pub peak_cpu_percent: f64,
+    /// Average CPU usage (percentage)
+    pub avg_cpu_percent: f64,
+    /// CPU usage over time
+    pub cpu_over_time: Vec<(f64, f64)>, // (timestamp, cpu_percent)
 }
 
 /// HTTP load test client
@@ -465,6 +525,10 @@ impl HttpLoadTestClient {
             requests_per_second,
             test_duration_secs: test_duration.as_secs_f64(),
             error_breakdown: all_errors,
+            memory_stats: None,               // TODO: Implement memory profiling
+            cpu_stats: None,                  // TODO: Implement CPU profiling
+            throughput_over_time: Vec::new(), // TODO: Implement throughput tracking
+            response_time_distribution: Vec::new(), // TODO: Implement distribution tracking
         })
     }
 
@@ -520,6 +584,88 @@ impl HttpLoadTestRunner {
         Ok(results)
     }
 
+    /// Run advanced test scenarios
+    pub async fn run_advanced_test_suite() -> Result<Vec<(String, HttpLoadTestResults)>> {
+        let mut results = Vec::new();
+
+        // Load Test - Normal expected load
+        let load_config = HttpLoadTestConfig {
+            test_type: TestType::Load,
+            concurrent_clients: 20,
+            requests_per_client: 100,
+            request_delay_ms: 100,
+            test_duration_secs: 60,
+            index_name: "load_test".to_string(),
+            ..Default::default()
+        };
+
+        println!("Running Load Test...");
+        let load_results = Self::run_test(load_config).await?;
+        results.push(("Load Test".to_string(), load_results));
+
+        // Stress Test - Beyond normal capacity
+        let stress_config = HttpLoadTestConfig {
+            test_type: TestType::Stress,
+            concurrent_clients: 100,
+            requests_per_client: 200,
+            request_delay_ms: 50,
+            test_duration_secs: 120,
+            index_name: "stress_test".to_string(),
+            ..Default::default()
+        };
+
+        println!("Running Stress Test...");
+        let stress_results = Self::run_test(stress_config).await?;
+        results.push(("Stress Test".to_string(), stress_results));
+
+        // Spike Test - Sudden load increases
+        let spike_config = HttpLoadTestConfig {
+            test_type: TestType::Spike,
+            concurrent_clients: 200,
+            requests_per_client: 50,
+            request_delay_ms: 10,
+            test_duration_secs: 30,
+            index_name: "spike_test".to_string(),
+            ..Default::default()
+        };
+
+        println!("Running Spike Test...");
+        let spike_results = Self::run_test(spike_config).await?;
+        results.push(("Spike Test".to_string(), spike_results));
+
+        // Volume Test - Large amounts of data
+        let volume_config = HttpLoadTestConfig {
+            test_type: TestType::Volume,
+            concurrent_clients: 50,
+            requests_per_client: 500,
+            request_delay_ms: 200,
+            test_duration_secs: 300,
+            index_name: "volume_test".to_string(),
+            ..Default::default()
+        };
+
+        println!("Running Volume Test...");
+        let volume_results = Self::run_test(volume_config).await?;
+        results.push(("Volume Test".to_string(), volume_results));
+
+        // Endurance Test - Long duration
+        let endurance_config = HttpLoadTestConfig {
+            test_type: TestType::Endurance,
+            concurrent_clients: 30,
+            requests_per_client: 1000,
+            request_delay_ms: 500,
+            test_duration_secs: 1800, // 30 minutes
+            index_name: "endurance_test".to_string(),
+            ..Default::default()
+        };
+
+        println!("Running Endurance Test...");
+        let endurance_results = Self::run_test(endurance_config).await?;
+        results.push(("Endurance Test".to_string(), endurance_results));
+
+        Ok(results)
+    }
+
     /// Run multiple load tests with different configurations
     pub async fn run_test_suite() -> Result<Vec<(String, HttpLoadTestResults)>> {
         let mut results = Vec::new();
@@ -565,6 +711,48 @@ impl HttpLoadTestRunner {
         println!("Running heavy HTTP load test...");
         let heavy_results = Self::run_test(heavy_config).await?;
         results.push(("Heavy Load".to_string(), heavy_results));
+
+        Ok(results)
+    }
+
+    /// Run performance benchmark with detailed profiling
+    pub async fn run_performance_benchmark() -> Result<HttpLoadTestResults> {
+        let config = HttpLoadTestConfig {
+            test_type: TestType::Load,
+            concurrent_clients: 50,
+            requests_per_client: 200,
+            request_delay_ms: 50,
+            test_duration_secs: 300,
+            index_name: "performance_benchmark".to_string(),
+            memory_profiling: true,
+            cpu_profiling: true,
+            ..Default::default()
+        };
+
+        println!("Running Performance Benchmark with profiling...");
+        Self::run_test(config).await
+    }
+
+    /// Run scalability test - gradually increase load
+    pub async fn run_scalability_test() -> Result<Vec<(String, HttpLoadTestResults)>> {
+        let mut results = Vec::new();
+        let base_clients = vec![5, 10, 25, 50, 100, 200];
+
+        for clients in base_clients {
+            let config = HttpLoadTestConfig {
+                test_type: TestType::Load,
+                concurrent_clients: clients,
+                requests_per_client: 100,
+                request_delay_ms: 100,
+                test_duration_secs: 60,
+                index_name: format!("scalability_test_{clients}clients"),
+                ..Default::default()
+            };
+
+            println!("Running Scalability Test with {clients} clients...");
+            let test_results = Self::run_test(config).await?;
+            results.push((format!("{clients} Clients"), test_results));
+        }
 
         Ok(results)
     }
