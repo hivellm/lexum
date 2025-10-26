@@ -95,6 +95,57 @@ lexum repl
 | `server` | Server management | `server status` |
 | `snapshot` | Snapshot operations | `snapshot list-repos` |
 
+### Enhanced REPL Features
+
+The Lexum CLI REPL includes several advanced features to improve the user experience:
+
+#### Tab Completion
+
+The REPL supports comprehensive tab completion for commands, options, and query patterns:
+
+```bash
+lexum> <TAB>
+help    exit    quit    index   doc     search  server  snapshot lql
+
+lexum> search <TAB>
+# Shows search query patterns and options
+
+lexum> search products <TAB>
+# Shows query patterns like *, field:value, field:"phrase", etc.
+
+lexum> search products "test" --<TAB>
+--limit     --offset    --sort      --fields    --highlight --explain   --min-score
+```
+
+#### Command Suggestions
+
+When you make a typo or use an invalid command, the REPL provides intelligent suggestions:
+
+```bash
+lexum> indx list
+Error: Command not found
+💡 Did you mean one of these commands?
+  index list
+  help
+  Type 'help' for complete command reference
+
+lexum> serach products "test"
+Error: Command not found
+💡 Did you mean one of these commands?
+  search <index> <query>
+  help
+  Type 'help' for complete command reference
+```
+
+#### Enhanced Error Handling
+
+The REPL provides detailed error messages and suggestions for common mistakes:
+
+- **Invalid commands**: Suggests similar commands
+- **Missing arguments**: Shows usage information
+- **Invalid options**: Lists available options
+- **Connection errors**: Provides troubleshooting tips
+
 ## Command Reference
 
 ### Global Options
@@ -217,10 +268,19 @@ Performs bulk document operations from a JSON file.
 #### Basic Search
 
 ```bash
-lexum search <index> <query> [--limit N] [--sort field:asc/desc] [--fields field1,field2]
+lexum search <index> <query> [options]
 ```
 
 Searches documents in an index.
+
+**Options:**
+- `--limit <number>`: Maximum number of results (default: 10)
+- `--offset <number>`: Number of results to skip for pagination (default: 0)
+- `--sort <field:order>`: Sort results by field (asc/desc)
+- `--fields <field1,field2>`: Return only specified fields
+- `--highlight`: Highlight search terms in results
+- `--explain`: Show query execution details and performance metrics
+- `--min-score <number>`: Minimum score threshold for results
 
 **Examples**:
 ```bash
@@ -235,6 +295,28 @@ lexum search products "electronics" --sort price:desc
 
 # Search with field selection
 lexum search products "keyboard" --fields title,price,category
+
+# Search with pagination
+lexum search products "electronics" --limit 10 --offset 20
+
+# Search with highlighting
+lexum search products "wireless headphones" --highlight
+
+# Search with query explanation
+lexum search products "gaming" --explain
+
+# Search with minimum score
+lexum search products "electronics" --min-score 0.5
+
+# Combined advanced search
+lexum search products "wireless" \
+  --limit 5 \
+  --offset 0 \
+  --sort price:desc \
+  --fields title,price,description \
+  --highlight \
+  --explain \
+  --min-score 0.3
 ```
 
 #### Advanced Query Syntax

@@ -138,7 +138,7 @@ fn show_search_help() {
     println!("{}", "SEARCH:".bright_cyan().bold());
     println!(
         "  {}    Search documents",
-        "search <INDEX> <QUERY> [--limit N] [--sort field:asc/desc] [--fields field1,field2]"
+        "search <INDEX> <QUERY> [--limit N] [--offset N] [--sort field:asc/desc] [--fields field1,field2] [--highlight] [--explain] [--min-score N]"
             .bright_yellow()
     );
     println!();
@@ -182,6 +182,24 @@ fn show_search_help() {
     println!(
         "      {}",
         "lexum search my_index @query.json --limit 100".bright_green()
+    );
+    println!();
+    println!("    Advanced Options Examples:");
+    println!(
+        "      {}",
+        "lexum search my_index \"query\" --offset 20 --limit 10".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search my_index \"query\" --highlight --explain".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search my_index \"query\" --min-score 0.5 --fields title,content".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search my_index \"query\" --highlight --explain --min-score 0.3".bright_green()
     );
 }
 

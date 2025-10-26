@@ -55,12 +55,24 @@ enum Commands {
         /// Limit results
         #[arg(short, long, default_value = "10")]
         limit: usize,
+        /// Offset for pagination
+        #[arg(long, default_value = "0")]
+        offset: usize,
         /// Sort by field (format: field:asc or field:desc)
         #[arg(long)]
         sort: Option<Vec<String>>,
         /// Fields to return
         #[arg(long)]
         fields: Option<Vec<String>>,
+        /// Highlight search terms in results
+        #[arg(long)]
+        highlight: bool,
+        /// Explain query execution
+        #[arg(long)]
+        explain: bool,
+        /// Minimum score threshold
+        #[arg(long)]
+        min_score: Option<f32>,
     },
 
     /// LQL (Lexum Query Language) commands
@@ -280,12 +292,25 @@ async fn main() -> Result<()> {
             index,
             query,
             limit,
+            offset,
             sort,
             fields,
+            highlight,
+            explain,
+            min_score,
         }) => {
             if let Some(file_path) = query.strip_prefix('@') {
                 // Query from file
-                commands::search::search_from_file(&cli.url, &index, file_path, limit).await?;
+                commands::search::search_from_file_advanced(
+                    &cli.url,
+                    &index,
+                    file_path,
+                    limit,
+                    offset,
+                    highlight,
+                    explain,
+                    min_score,
+                ).await?;
             } else {
                 // Parse sort options
                 let sort_options = sort.map(|sort_fields| {
@@ -306,13 +331,17 @@ async fn main() -> Result<()> {
                 });
 
                 // Direct query with advanced options
-                commands::search::search_advanced(
+                commands::search::search_advanced_with_options(
                     &cli.url,
                     &index,
                     &query,
                     limit,
+                    offset,
                     sort_options,
                     fields,
+                    highlight,
+                    explain,
+                    min_score,
                 )
                 .await?;
             }

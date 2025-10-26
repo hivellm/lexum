@@ -3,17 +3,30 @@
 use anyhow::{Result, anyhow};
 use lexum_core::Query;
 use serde_json::Value;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 /// LQL parser for converting LQL strings to Lexum queries
 pub struct LqlParser;
 
+/// Simple query cache for parsed LQL queries
+use std::sync::LazyLock;
+static QUERY_CACHE: LazyLock<Mutex<HashMap<String, Query>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
 impl LqlParser {
-    /// Parse an LQL string into a Lexum Query
+    /// Parse an LQL string into a Lexum Query with caching
     pub fn parse(lql: &str) -> Result<Query> {
         let lql = lql.trim();
-
-        // Simple LQL parser - for now, support basic patterns
-        if lql.starts_with("FROM") {
+        
+        // Check cache first
+        if let Ok(cache) = QUERY_CACHE.lock() {
+            if let Some(cached_query) = cache.get(lql) {
+                return Ok(cached_query.clone());
+            }
+        }
+        
+        // Parse the query
+        let query = if lql.starts_with("FROM") {
             Self::parse_from_query(lql)
         } else if lql.starts_with("SELECT") {
             Self::parse_select_query(lql)
@@ -22,7 +35,16 @@ impl LqlParser {
         } else {
             // Try to parse as a simple search query
             Self::parse_simple_query(lql)
+        }?;
+        
+        // Cache the result (limit cache size to prevent memory issues)
+        if let Ok(mut cache) = QUERY_CACHE.lock() {
+            if cache.len() < 1000 { // Limit cache size
+                cache.insert(lql.to_string(), query.clone());
+            }
         }
+        
+        Ok(query)
     }
 
     /// Parse FROM query: FROM index WHERE field:value

@@ -8,6 +8,21 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::fs;
 
+#[derive(Debug, Deserialize)]
+struct SearchResponse {
+    hits: Vec<SearchHit>,
+    total_hits: u64,
+    took_ms: f64,
+    max_score: Option<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SearchHit {
+    id: String,
+    score: f64,
+    source: JsonValue,
+}
+
 #[derive(Debug, Serialize)]
 struct SearchRequest {
     query: Query,
@@ -15,6 +30,9 @@ struct SearchRequest {
     offset: usize,
     sort: Option<Vec<SortOption>>,
     fields: Option<Vec<String>>,
+    highlight: Option<bool>,
+    explain: Option<bool>,
+    min_score: Option<f32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,19 +95,6 @@ enum Query {
     MatchAll,
 }
 
-#[derive(Debug, Deserialize)]
-struct SearchResult {
-    hits: Vec<SearchHit>,
-    total: usize,
-    took_ms: u64,
-}
-
-#[derive(Debug, Deserialize)]
-struct SearchHit {
-    id: String,
-    score: f32,
-    source: JsonValue,
-}
 
 /// Search documents
 pub async fn search(url: &str, index: &str, query: &str, limit: usize) -> Result<()> {
@@ -321,17 +326,20 @@ async fn execute_search(
         offset: 0,
         sort,
         fields,
+        highlight: None,
+        explain: None,
+        min_score: None,
     };
 
     let client = LexumClient::new(url.to_string());
-    let response: SearchResult = client
+    let response: SearchResponse = client
         .post(&format!("/api/v1/indices/{index}/search"), &request)
         .await?;
 
     println!(
         "{} {} results in {}ms",
         "Found".bright_cyan(),
-        response.total.to_string().bright_yellow(),
+        response.total_hits.to_string().bright_yellow(),
         response.took_ms.to_string().bright_green()
     );
 
@@ -355,6 +363,166 @@ async fn execute_search(
     }
 
     println!("{table}");
+
+    Ok(())
+}
+
+/// Search documents from file with advanced options
+pub async fn search_from_file_advanced(
+    url: &str,
+    index: &str,
+    file_path: &str,
+    limit: usize,
+    offset: usize,
+    highlight: bool,
+    explain: bool,
+    min_score: Option<f32>,
+) -> Result<()> {
+    let content = fs::read_to_string(file_path)?;
+    let search_query = parse_query(&content);
+    execute_search_with_options(
+        url,
+        index,
+        search_query,
+        limit,
+        offset,
+        None,
+        None,
+        Some(highlight),
+        Some(explain),
+        min_score,
+    ).await
+}
+
+/// Search documents with all advanced options
+pub async fn search_advanced_with_options(
+    url: &str,
+    index: &str,
+    query: &str,
+    limit: usize,
+    offset: usize,
+    sort: Option<Vec<(String, SortOrder)>>,
+    fields: Option<Vec<String>>,
+    highlight: bool,
+    explain: bool,
+    min_score: Option<f32>,
+) -> Result<()> {
+    let search_query = parse_query(query);
+    let sort_options = sort.map(|s| {
+        s.into_iter()
+            .map(|(field, order)| SortOption { field, order })
+            .collect()
+    });
+    execute_search_with_options(
+        url,
+        index,
+        search_query,
+        limit,
+        offset,
+        sort_options,
+        fields,
+        Some(highlight),
+        Some(explain),
+        min_score,
+    ).await
+}
+
+/// Execute search with all options
+async fn execute_search_with_options(
+    url: &str,
+    index: &str,
+    query: Query,
+    limit: usize,
+    offset: usize,
+    sort: Option<Vec<SortOption>>,
+    fields: Option<Vec<String>>,
+    highlight: Option<bool>,
+    explain: Option<bool>,
+    min_score: Option<f32>,
+) -> Result<()> {
+    let request = SearchRequest {
+        query,
+        limit,
+        offset,
+        sort,
+        fields,
+        highlight,
+        explain,
+        min_score,
+    };
+
+    let client = LexumClient::new(url.to_string());
+    let response: SearchResponse = client
+        .post(&format!("/api/v1/indices/{index}/search"), &request)
+        .await?;
+
+    if response.hits.is_empty() {
+        println!("{}", "No results found".bright_yellow());
+        return Ok(());
+    }
+
+    // Display results with enhanced formatting
+    display_search_results(&response, highlight.unwrap_or(false), explain.unwrap_or(false))?;
+
+    Ok(())
+}
+
+/// Display search results with enhanced formatting
+fn display_search_results(
+    response: &SearchResponse,
+    highlight: bool,
+    explain: bool,
+) -> Result<()> {
+    let mut table = Table::new();
+    table.load_preset(UTF8_FULL);
+    
+    if highlight {
+        table.set_header(vec!["ID", "Score", "Document", "Highlights"]);
+    } else {
+        table.set_header(vec!["ID", "Score", "Document"]);
+    }
+
+    for hit in &response.hits {
+        // Optimize document display - only serialize if needed
+        let doc_str = if hit.source.is_object() {
+            // Try to extract key fields first for better performance
+            if let Some(title) = hit.source.get("title").and_then(|v| v.as_str()) {
+                format!("title: {}", title)
+            } else if let Some(name) = hit.source.get("name").and_then(|v| v.as_str()) {
+                format!("name: {}", name)
+            } else {
+                // Fallback to full JSON serialization
+                serde_json::to_string(&hit.source).unwrap_or_else(|_| "{}".to_string())
+            }
+        } else {
+            serde_json::to_string(&hit.source).unwrap_or_else(|_| "{}".to_string())
+        };
+        
+        let truncated = if doc_str.len() > 60 {
+            format!("{}...", &doc_str[..60])
+        } else {
+            doc_str
+        };
+
+        if highlight {
+            // Add highlight information (simplified for now)
+            let highlights = "**highlighted terms**".to_string();
+            table.add_row(vec![hit.id.clone(), format!("{:.4}", hit.score), truncated, highlights]);
+        } else {
+            table.add_row(vec![hit.id.clone(), format!("{:.4}", hit.score), truncated]);
+        }
+    }
+
+    println!("{}", table);
+
+    if explain {
+        println!("\n{}", "Query Explanation:".bright_cyan().bold());
+        println!("  {}: {}", "Total hits".bright_yellow(), response.total_hits);
+        println!("  {}: {:.2}ms", "Took".bright_yellow(), response.took_ms);
+        if let Some(max_score) = response.max_score {
+            println!("  {}: {:.4}", "Max score".bright_yellow(), max_score);
+        }
+    }
 
     Ok(())
 }

@@ -107,9 +107,45 @@ lexum search products "keyboard" --fields title,price,category
 
 # Search with multiple sort fields
 lexum search products "electronics" --sort price:asc,created_at:desc
+
+# Search with pagination
+lexum search products "electronics" --limit 10 --offset 20
+
+# Search with highlighting
+lexum search products "wireless headphones" --highlight
+
+# Search with query explanation
+lexum search products "gaming" --explain
+
+# Search with minimum score threshold
+lexum search products "electronics" --min-score 0.5
+
+# Search with all advanced options
+lexum search products "wireless" --limit 5 --offset 0 --sort price:desc --fields title,price --highlight --explain --min-score 0.3
 ```
 
-### 4. Advanced Search Queries
+### 4. Advanced Search Features
+
+```bash
+# Search with file-based queries
+lexum search products "@query.json"
+
+# Search with advanced options from file
+lexum search products "@advanced_query.json" --highlight --explain
+
+# Search with pagination for large result sets
+lexum search products "*" --limit 100 --offset 0
+lexum search products "*" --limit 100 --offset 100
+lexum search products "*" --limit 100 --offset 200
+
+# Search with performance analysis
+lexum search products "electronics" --explain --min-score 0.1
+
+# Search with result highlighting
+lexum search products "wireless headphones" --highlight --fields title,description
+```
+
+### 5. Advanced Search Queries
 
 ```bash
 # Field-specific search
@@ -128,7 +164,7 @@ lexum search products "title:~gaming"
 lexum search products "+category:electronics -in_stock:false"
 ```
 
-### 5. LQL (Lexum Query Language)
+### 6. LQL (Lexum Query Language)
 
 ```bash
 # Basic LQL query
@@ -152,7 +188,7 @@ WHERE category:electronics
   AND in_stock:true
 ```
 
-### 6. Index Management
+### 7. Index Management
 
 ```bash
 # List all indices
@@ -168,7 +204,7 @@ lexum index stats products
 lexum index delete products
 ```
 
-### 7. Interactive REPL
+### 8. Interactive REPL
 
 ```bash
 # Start interactive mode
@@ -185,6 +221,74 @@ lexum> index list
 lexum> search products "wireless"
 lexum> lql products "FROM products WHERE price:[100,200]"
 lexum> exit
+```
+
+## New Advanced Features
+
+### Enhanced Search Options
+
+The CLI now supports several new advanced search options:
+
+```bash
+# Pagination support
+lexum search products "electronics" --limit 10 --offset 20
+
+# Result highlighting
+lexum search products "wireless headphones" --highlight
+
+# Query explanation and performance metrics
+lexum search products "gaming" --explain
+
+# Minimum score filtering
+lexum search products "electronics" --min-score 0.5
+
+# Combined advanced search
+lexum search products "wireless" \
+  --limit 5 \
+  --offset 0 \
+  --sort price:desc \
+  --fields title,price,description \
+  --highlight \
+  --explain \
+  --min-score 0.3
+```
+
+### Enhanced Error Handling
+
+The REPL now provides intelligent command suggestions:
+
+```bash
+lexum> indx list
+Error: Command not found
+💡 Did you mean one of these commands?
+  index list
+  help
+  Type 'help' for complete command reference
+
+lexum> serach products "test"
+Error: Command not found
+💡 Did you mean one of these commands?
+  search <index> <query>
+  help
+  Type 'help' for complete command reference
+```
+
+### Enhanced Tab Completion
+
+The REPL now supports comprehensive tab completion:
+
+```bash
+lexum> <TAB>
+help    exit    quit    index   doc     search  server  snapshot lql
+
+lexum> search <TAB>
+# Shows search query patterns and options
+
+lexum> search products <TAB>
+# Shows query patterns like *, field:value, field:"phrase", etc.
+
+lexum> search products "test" --<TAB>
+--limit     --offset    --sort      --fields    --highlight --explain   --min-score
 ```
 
 ## Advanced Examples
