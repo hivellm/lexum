@@ -402,17 +402,24 @@ async fn test_cli_help_enhancements() -> Result<()> {
 #[tokio::test]
 async fn test_cli_error_handling_enhancements() -> Result<()> {
     // Test that invalid commands provide suggestions
+    // Use a non-existent server URL to ensure connection failure
     let output = Command::new("cargo")
-        .args(["run", "--bin", "lexum-cli", "--", "index", "list"])
+        .args(["run", "--bin", "lexum-cli", "--", "--url", "http://localhost:9999", "index", "list"])
         .current_dir(".")
         .output()?;
 
     // This should fail but provide suggestions
     assert!(!output.status.success(), "Invalid command should fail");
 
-    let _error_output = String::from_utf8_lossy(&output.stderr);
-    // The error should contain suggestion information
-    // Note: This might not work in test mode, but the structure should be there
+    let error_output = String::from_utf8_lossy(&output.stderr);
+    // The error should contain connection error information
+    assert!(
+        error_output.contains("Connection refused") || 
+        error_output.contains("tcp connect error") ||
+        error_output.contains("error sending request"),
+        "Error output should contain connection error: {}",
+        error_output
+    );
 
     Ok(())
 }
