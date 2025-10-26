@@ -66,10 +66,13 @@ pub trait SnapshotRepository: Send + Sync {
     ) -> Result<crate::snapshot::incremental::EnhancedSnapshotResult>;
 
     /// Optimize snapshot chains for better storage efficiency
-    async fn optimize_snapshot_chains(&self) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>>;
+    async fn optimize_snapshot_chains(
+        &self,
+    ) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>>;
 
     /// Get incremental snapshot statistics
-    async fn get_incremental_stats(&self) -> Result<crate::snapshot::incremental::IncrementalStats>;
+    async fn get_incremental_stats(&self)
+    -> Result<crate::snapshot::incremental::IncrementalStats>;
 
     /// Create snapshot with advanced compression
     async fn create_compressed_snapshot(
@@ -722,28 +725,34 @@ impl SnapshotRepository for FsSnapshotRepository {
         request: CreateSnapshotRequest,
     ) -> Result<crate::snapshot::incremental::EnhancedSnapshotResult> {
         use crate::snapshot::incremental::IncrementalSnapshotManager;
-        
+
         let mut manager = IncrementalSnapshotManager::new();
-        manager.create_enhanced_incremental_snapshot(
-            &self.name,
-            &snapshot_name,
-            &request.indices,
-            request.parent_snapshot.as_ref(),
-        ).await
+        manager
+            .create_enhanced_incremental_snapshot(
+                &self.name,
+                &snapshot_name,
+                &request.indices,
+                request.parent_snapshot.as_ref(),
+            )
+            .await
     }
 
     /// Optimize snapshot chains for better storage efficiency
-    async fn optimize_snapshot_chains(&self) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>> {
+    async fn optimize_snapshot_chains(
+        &self,
+    ) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>> {
         use crate::snapshot::incremental::IncrementalSnapshotManager;
-        
+
         let manager = IncrementalSnapshotManager::new();
         manager.optimize_snapshot_chains(&self.name).await
     }
 
     /// Get incremental snapshot statistics
-    async fn get_incremental_stats(&self) -> Result<crate::snapshot::incremental::IncrementalStats> {
+    async fn get_incremental_stats(
+        &self,
+    ) -> Result<crate::snapshot::incremental::IncrementalStats> {
         use crate::snapshot::incremental::IncrementalSnapshotManager;
-        
+
         let manager = IncrementalSnapshotManager::new();
         Ok(manager.get_stats().clone())
     }
@@ -757,11 +766,12 @@ impl SnapshotRepository for FsSnapshotRepository {
     ) -> Result<SnapshotInfo> {
         // Create a regular snapshot first
         let mut snapshot_info = self.create_snapshot(snapshot_name.clone(), request).await?;
-        
+
         // Apply compression to the snapshot files
         let snapshot_path = self.get_snapshot_path(&snapshot_name);
-        self.apply_compression_to_snapshot(&snapshot_path, &compression_config).await?;
-        
+        self.apply_compression_to_snapshot(&snapshot_path, &compression_config)
+            .await?;
+
         // Update metadata with compression info
         snapshot_info.metadata.settings.insert(
             "compression_algorithm".to_string(),
@@ -771,7 +781,7 @@ impl SnapshotRepository for FsSnapshotRepository {
             "compression_level".to_string(),
             compression_config.level.to_string(),
         );
-        
+
         Ok(snapshot_info)
     }
 }
@@ -2555,28 +2565,34 @@ impl FsSnapshotRepository {
         request: CreateSnapshotRequest,
     ) -> Result<crate::snapshot::incremental::EnhancedSnapshotResult> {
         use crate::snapshot::incremental::IncrementalSnapshotManager;
-        
+
         let mut manager = IncrementalSnapshotManager::new();
-        manager.create_enhanced_incremental_snapshot(
-            &self.name,
-            &snapshot_name,
-            &request.indices,
-            request.parent_snapshot.as_ref(),
-        ).await
+        manager
+            .create_enhanced_incremental_snapshot(
+                &self.name,
+                &snapshot_name,
+                &request.indices,
+                request.parent_snapshot.as_ref(),
+            )
+            .await
     }
 
     /// Optimize snapshot chains for better storage efficiency
-    pub async fn optimize_snapshot_chains(&self) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>> {
+    pub async fn optimize_snapshot_chains(
+        &self,
+    ) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>> {
         use crate::snapshot::incremental::IncrementalSnapshotManager;
-        
+
         let manager = IncrementalSnapshotManager::new();
         manager.optimize_snapshot_chains(&self.name).await
     }
 
     /// Get incremental snapshot statistics
-    pub async fn get_incremental_stats(&self) -> Result<crate::snapshot::incremental::IncrementalStats> {
+    pub async fn get_incremental_stats(
+        &self,
+    ) -> Result<crate::snapshot::incremental::IncrementalStats> {
         use crate::snapshot::incremental::IncrementalSnapshotManager;
-        
+
         let manager = IncrementalSnapshotManager::new();
         Ok(manager.get_stats().clone())
     }
@@ -2590,11 +2606,12 @@ impl FsSnapshotRepository {
     ) -> Result<SnapshotInfo> {
         // Create a regular snapshot first
         let mut snapshot_info = self.create_snapshot(snapshot_name.clone(), request).await?;
-        
+
         // Apply compression to the snapshot files
         let snapshot_path = self.get_snapshot_path(&snapshot_name);
-        self.apply_compression_to_snapshot(&snapshot_path, &compression_config).await?;
-        
+        self.apply_compression_to_snapshot(&snapshot_path, &compression_config)
+            .await?;
+
         // Update metadata with compression info
         snapshot_info.metadata.settings.insert(
             "compression_algorithm".to_string(),
@@ -2604,7 +2621,7 @@ impl FsSnapshotRepository {
             "compression_level".to_string(),
             compression_config.level.to_string(),
         );
-        
+
         Ok(snapshot_info)
     }
 
@@ -2615,32 +2632,35 @@ impl FsSnapshotRepository {
         compression_config: &crate::snapshot::compression::CompressionConfig,
     ) -> Result<()> {
         use crate::snapshot::compression::SnapshotCompressor;
-        
+
         let compressor = SnapshotCompressor::new(compression_config.clone());
-        
+
         // Compress all files in the snapshot directory
         let mut entries = fs::read_dir(snapshot_path).await?;
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.is_file() {
                 let file_name = path.file_name().unwrap().to_string_lossy().to_string();
-                
+
                 // Skip already compressed files
-                if file_name.ends_with(".compressed") || file_name.ends_with(".gz") || 
-                   file_name.ends_with(".zst") || file_name.ends_with(".lz4") {
+                if file_name.ends_with(".compressed")
+                    || file_name.ends_with(".gz")
+                    || file_name.ends_with(".zst")
+                    || file_name.ends_with(".lz4")
+                {
                     continue;
                 }
-                
+
                 // Read file content
                 let content = fs::read(&path).await?;
-                
+
                 // Compress content
                 match compressor.compress(&content) {
                     Ok(compressed) => {
                         // Write compressed content
                         let compressed_path = format!("{}.compressed", path.to_string_lossy());
                         fs::write(&compressed_path, compressed).await?;
-                        
+
                         // Remove original file
                         fs::remove_file(&path).await?;
                     }
@@ -2650,7 +2670,7 @@ impl FsSnapshotRepository {
                 }
             }
         }
-        
+
         Ok(())
     }
 }

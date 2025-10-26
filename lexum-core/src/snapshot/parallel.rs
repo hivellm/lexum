@@ -41,7 +41,7 @@ impl ParallelDeltaProcessor {
         let mut results = Vec::new();
 
         // Process indices in parallel with limited concurrency
-        for (_i, index_name) in indices.iter().enumerate() {
+        for index_name in indices.iter() {
             if join_set.len() >= self.max_workers {
                 // Wait for a task to complete before starting a new one
                 if let Some(result) = join_set.join_next().await {
@@ -56,7 +56,8 @@ impl ParallelDeltaProcessor {
             let chunk_size = self.chunk_size;
 
             join_set.spawn(async move {
-                Self::process_single_index(index_name, parent_snapshot, snapshot_path, chunk_size).await
+                Self::process_single_index(index_name, parent_snapshot, snapshot_path, chunk_size)
+                    .await
             });
         }
 
@@ -74,15 +75,21 @@ impl ParallelDeltaProcessor {
         index_name: IndexName,
         parent_snapshot: SnapshotName,
         snapshot_path: String,
-        _chunk_size: usize,
+        chunk_size: usize,
     ) -> Result<IndexDeltaResult> {
         let start_time = std::time::Instant::now();
-        
+
         // Calculate delta for this index
-        let delta = Self::calculate_index_delta_chunked(&index_name, &parent_snapshot, &snapshot_path, _chunk_size).await?;
-        
+        let delta = Self::calculate_index_delta_chunked(
+            &index_name,
+            &parent_snapshot,
+            &snapshot_path,
+            chunk_size,
+        )
+        .await?;
+
         let duration = start_time.elapsed();
-        
+
         Ok(IndexDeltaResult {
             index_name,
             delta,
@@ -116,7 +123,7 @@ impl ParallelDeltaProcessor {
         // For now, create a simple delta
         // In Phase 3, this would be much more sophisticated
         let mut delta = IndexDelta::new();
-        
+
         // Simulate processing files in chunks
         if let Ok(mut entries) = fs::read_dir(&current_path).await {
             while let Some(entry) = entries.next_entry().await? {
@@ -148,9 +155,7 @@ impl ParallelDeltaProcessor {
             }
 
             let chunk_size = self.chunk_size;
-            join_set.spawn(async move {
-                Self::process_file_pair(file_pair, chunk_size).await
-            });
+            join_set.spawn(async move { Self::process_file_pair(file_pair, chunk_size).await });
         }
 
         while let Some(result) = join_set.join_next().await {
@@ -162,10 +167,7 @@ impl ParallelDeltaProcessor {
     }
 
     /// Process a single file pair for differences
-    async fn process_file_pair(
-        file_pair: FilePair,
-        _chunk_size: usize,
-    ) -> Result<FileDifference> {
+    async fn process_file_pair(file_pair: FilePair, _chunk_size: usize) -> Result<FileDifference> {
         let start_time = std::time::Instant::now();
 
         // Read both files
@@ -180,7 +182,9 @@ impl ParallelDeltaProcessor {
         // Calculate differences
         let difference_type = match (&old_content, &new_content) {
             (None, _) => FileDifferenceType::Added,
-            (Some(_), _) if old_content.as_ref() != Some(&new_content) => FileDifferenceType::Modified,
+            (Some(_), _) if old_content.as_ref() != Some(&new_content) => {
+                FileDifferenceType::Modified
+            }
             (Some(_), _) => FileDifferenceType::Unchanged,
         };
 
@@ -282,6 +286,7 @@ pub struct SnapshotChainOptimizer {
     /// Maximum chain depth before optimization
     max_chain_depth: usize,
     /// Minimum compression ratio to trigger optimization
+    #[allow(dead_code)]
     min_compression_ratio: f64,
 }
 
@@ -316,10 +321,12 @@ impl SnapshotChainOptimizer {
 
         // Find consolidation opportunities
         let consolidation_plan = self.plan_consolidation(chain).await?;
-        
+
         // Apply consolidations
         for consolidation in consolidation_plan {
-            let result = self.apply_consolidation(&consolidation, repository_path).await?;
+            let result = self
+                .apply_consolidation(&consolidation, repository_path)
+                .await?;
             optimizations.push(result);
         }
 
@@ -338,13 +345,13 @@ impl SnapshotChainOptimizer {
     /// Plan consolidation of incremental snapshots
     async fn plan_consolidation(&self, chain: &SnapshotChain) -> Result<Vec<ConsolidationPlan>> {
         let mut plans = Vec::new();
-        
+
         // Simple strategy: consolidate every 3 incremental snapshots
         let mut i = 0;
         while i + 2 < chain.incremental_snapshots.len() {
             plans.push(ConsolidationPlan {
-                snapshots_to_consolidate: chain.incremental_snapshots[i..i+3].to_vec(),
-                target_snapshot: format!("consolidated_{}", i),
+                snapshots_to_consolidate: chain.incremental_snapshots[i..i + 3].to_vec(),
+                target_snapshot: format!("consolidated_{i}"),
             });
             i += 3;
         }

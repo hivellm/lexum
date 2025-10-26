@@ -1,7 +1,7 @@
 //! Enhanced incremental snapshot management for Phase 3
 
 use crate::error::Result;
-use crate::snapshot::compression::{CompressionConfig, SnapshotCompressor, ContentDeduplicator};
+use crate::snapshot::compression::{CompressionConfig, ContentDeduplicator, SnapshotCompressor};
 use crate::snapshot::parallel::{ParallelDeltaProcessor, SnapshotChainOptimizer};
 use crate::types::{IndexName, RepositoryName, SnapshotName};
 use chrono::{DateTime, Utc};
@@ -15,6 +15,7 @@ pub struct IncrementalSnapshotManager {
     /// Parallel processor
     parallel_processor: ParallelDeltaProcessor,
     /// Chain optimizer
+    #[allow(dead_code)]
     chain_optimizer: SnapshotChainOptimizer,
     /// Content deduplicator
     deduplicator: ContentDeduplicator,
@@ -68,8 +69,13 @@ impl IncrementalSnapshotManager {
         };
 
         // Process indices in parallel
-        let delta_results = self.parallel_processor
-            .process_indices_parallel(indices, &parent, &format!("./snapshots/{}", repository_name.as_str()))
+        let delta_results = self
+            .parallel_processor
+            .process_indices_parallel(
+                indices,
+                &parent,
+                &format!("./snapshots/{}", repository_name.as_str()),
+            )
             .await?;
 
         // Apply content deduplication
@@ -79,16 +85,18 @@ impl IncrementalSnapshotManager {
         let compression_result = self.create_compressed_deltas(&delta_results).await?;
 
         // Create enhanced snapshot metadata
-        let snapshot_info = self.create_enhanced_metadata(
-            snapshot_name,
-            repository_name,
-            indices,
-            &parent,
-            &delta_results,
-            &deduplication_result,
-            &compression_result,
-            snapshot_start,
-        ).await?;
+        let snapshot_info = self
+            .create_enhanced_metadata(
+                snapshot_name,
+                repository_name,
+                indices,
+                &parent,
+                &delta_results,
+                &deduplication_result,
+                &compression_result,
+                snapshot_start,
+            )
+            .await?;
 
         // Update statistics
         self.stats.record_snapshot_creation(&snapshot_info);
@@ -105,7 +113,7 @@ impl IncrementalSnapshotManager {
     }
 
     /// Find the best parent snapshot for incremental creation
-    async fn find_best_parent_snapshot(&self, indices: &[IndexName]) -> Result<SnapshotName> {
+    async fn find_best_parent_snapshot(&self, _indices: &[IndexName]) -> Result<SnapshotName> {
         // This is a simplified implementation
         // In a real implementation, this would:
         // 1. Query all existing snapshots
@@ -129,14 +137,14 @@ impl IncrementalSnapshotManager {
         for delta_result in delta_results {
             for file_path in &delta_result.delta.added_files {
                 total_files += 1;
-                
+
                 // Read file content
                 if let Ok(content) = fs::read(&file_path).await {
                     if let Some(_existing_path) = self.deduplicator.check_duplicate(&content) {
                         // File is a duplicate
                         duplicate_files += 1;
                         space_saved += content.len();
-                        
+
                         // Create a reference instead of storing the file
                         // This would be implemented in the actual file storage
                     } else {
@@ -182,11 +190,12 @@ impl IncrementalSnapshotManager {
                             total_compressed_size += compressed_size;
 
                             // Store compressed content (simplified)
-                            let compressed_path = format!("{}.compressed", file_path);
+                            let compressed_path = format!("{file_path}.compressed");
                             fs::write(&compressed_path, compressed).await?;
 
                             // Record compression stats
-                            let stats = compressor.compression_stats(original_size, compressed_size);
+                            let stats =
+                                compressor.compression_stats(original_size, compressed_size);
                             compression_stats.push(stats);
                         }
                         Err(e) => {
@@ -212,6 +221,7 @@ impl IncrementalSnapshotManager {
     }
 
     /// Create enhanced snapshot metadata
+    #[allow(clippy::too_many_arguments)]
     async fn create_enhanced_metadata(
         &self,
         snapshot_name: &SnapshotName,
@@ -227,7 +237,8 @@ impl IncrementalSnapshotManager {
         let duration = end_time.signed_duration_since(start_time);
 
         // Calculate total statistics
-        let total_documents = delta_results.iter()
+        let total_documents = delta_results
+            .iter()
             .map(|r| r.delta.added_files.len() as u64)
             .sum();
 
@@ -262,7 +273,8 @@ impl IncrementalSnapshotManager {
             }),
             parallel_processing_info: Some(ParallelProcessingInfo {
                 workers_used: self.parallel_processor.max_workers,
-                total_processing_time: delta_results.iter()
+                total_processing_time: delta_results
+                    .iter()
                     .map(|r| r.processing_time)
                     .sum::<std::time::Duration>()
                     .as_millis() as u64,
@@ -295,98 +307,149 @@ impl IncrementalSnapshotManager {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnhancedSnapshotInfo {
     /// Basic snapshot information
+    /// Snapshot name
     pub name: SnapshotName,
+    /// Repository name
     pub repository: RepositoryName,
+    /// List of indices included in this snapshot
     pub indices: Vec<IndexName>,
+    /// Parent snapshot name if this is an incremental snapshot
     pub parent_snapshot: Option<SnapshotName>,
+    /// Type of snapshot (full or incremental)
     pub snapshot_type: crate::snapshot::types::SnapshotType,
+    /// Current state of the snapshot
     pub state: crate::snapshot::types::SnapshotState,
+    /// When the snapshot creation started
     pub start_time: DateTime<Utc>,
+    /// When the snapshot creation finished
     pub end_time: Option<DateTime<Utc>>,
+    /// Duration of snapshot creation in milliseconds
     pub duration_in_millis: Option<u64>,
+    /// Number of failures during snapshot creation
     pub failures: u32,
+    /// Shard information for the snapshot
     pub shards: crate::snapshot::types::ShardInfo,
+    /// Additional metadata for the snapshot
     pub metadata: crate::snapshot::types::SnapshotMetadata,
+    /// Depth of the snapshot chain
     pub chain_depth: u32,
+    /// Total size of the snapshot in bytes
     pub size_bytes: u64,
+    /// Number of documents in the snapshot
     pub document_count: u64,
-    
+
     // Phase 3 enhancements
+    /// Compression information for the snapshot
     pub compression_info: Option<CompressionInfo>,
+    /// Deduplication information for the snapshot
     pub deduplication_info: Option<DeduplicationInfo>,
+    /// Parallel processing information for the snapshot
     pub parallel_processing_info: Option<ParallelProcessingInfo>,
 }
 
 /// Compression information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompressionInfo {
+    /// Compression algorithm used
     pub algorithm: crate::snapshot::compression::CompressionType,
+    /// Compression ratio achieved
     pub compression_ratio: f64,
+    /// Space saved through compression in bytes
     pub space_saved: u64,
 }
 
 /// Deduplication information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeduplicationInfo {
+    /// Number of duplicate files found
     pub duplicate_files: u64,
+    /// Ratio of duplicate files to total files
     pub deduplication_ratio: f64,
+    /// Space saved through deduplication in bytes
     pub space_saved: u64,
 }
 
 /// Parallel processing information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParallelProcessingInfo {
+    /// Number of worker threads used
     pub workers_used: usize,
-    pub total_processing_time: u64, // milliseconds
+    /// Total processing time in milliseconds
+    pub total_processing_time: u64,
 }
 
 /// Result of creating an enhanced incremental snapshot
 #[derive(Debug, Clone)]
 pub struct EnhancedSnapshotResult {
+    /// Enhanced snapshot information
     pub snapshot_info: EnhancedSnapshotInfo,
+    /// Results of delta processing for each index
     pub delta_results: Vec<crate::snapshot::parallel::IndexDeltaResult>,
+    /// Result of deduplication process
     pub deduplication_result: DeduplicationResult,
+    /// Result of compression process
     pub compression_result: CompressionResult,
+    /// Total processing time
     pub processing_time: std::time::Duration,
 }
 
 /// Deduplication result
 #[derive(Debug, Clone)]
 pub struct DeduplicationResult {
+    /// Total number of files processed
     pub total_files: usize,
+    /// Number of duplicate files found
     pub duplicate_files: usize,
+    /// Space saved through deduplication in bytes
     pub space_saved: usize,
+    /// Ratio of duplicate files to total files
     pub deduplication_ratio: f64,
 }
 
 /// Compression result
 #[derive(Debug, Clone)]
 pub struct CompressionResult {
+    /// Total original size before compression
     pub total_original_size: usize,
+    /// Total size after compression
     pub total_compressed_size: usize,
+    /// Overall compression ratio achieved
     pub compression_ratio: f64,
+    /// Space saved through compression in bytes
     pub space_saved: usize,
+    /// Detailed compression statistics per file
     pub compression_stats: Vec<crate::snapshot::compression::CompressionStats>,
 }
 
 /// Optimization result
 #[derive(Debug, Clone)]
 pub struct OptimizationResult {
+    /// Identifier of the optimized chain
     pub chain_id: String,
+    /// Original depth of the chain before optimization
     pub original_depth: usize,
+    /// Depth of the chain after optimization
     pub optimized_depth: usize,
+    /// Space saved through optimization in bytes
     pub space_saved: u64,
+    /// Time taken to perform the optimization
     pub processing_time: std::time::Duration,
 }
 
 /// Incremental snapshot statistics
 #[derive(Debug, Clone)]
 pub struct IncrementalStats {
+    /// Total number of snapshots created
     pub total_snapshots_created: u64,
+    /// Average compression ratio across all snapshots
     pub total_compression_ratio: f64,
+    /// Average deduplication ratio across all snapshots
     pub total_deduplication_ratio: f64,
+    /// Total space saved across all snapshots in bytes
     pub total_space_saved: u64,
+    /// Average processing time per snapshot
     pub average_processing_time: std::time::Duration,
+    /// Efficiency of parallel processing (0.0 to 1.0)
     pub parallel_efficiency: f64,
 }
 
@@ -404,14 +467,16 @@ impl IncrementalStats {
 
     fn record_snapshot_creation(&mut self, snapshot_info: &EnhancedSnapshotInfo) {
         self.total_snapshots_created += 1;
-        
+
         if let Some(compression) = &snapshot_info.compression_info {
-            self.total_compression_ratio = (self.total_compression_ratio + compression.compression_ratio) / 2.0;
+            self.total_compression_ratio =
+                (self.total_compression_ratio + compression.compression_ratio) / 2.0;
             self.total_space_saved += compression.space_saved;
         }
-        
+
         if let Some(deduplication) = &snapshot_info.deduplication_info {
-            self.total_deduplication_ratio = (self.total_deduplication_ratio + deduplication.deduplication_ratio) / 2.0;
+            self.total_deduplication_ratio =
+                (self.total_deduplication_ratio + deduplication.deduplication_ratio) / 2.0;
             self.total_space_saved += deduplication.space_saved;
         }
     }

@@ -40,6 +40,71 @@ pub struct ClusterStats {
     pub number_of_shards: u32,
 }
 
+/// Cluster state information
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ClusterState {
+    /// Cluster name
+    pub cluster_name: String,
+    /// Cluster UUID
+    pub cluster_uuid: String,
+    /// Version information
+    pub version: ClusterVersion,
+    /// State UUID
+    pub state_uuid: String,
+    /// Master node
+    pub master_node: String,
+    /// Blocks information
+    pub blocks: ClusterBlocks,
+    /// Nodes information
+    pub nodes: ClusterNodes,
+    /// Metadata
+    pub metadata: ClusterMetadata,
+    /// Routing table
+    pub routing_table: RoutingTable,
+    /// Routing nodes
+    pub routing_nodes: Vec<String>,
+}
+
+/// Cluster blocks information
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ClusterBlocks {
+    /// Global blocks
+    pub global: serde_json::Value,
+    /// Indices blocks
+    pub indices: serde_json::Value,
+}
+
+/// Cluster nodes information
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ClusterNodes {
+    /// Node count
+    pub count: u32,
+    /// Node details
+    pub nodes: serde_json::Value,
+}
+
+/// Cluster metadata
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ClusterMetadata {
+    /// Cluster UUID
+    pub cluster_uuid: String,
+    /// Cluster version
+    pub cluster_version: u32,
+    /// Cluster state version
+    pub cluster_state_version: u32,
+    /// Templates
+    pub templates: serde_json::Value,
+    /// Indices
+    pub indices: serde_json::Value,
+}
+
+/// Routing table
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct RoutingTable {
+    /// Indices
+    pub indices: serde_json::Value,
+}
+
 /// Node statistics
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct NodeStats {
@@ -179,6 +244,87 @@ pub async fn get_cluster_stats(State(state): State<AppState>) -> ApiResult<Json<
         total_size_bytes,
         number_of_indices,
         number_of_shards,
+    }))
+}
+
+/// Get cluster state
+#[utoipa::path(
+    get,
+    path = "/_cluster/state",
+    responses(
+        (status = 200, description = "Cluster state retrieved successfully", body = ClusterState),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "Admin"
+)]
+pub async fn get_cluster_state(State(state): State<AppState>) -> ApiResult<Json<ClusterState>> {
+    // Get list of indices
+    let indices = state.index_manager.list_indices();
+    let _number_of_indices = indices.len() as u32;
+
+    // Create indices metadata
+    let mut indices_metadata = serde_json::Map::new();
+    for index_name in &indices {
+        indices_metadata.insert(
+            index_name.clone(),
+            serde_json::json!({
+                "state": "open",
+                "settings": {
+                    "index": {
+                        "number_of_shards": 1,
+                        "number_of_replicas": 0,
+                        "version": {
+                            "created": "2024-10-25T00:00:00.000Z"
+                        }
+                    }
+                },
+                "mappings": {},
+                "aliases": []
+            }),
+        );
+    }
+
+    Ok(Json(ClusterState {
+        cluster_name: "lexum-cluster".to_string(),
+        cluster_uuid: "12345678-1234-1234-1234-123456789abc".to_string(),
+        version: ClusterVersion {
+            number: env!("CARGO_PKG_VERSION").to_string(),
+            build_hash: "abc123def456".to_string(),
+            build_date: "2024-10-25".to_string(),
+            lucene_version: "9.8.0".to_string(),
+        },
+        state_uuid: "87654321-4321-4321-4321-cba987654321".to_string(),
+        master_node: "node-1".to_string(),
+        blocks: ClusterBlocks {
+            global: serde_json::json!({}),
+            indices: serde_json::json!({}),
+        },
+        nodes: ClusterNodes {
+            count: 1,
+            nodes: serde_json::json!({
+                "node-1": {
+                    "name": "node-1",
+                    "ephemeral_id": "abc123",
+                    "transport_address": "127.0.0.1:9300",
+                    "attributes": {
+                        "ml.machine_memory": "8589934592",
+                        "xpack.installed": "true",
+                        "transform.node": "true"
+                    }
+                }
+            }),
+        },
+        metadata: ClusterMetadata {
+            cluster_uuid: "12345678-1234-1234-1234-123456789abc".to_string(),
+            cluster_version: 1,
+            cluster_state_version: 1,
+            templates: serde_json::json!({}),
+            indices: serde_json::Value::Object(indices_metadata),
+        },
+        routing_table: RoutingTable {
+            indices: serde_json::json!({}),
+        },
+        routing_nodes: vec!["node-1".to_string()],
     }))
 }
 

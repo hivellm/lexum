@@ -4,22 +4,17 @@ use crate::error::{Error, Result};
 use std::io::{Read, Write};
 
 /// Compression algorithm types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum CompressionType {
     /// No compression
     None,
     /// Gzip compression (default)
+    #[default]
     Gzip,
     /// Zstandard compression (high compression ratio)
     Zstd,
     /// LZ4 compression (fast compression/decompression)
     Lz4,
-}
-
-impl Default for CompressionType {
-    fn default() -> Self {
-        Self::Gzip
-    }
 }
 
 /// Compression configuration
@@ -83,25 +78,27 @@ impl SnapshotCompressor {
     pub fn decompress(&self, compressed_data: &[u8]) -> Result<Vec<u8>> {
         match self.config.algorithm {
             CompressionType::None => Ok(compressed_data.to_vec()),
-            CompressionType::Gzip => self.decompress_gzip(compressed_data),
+            CompressionType::Gzip => Self::decompress_gzip(compressed_data),
             CompressionType::Zstd => self.decompress_zstd(compressed_data),
-            CompressionType::Lz4 => self.decompress_lz4(compressed_data),
+            CompressionType::Lz4 => Self::decompress_lz4(compressed_data),
         }
     }
 
     /// Compress data with gzip
     fn compress_gzip(&self, data: &[u8]) -> Result<Vec<u8>> {
-        use flate2::write::GzEncoder;
         use flate2::Compression;
+        use flate2::write::GzEncoder;
 
-        let level = std::cmp::min(self.config.level as u32, 9);
+        let level = std::cmp::min(u32::from(self.config.level), 9);
         let mut encoder = GzEncoder::new(Vec::new(), Compression::new(level));
         encoder.write_all(data)?;
-        encoder.finish().map_err(|e| Error::Compression(format!("Gzip compression failed: {e}")))
+        encoder
+            .finish()
+            .map_err(|e| Error::Compression(format!("Gzip compression failed: {e}")))
     }
 
     /// Decompress gzip data
-    fn decompress_gzip(&self, compressed_data: &[u8]) -> Result<Vec<u8>> {
+    fn decompress_gzip(compressed_data: &[u8]) -> Result<Vec<u8>> {
         use flate2::read::GzDecoder;
 
         let mut decoder = GzDecoder::new(compressed_data);
@@ -112,12 +109,13 @@ impl SnapshotCompressor {
 
     /// Compress data with zstd
     fn compress_zstd(&self, data: &[u8]) -> Result<Vec<u8>> {
-        let level = std::cmp::min(self.config.level as i32, 22);
-        
+        let level = std::cmp::min(i32::from(self.config.level), 22);
+
         if let Some(ref _dict) = self.dictionary {
             // Use dictionary compression
-            zstd::encode_all(data, level)
-                .map_err(|e| Error::Compression(format!("Zstd compression with dictionary failed: {e}")))
+            zstd::encode_all(data, level).map_err(|e| {
+                Error::Compression(format!("Zstd compression with dictionary failed: {e}"))
+            })
         } else {
             // Standard zstd compression
             zstd::encode_all(data, level)
@@ -129,8 +127,9 @@ impl SnapshotCompressor {
     fn decompress_zstd(&self, compressed_data: &[u8]) -> Result<Vec<u8>> {
         if let Some(ref _dict) = self.dictionary {
             // Use dictionary decompression
-            zstd::decode_all(compressed_data)
-                .map_err(|e| Error::Compression(format!("Zstd decompression with dictionary failed: {e}")))
+            zstd::decode_all(compressed_data).map_err(|e| {
+                Error::Compression(format!("Zstd decompression with dictionary failed: {e}"))
+            })
         } else {
             // Standard zstd decompression
             zstd::decode_all(compressed_data)
@@ -140,14 +139,14 @@ impl SnapshotCompressor {
 
     /// Compress data with lz4
     fn compress_lz4(&self, data: &[u8]) -> Result<Vec<u8>> {
-        let level = std::cmp::min(self.config.level as u32, 16);
+        let level = std::cmp::min(u32::from(self.config.level), 16);
         let mode = lz4::block::CompressionMode::HIGHCOMPRESSION(level as i32);
         lz4::block::compress(data, Some(mode), false)
             .map_err(|e| Error::Compression(format!("LZ4 compression failed: {e}")))
     }
 
     /// Decompress lz4 data
-    fn decompress_lz4(&self, compressed_data: &[u8]) -> Result<Vec<u8>> {
+    fn decompress_lz4(compressed_data: &[u8]) -> Result<Vec<u8>> {
         lz4::block::decompress(compressed_data, None)
             .map_err(|e| Error::Compression(format!("LZ4 decompression failed: {e}")))
     }
@@ -162,13 +161,13 @@ impl SnapshotCompressor {
     }
 
     /// Get compression statistics
-    pub fn compression_stats(&self, original_size: usize, compressed_size: usize) -> CompressionStats {
+    pub fn compression_stats(
+        &self,
+        original_size: usize,
+        compressed_size: usize,
+    ) -> CompressionStats {
         let ratio = self.compression_ratio(original_size, compressed_size);
-        let savings = if original_size > compressed_size {
-            original_size - compressed_size
-        } else {
-            0
-        };
+        let savings = original_size.saturating_sub(compressed_size);
         let savings_percent = if original_size > 0 {
             (savings as f64 / original_size as f64) * 100.0
         } else {
@@ -245,7 +244,11 @@ impl ContentDeduplicator {
     /// Get deduplication statistics
     pub fn stats(&self) -> DeduplicationStats {
         let total_entries = self.content_map.len();
-        let unique_entries = self.content_map.values().collect::<std::collections::HashSet<_>>().len();
+        let unique_entries = self
+            .content_map
+            .values()
+            .collect::<std::collections::HashSet<_>>()
+            .len();
         let duplicates = total_entries.saturating_sub(unique_entries);
         let deduplication_ratio = if total_entries > 0 {
             duplicates as f64 / total_entries as f64
@@ -303,14 +306,14 @@ impl BinaryDiff {
     /// Calculate binary diff between two files
     pub fn calculate_diff(&self, old_data: &[u8], new_data: &[u8]) -> BinaryDelta {
         let mut delta = BinaryDelta::new();
-        
+
         // Simple implementation: find common chunks and record differences
         let old_chunks = self.chunk_data(old_data);
         let new_chunks = self.chunk_data(new_data);
-        
+
         let mut old_index = 0;
         let mut new_index = 0;
-        
+
         while old_index < old_chunks.len() && new_index < new_chunks.len() {
             if old_chunks[old_index] == new_chunks[new_index] {
                 // Chunks are identical, add reference
@@ -319,17 +322,17 @@ impl BinaryDiff {
                 new_index += 1;
             } else {
                 // Chunks differ, add new data
-                delta.add_new_data(&new_chunks[new_index]);
+                delta.add_new_data(new_chunks[new_index]);
                 new_index += 1;
             }
         }
-        
+
         // Add remaining new chunks
         while new_index < new_chunks.len() {
-            delta.add_new_data(&new_chunks[new_index]);
+            delta.add_new_data(new_chunks[new_index]);
             new_index += 1;
         }
-        
+
         delta
     }
 
@@ -337,13 +340,13 @@ impl BinaryDiff {
     fn chunk_data<'a>(&self, data: &'a [u8]) -> Vec<&'a [u8]> {
         let mut chunks = Vec::new();
         let mut offset = 0;
-        
+
         while offset < data.len() {
             let end = std::cmp::min(offset + self.chunk_size, data.len());
             chunks.push(&data[offset..end]);
             offset = end;
         }
-        
+
         chunks
     }
 }
@@ -356,6 +359,7 @@ pub struct BinaryDelta {
     /// New data chunks
     new_data: Vec<Vec<u8>>,
     /// Original data size
+    #[allow(dead_code)]
     original_size: usize,
     /// Delta size
     delta_size: usize,

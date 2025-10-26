@@ -19,6 +19,153 @@ struct LexumHelper {
     hinter: HistoryHinter,
 }
 
+impl LexumHelper {
+    /// Get command suggestions based on current input
+    fn get_command_suggestions(line: &str, parts: &[&str]) -> Vec<Pair> {
+        let mut suggestions = Vec::new();
+
+        if parts.is_empty() {
+            // Top-level commands
+            let commands = vec![
+                "help", "exit", "quit", "index", "doc", "search", "server", "snapshot", "lql",
+            ];
+            for cmd in commands {
+                if cmd.starts_with(line.trim()) {
+                    suggestions.push(Pair {
+                        display: cmd.to_string(),
+                        replacement: cmd.to_string(),
+                    });
+                }
+            }
+        } else if parts.len() == 1 {
+            // Subcommands
+            match parts[0] {
+                "index" => {
+                    let subcommands = vec!["list", "create", "delete", "get", "stats"];
+                    for subcmd in subcommands {
+                        if subcmd.starts_with(line.trim()) {
+                            suggestions.push(Pair {
+                                display: subcmd.to_string(),
+                                replacement: subcmd.to_string(),
+                            });
+                        }
+                    }
+                }
+                "doc" => {
+                    let subcommands = vec!["add", "get", "delete", "bulk"];
+                    for subcmd in subcommands {
+                        if subcmd.starts_with(line.trim()) {
+                            suggestions.push(Pair {
+                                display: subcmd.to_string(),
+                                replacement: subcmd.to_string(),
+                            });
+                        }
+                    }
+                }
+                "server" => {
+                    let subcommands = vec!["start", "stop", "status", "config"];
+                    for subcmd in subcommands {
+                        if subcmd.starts_with(line.trim()) {
+                            suggestions.push(Pair {
+                                display: subcmd.to_string(),
+                                replacement: subcmd.to_string(),
+                            });
+                        }
+                    }
+                }
+                "snapshot" => {
+                    let subcommands = vec!["repo", "create", "list", "delete", "restore"];
+                    for subcmd in subcommands {
+                        if subcmd.starts_with(line.trim()) {
+                            suggestions.push(Pair {
+                                display: subcmd.to_string(),
+                                replacement: subcmd.to_string(),
+                            });
+                        }
+                    }
+                }
+                _ => {}
+            }
+        } else if parts.len() == 2 {
+            // Parameters for subcommands
+            match (parts[0], parts[1]) {
+                ("index", "create") => {
+                    suggestions.push(Pair {
+                        display: "<name>".to_string(),
+                        replacement: "<name>".to_string(),
+                    });
+                }
+                ("index", "delete") | ("index", "get") | ("index", "stats") => {
+                    suggestions.push(Pair {
+                        display: "<index_name>".to_string(),
+                        replacement: "<index_name>".to_string(),
+                    });
+                }
+                ("doc", "add") => {
+                    suggestions.push(Pair {
+                        display: "<index> <file>".to_string(),
+                        replacement: "<index> <file>".to_string(),
+                    });
+                }
+                ("doc", "get") | ("doc", "delete") => {
+                    suggestions.push(Pair {
+                        display: "<index> <id>".to_string(),
+                        replacement: "<index> <id>".to_string(),
+                    });
+                }
+                ("doc", "bulk") => {
+                    suggestions.push(Pair {
+                        display: "<index> <file>".to_string(),
+                        replacement: "<index> <file>".to_string(),
+                    });
+                }
+                ("search", _) => {
+                    suggestions.push(Pair {
+                        display: "<index> <query>".to_string(),
+                        replacement: "<index> <query>".to_string(),
+                    });
+                }
+                ("lql", _) => {
+                    suggestions.push(Pair {
+                        display: "<index> <query>".to_string(),
+                        replacement: "<index> <query>".to_string(),
+                    });
+                }
+                _ => {}
+            }
+        } else if parts.len() >= 3 {
+            // Options and flags
+            match (parts[0], parts[1]) {
+                ("search", _) => {
+                    let options = vec!["--limit", "--sort", "--fields", "--offset", "--explain"];
+                    for opt in options {
+                        if opt.starts_with(parts[2]) {
+                            suggestions.push(Pair {
+                                display: opt.to_string(),
+                                replacement: opt.to_string(),
+                            });
+                        }
+                    }
+                }
+                ("lql", _) => {
+                    let options = vec!["--sort", "--fields", "--limit", "--offset", "--explain"];
+                    for opt in options {
+                        if opt.starts_with(parts[2]) {
+                            suggestions.push(Pair {
+                                display: opt.to_string(),
+                                replacement: opt.to_string(),
+                            });
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        suggestions
+    }
+}
+
 impl Completer for LexumHelper {
     type Candidate = Pair;
 
@@ -32,6 +179,11 @@ impl Completer for LexumHelper {
 
         // Add command completions
         let mut all_candidates = candidates;
+        let parts: Vec<&str> = line.split_whitespace().collect();
+
+        // Get command suggestions
+        let command_suggestions = Self::get_command_suggestions(line, &parts);
+        all_candidates.extend(command_suggestions);
 
         if line.trim().is_empty() || !line.contains(' ') {
             // First word - suggest commands

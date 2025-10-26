@@ -45,6 +45,7 @@ use utoipa_swagger_ui::SwaggerUi;
         crate::handlers::admin::get_cluster_info,
         crate::handlers::admin::get_cluster_health,
         crate::handlers::admin::get_cluster_stats,
+        crate::handlers::admin::get_cluster_state,
         crate::handlers::admin::get_node_stats,
         crate::handlers::admin::get_cluster_settings,
         crate::handlers::admin::update_cluster_settings,

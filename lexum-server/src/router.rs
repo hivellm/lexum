@@ -16,6 +16,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/", get(admin::get_cluster_info))
         .route("/_cluster/health", get(admin::get_cluster_health))
         .route("/_cluster/stats", get(admin::get_cluster_stats))
+        .route("/_cluster/state", get(admin::get_cluster_state))
         .route("/_nodes/stats", get(admin::get_node_stats))
         .route("/_cluster/settings", get(admin::get_cluster_settings))
         .route("/_cluster/settings", put(admin::update_cluster_settings))

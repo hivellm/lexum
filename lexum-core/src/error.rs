@@ -68,7 +68,7 @@ impl From<notify::Error> for Error {
 
 impl From<tokio::task::JoinError> for Error {
     fn from(err: tokio::task::JoinError) -> Self {
-        Error::Io(std::io::Error::new(std::io::ErrorKind::Other, err))
+        Error::Io(std::io::Error::other(err))
     }
 }
 

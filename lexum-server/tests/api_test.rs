@@ -551,6 +551,69 @@ async fn test_cluster_stats() {
 }
 
 #[tokio::test]
+async fn test_cluster_state() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/_cluster/state")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert!(response_json["cluster_name"].is_string());
+    assert!(response_json["cluster_uuid"].is_string());
+    assert!(response_json["version"].is_object());
+    assert!(response_json["state_uuid"].is_string());
+    assert!(response_json["master_node"].is_string());
+    assert!(response_json["blocks"].is_object());
+    assert!(response_json["nodes"].is_object());
+    assert!(response_json["metadata"].is_object());
+    assert!(response_json["routing_table"].is_object());
+    assert!(response_json["routing_nodes"].is_array());
+}
+
+#[tokio::test]
+async fn test_root_endpoint() {
+    let (state, _temp_dir) = setup_test_server().await;
+    let app = build_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+    assert!(response_json["name"].is_string());
+    assert!(response_json["cluster_uuid"].is_string());
+    assert!(response_json["version"].is_object());
+}
+
+#[tokio::test]
 async fn test_node_stats() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);

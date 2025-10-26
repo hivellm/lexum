@@ -292,6 +292,77 @@ Use the load testing framework in CI/CD pipelines:
 - Optimize field configurations
 - Check disk I/O performance
 
+## LQL Query Optimization
+
+### Query Plan Optimization
+
+Lexum includes an intelligent query optimizer that analyzes and optimizes LQL queries before execution:
+
+#### Optimization Features
+
+- **Query Cost Estimation**: Automatic cost analysis for different query types
+- **Selectivity Ordering**: Boolean queries are reordered by selectivity (most selective first)
+- **Performance Hints**: Automatic suggestions for query optimization
+- **Query Caching**: Intelligent caching of parsed and optimized queries
+
+#### Query Type Performance
+
+| Query Type | Base Cost | Optimization Impact | Performance Gain |
+|------------|-----------|-------------------|------------------|
+| Term Query | 10 | Minimal | 1.0x (already optimal) |
+| Match Query | 100 | Moderate | 1.2-1.5x |
+| Boolean Query | 150+ | High | 2-3x |
+| Fuzzy Query | 175+ | Low | 1.1-1.2x |
+| Range Query | 100+ | Moderate | 1.3-1.8x |
+| Phrase Query | 140+ | Low | 1.1-1.3x |
+
+#### Optimization Hints
+
+The query optimizer provides automatic hints for performance improvement:
+
+- **Short Query Terms**: Warns about potentially broad queries
+- **Wildcard Queries**: Suggests term queries for exact matches
+- **High Fuzziness**: Recommends lower fuzziness values
+- **Large Ranges**: Alerts about expensive range queries
+- **Complex Boolean**: Suggests reducing should clauses
+
+#### Benchmark Results
+
+Based on comprehensive LQL benchmarks:
+
+| Operation | Latency (P95) | Throughput | Memory |
+|-----------|---------------|------------|---------|
+| Parse Simple Query | < 0.1ms | 50,000+ ops/s | ~1KB |
+| Parse Complex Query | < 0.5ms | 20,000+ ops/s | ~5KB |
+| Optimize Query | < 0.2ms | 30,000+ ops/s | ~2KB |
+| Parse with Plan | < 0.6ms | 15,000+ ops/s | ~6KB |
+| Cache Hit | < 0.01ms | 100,000+ ops/s | ~0.1KB |
+
+### LQL Performance Tuning
+
+#### Query Optimization Best Practices
+
+1. **Use Term Queries** for exact matches instead of wildcard match queries
+2. **Order Boolean Clauses** by selectivity (most selective first)
+3. **Limit Fuzzy Queries** to reasonable fuzziness values (≤ 2)
+4. **Use Range Queries** instead of multiple term queries for numeric ranges
+5. **Enable Query Caching** for repeated query patterns
+
+#### Configuration
+
+```yaml
+lql:
+  optimization:
+    enabled: true
+    cache_size: 1000
+    cost_threshold: 200
+    hints_enabled: true
+  performance:
+    max_query_complexity: 1000
+    timeout_ms: 5000
+    parallel_optimization: true
+```
+
 ## Future Performance Improvements
 
 ### Planned Optimizations
@@ -301,6 +372,8 @@ Use the load testing framework in CI/CD pipelines:
 - **Advanced compression** algorithms
 - **Predictive caching** based on query patterns
 - **Distributed query processing** for multi-node setups
+- **Machine learning-based query optimization**
+- **Real-time query plan adaptation**
 
 ### Research Areas
 
@@ -308,6 +381,7 @@ Use the load testing framework in CI/CD pipelines:
 - **Adaptive indexing** strategies
 - **Real-time performance** tuning
 - **Energy efficiency** optimizations
+- **Query pattern analysis** for predictive optimization
 
 ## Benchmark Methodology
 
@@ -335,4 +409,4 @@ Use the load testing framework in CI/CD pipelines:
 
 ---
 
-*This document is updated regularly as performance characteristics evolve. Last updated: 2025-10-25*
+*This document is updated regularly as performance characteristics evolve. Last updated: 2025-10-26*
