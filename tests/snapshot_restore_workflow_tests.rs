@@ -11,16 +11,16 @@
 #![allow(unused_imports)]
 
 use anyhow::Result;
+use lexum_core::SnapshotManager;
 use lexum_core::config::{Config, SnapshotRepositoryConfig, SnapshotRepositorySettings};
 use lexum_core::document::DocumentStore;
 use lexum_core::index::{IndexManager, IndexSettings};
 use lexum_core::schema::{FieldConfig, FieldType, SchemaBuilder};
 use lexum_core::snapshot::types::{
-    CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo,
-    SnapshotMetadata, SnapshotState, SnapshotType,
+    CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo, SnapshotMetadata, SnapshotState,
+    SnapshotType,
 };
 use lexum_core::types::{IndexName, RepositoryName, SnapshotName};
-use lexum_core::SnapshotManager;
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::TempDir;

@@ -193,6 +193,7 @@ pub async fn get_index(
     let stats = state
         .index_manager
         .get_index_stats(&name)
+        .await
         .map_err(|_| ApiError::IndexNotFound(name.clone()))?;
 
     Ok(Json(IndexInfo {
@@ -216,7 +217,7 @@ pub async fn list_indices(State(state): State<AppState>) -> ApiResult<Json<ListI
 
     let mut index_infos = Vec::new();
     for name in index_names {
-        if let Ok(stats) = state.index_manager.get_index_stats(&name) {
+        if let Ok(stats) = state.index_manager.get_index_stats(&name).await {
             index_infos.push(IndexInfo {
                 name: stats.name,
                 num_docs: stats.num_docs,
@@ -279,7 +280,7 @@ pub async fn get_index_stats(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> ApiResult<Json<IndexStats>> {
-    let core_stats = state.index_manager.get_index_stats(&name)?;
+    let core_stats = state.index_manager.get_index_stats(&name).await?;
     let stats = IndexStats {
         name: core_stats.name,
         num_docs: core_stats.num_docs,

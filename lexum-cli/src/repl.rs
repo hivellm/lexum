@@ -342,7 +342,14 @@ impl ReplSession {
 
                         if let Err(e) = self.handle_command(line).await {
                             eprintln!("{} {}", "Error:".bright_red().bold(), e);
-                            Self::suggest_commands(line);
+                            let suggestions = Self::suggest_commands(line);
+                            if !suggestions.is_empty() {
+                                eprintln!(
+                                    "{} Did you mean: {}",
+                                    "Suggestions:".bright_yellow().bold(),
+                                    suggestions.join(", ")
+                                );
+                            }
                         }
                     }
                 }

@@ -110,11 +110,31 @@ impl IndexManager {
 
         // Create index directory
         let index_path = self.data_dir.join(&name_str);
-        tokio::fs::create_dir_all(&index_path).await?;
 
-        // Create Tantivy index
-        let tantivy_index = TantivyIndex::create_in_dir(&index_path, schema)
-            .map_err(|e| Error::Config(format!("Failed to create index: {e}")))?;
+        // Ensure the directory exists and is writable
+        std::fs::create_dir_all(&index_path)
+            .map_err(|e| Error::Config(format!("Failed to create index directory: {e}")))?;
+
+        // Create Tantivy index in blocking context
+        let tantivy_index = tokio::task::spawn_blocking({
+            let index_path = index_path.clone();
+            let schema_clone = schema.clone();
+            move || {
+                // Try to create the index
+                TantivyIndex::create_in_dir(&index_path, schema).or_else(|e| {
+                    // If it fails, try to create the directory again and retry
+                    let _ = std::fs::create_dir_all(&index_path);
+                    TantivyIndex::create_in_dir(&index_path, schema_clone).map_err(|e2| {
+                        eprintln!("First attempt failed: {e}");
+                        eprintln!("Second attempt failed: {e2}");
+                        e2
+                    })
+                })
+            }
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))?
+        .map_err(|e| Error::Config(format!("Failed to create index: {e}")))?;
 
         let index = Index {
             name: index_name,
@@ -176,19 +196,31 @@ impl IndexManager {
     }
 
     /// Get index statistics
-    pub fn get_index_stats(&self, name: &str) -> Result<IndexStats> {
+    pub async fn get_index_stats(&self, name: &str) -> Result<IndexStats> {
         let index = self.get_index(name)?;
-        let reader = index.reader()?;
-        let searcher = reader.searcher();
 
-        let num_docs = searcher.num_docs();
-        let num_segments = searcher.segment_readers().len();
+        // Run Tantivy operations in blocking context
+        let stats = tokio::task::spawn_blocking({
+            let index = index.clone();
+            let name = name.to_string();
+            move || {
+                let reader = index.reader()?;
+                let searcher = reader.searcher();
 
-        Ok(IndexStats {
-            name: name.to_string(),
-            num_docs,
-            num_segments,
+                let num_docs = searcher.num_docs();
+                let num_segments = searcher.segment_readers().len();
+
+                Ok::<IndexStats, Error>(IndexStats {
+                    name,
+                    num_docs,
+                    num_segments,
+                })
+            }
         })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
+
+        Ok(stats)
     }
 }
 
