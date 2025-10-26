@@ -220,7 +220,7 @@ mod tests {
     async fn test_retry_logic_parameters() {
         // Test that retry parameters are correctly set
         let client = LexumClient::new("http://localhost:9200".to_string());
-        
+
         // Test retry count logic (3 retries = 4 total attempts)
         let retries = 3;
         for attempt in 0..=retries {
@@ -236,12 +236,12 @@ mod tests {
     async fn test_error_handling_scenarios() {
         // Test error handling logic without actual network calls
         let client = LexumClient::new("http://localhost:9200".to_string());
-        
+
         // Test client error detection (4xx status codes)
         let client_error_status = 400;
         let is_client_error = client_error_status >= 400 && client_error_status < 500;
         assert!(is_client_error);
-        
+
         // Test server error detection (5xx status codes)
         let server_error_status = 500;
         let is_server_error = server_error_status >= 500 && server_error_status < 600;
@@ -251,16 +251,10 @@ mod tests {
     #[tokio::test]
     async fn test_url_construction() {
         let client = LexumClient::new("http://localhost:9200".to_string());
-        
+
         // Test various path formats
-        let paths = vec![
-            "/api/test",
-            "/api/test/",
-            "api/test",
-            "/",
-            "",
-        ];
-        
+        let paths = vec!["/api/test", "/api/test/", "api/test", "/", ""];
+
         for path in paths {
             let expected_url = format!("{}{}", client.base_url, path);
             assert!(expected_url.starts_with("http://localhost:9200"));
@@ -271,7 +265,7 @@ mod tests {
     async fn test_client_clone() {
         let client1 = LexumClient::new("http://localhost:9200".to_string());
         let client2 = client1.clone();
-        
+
         assert_eq!(client1.base_url, client2.base_url);
     }
 }

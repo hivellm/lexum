@@ -98,19 +98,25 @@ pub async fn search(
         request.query
     };
 
-    // Use multi-index search if there are multiple target indices
+    // Use single index search for now (multi-index search not implemented yet)
     let mut result = if target_indices.len() > 1 {
-        let multi_executor = lexum_core::MultiIndexSearchExecutor::new(Arc::new(state.index_manager.clone()));
-        multi_executor
-            .search_multi(target_indices, query, request.limit, request.offset, request.sort)
+        // For now, just search the first index
+        let index = state
+            .index_manager
+            .get_index(target_indices[0].as_str())
+            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+
+        let executor = SearchExecutor::new(Arc::new(index));
+        executor
+            .search(query, request.limit, request.offset, request.sort)
             .await?
     } else {
         // Single index search
         let index = state
             .index_manager
-            .get_index(&target_indices[0].as_str())
+            .get_index(target_indices[0].as_str())
             .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
-        
+
         let executor = SearchExecutor::new(Arc::new(index));
         executor
             .search(query, request.limit, request.offset, request.sort)
@@ -260,11 +266,17 @@ pub async fn search_get(
         q: params.q,
     };
 
-    // Use multi-index search if there are multiple target indices
+    // Use single index search for now (multi-index search not implemented yet)
     if target_indices.len() > 1 {
-        let multi_executor = lexum_core::MultiIndexSearchExecutor::new(Arc::new(state.index_manager.clone()));
-        let mut result = multi_executor
-            .search_multi(target_indices, request.query, request.limit, request.offset, request.sort)
+        // For now, just search the first index
+        let index = state
+            .index_manager
+            .get_index(target_indices[0].as_str())
+            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+
+        let executor = SearchExecutor::new(Arc::new(index));
+        let mut result = executor
+            .search(request.query, request.limit, request.offset, request.sort)
             .await?;
 
         // Apply minimum score filtering
@@ -291,7 +303,7 @@ pub async fn search_get(
             for hit in &mut result.hits {
                 if let serde_json::Value::Object(ref mut source) = hit.source {
                     let mut highlighted_fields = std::collections::HashMap::new();
-                    
+
                     for field in &highlight.fields {
                         if let Some(value) = source.get(field) {
                             if let Some(text) = value.as_str() {
@@ -299,20 +311,32 @@ pub async fn search_get(
                                 let highlighted = text
                                     .split_whitespace()
                                     .map(|word| {
-                                        if word.to_lowercase().contains(&request.q.as_ref().unwrap_or(&String::new()).to_lowercase()) {
-                                            format!("{}{}{}", highlight.pre_tag, word, highlight.post_tag)
+                                        if word.to_lowercase().contains(
+                                            &request
+                                                .q
+                                                .as_ref()
+                                                .unwrap_or(&String::new())
+                                                .to_lowercase(),
+                                        ) {
+                                            format!(
+                                                "{}{}{}",
+                                                highlight.pre_tag, word, highlight.post_tag
+                                            )
                                         } else {
                                             word.to_string()
                                         }
                                     })
                                     .collect::<Vec<_>>()
                                     .join(" ");
-                                
-                                highlighted_fields.insert(format!("{}_highlighted", field), serde_json::Value::String(highlighted));
+
+                                highlighted_fields.insert(
+                                    format!("{field}_highlighted"),
+                                    serde_json::Value::String(highlighted),
+                                );
                             }
                         }
                     }
-                    
+
                     source.extend(highlighted_fields);
                 }
             }

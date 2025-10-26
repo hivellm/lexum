@@ -345,8 +345,8 @@ mod tests {
             name: "title".to_string(),
             field_type: "text".to_string(),
             stored: false, // explicit false
-            indexed: true,  // should be true by default
-            fast: false,    // explicit false
+            indexed: true, // should be true by default
+            fast: false,   // explicit false
         };
 
         // Test that indexed defaults to true

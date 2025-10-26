@@ -19,6 +19,10 @@ pub enum Query {
     Fuzzy(FuzzyQuery),
     /// Phrase query (exact phrase matching)
     Phrase(PhraseQuery),
+    /// Wildcard query (prefix, suffix, contains)
+    Wildcard(WildcardQuery),
+    /// Regex query (regular expression matching)
+    Regex(RegexQuery),
     /// Match all documents
     MatchAll,
 }
@@ -250,6 +254,54 @@ impl PhraseQuery {
     }
 }
 
+/// Wildcard query for pattern matching
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WildcardQuery {
+    /// Field to search
+    pub field: String,
+    /// Wildcard pattern (* for any characters, ? for single character)
+    pub pattern: String,
+}
+
+impl WildcardQuery {
+    /// Create new wildcard query
+    pub fn new(field: impl Into<String>, pattern: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            pattern: pattern.into(),
+        }
+    }
+}
+
+/// Regex query for regular expression matching
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RegexQuery {
+    /// Field to search
+    pub field: String,
+    /// Regular expression pattern
+    pub pattern: String,
+    /// Case sensitivity
+    #[serde(default)]
+    pub case_sensitive: bool,
+}
+
+impl RegexQuery {
+    /// Create new regex query
+    pub fn new(field: impl Into<String>, pattern: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            pattern: pattern.into(),
+            case_sensitive: false,
+        }
+    }
+
+    /// Set case sensitivity
+    pub fn case_sensitive(mut self, case_sensitive: bool) -> Self {
+        self.case_sensitive = case_sensitive;
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,16 +357,32 @@ mod tests {
     #[test]
     fn test_fuzzy_query_max_distance() {
         let query = FuzzyQuery::new("name", "test").fuzziness(10);
-        // Should cap at 2
-        assert_eq!(query.fuzziness, 2);
+        assert_eq!(query.fuzziness, 2); // Should be capped at 2
     }
 
     #[test]
     fn test_phrase_query() {
-        let query = PhraseQuery::new("content", "quick brown fox");
+        let query = PhraseQuery::new("content", "quick brown fox").slop(1);
+
         assert_eq!(query.field, "content");
         assert_eq!(query.phrase, "quick brown fox");
-        assert_eq!(query.slop, 0);
+        assert_eq!(query.slop, 1);
+    }
+
+    #[test]
+    fn test_wildcard_query() {
+        let query = WildcardQuery::new("name", "test*");
+        assert_eq!(query.field, "name");
+        assert_eq!(query.pattern, "test*");
+    }
+
+    #[test]
+    fn test_regex_query() {
+        let query = RegexQuery::new("content", "[A-Z][a-z]+").case_sensitive(true);
+
+        assert_eq!(query.field, "content");
+        assert_eq!(query.pattern, "[A-Z][a-z]+");
+        assert!(query.case_sensitive);
     }
 
     #[test]

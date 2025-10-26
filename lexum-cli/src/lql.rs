@@ -66,6 +66,14 @@ impl QueryOptimizer {
                     Self::optimize_phrase_query(phrase_query, &mut hints, &mut estimated_cost);
                 Query::Phrase(optimized)
             }
+            Query::Wildcard(wildcard_query) => {
+                // Wildcard queries are not optimized for now
+                Query::Wildcard(wildcard_query.clone())
+            }
+            Query::Regex(regex_query) => {
+                // Regex queries are not optimized for now
+                Query::Regex(regex_query.clone())
+            }
             Query::MatchAll => query.clone(),
         };
 
@@ -267,6 +275,8 @@ impl QueryOptimizer {
                 hints,
                 estimated_cost,
             )),
+            Query::Wildcard(wildcard_query) => Query::Wildcard(wildcard_query),
+            Query::Regex(regex_query) => Query::Regex(regex_query),
             Query::MatchAll => query,
         }
     }
@@ -274,11 +284,13 @@ impl QueryOptimizer {
     /// Estimate query selectivity (lower = more selective)
     fn estimate_query_selectivity(query: &Query) -> u32 {
         match query {
-            Query::Term(_) => 1,    // Most selective
-            Query::Range(_) => 5,   // Moderately selective
-            Query::Match(_) => 10,  // Less selective
-            Query::Phrase(_) => 15, // Less selective
-            Query::Fuzzy(_) => 20,  // Least selective
+            Query::Term(_) => 1,      // Most selective
+            Query::Range(_) => 5,     // Moderately selective
+            Query::Match(_) => 10,    // Less selective
+            Query::Phrase(_) => 15,   // Less selective
+            Query::Fuzzy(_) => 20,    // Least selective
+            Query::Wildcard(_) => 25, // Wildcard queries are less selective
+            Query::Regex(_) => 30,    // Regex queries are least selective
             Query::Bool(boolean_query) => {
                 // Boolean queries are as selective as their most selective clause
                 let must_selectivity = boolean_query

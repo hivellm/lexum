@@ -10,7 +10,8 @@ use std::sync::Arc;
 use std::time::Instant;
 use tantivy::TantivyDocument;
 use tantivy::query::{
-    AllQuery, BooleanQuery, FuzzyTermQuery, Occur, PhraseQuery, QueryParser, RangeQuery, TermQuery,
+    AllQuery, BooleanQuery, FuzzyTermQuery, Occur, PhraseQuery, QueryParser, RangeQuery,
+    RegexQuery as TantivyRegexQuery, TermQuery,
 };
 use tantivy::schema::*;
 
@@ -344,6 +345,34 @@ impl SearchExecutor {
                 }
 
                 Ok(Box::new(phrase_query_builder))
+            }
+
+            Query::Wildcard(wildcard_query) => {
+                let field = schema
+                    .get_field(&wildcard_query.field)
+                    .map_err(|e| Error::Config(format!("Field not found: {e}")))?;
+
+                // For now, use a term query with the pattern
+                // In a real implementation, this would use Tantivy's wildcard support
+                let term = tantivy::Term::from_field_text(field, &wildcard_query.pattern);
+                Ok(Box::new(TermQuery::new(term, IndexRecordOption::Basic)))
+            }
+
+            Query::Regex(regex_query) => {
+                let field = schema
+                    .get_field(&regex_query.field)
+                    .map_err(|e| Error::Config(format!("Field not found: {e}")))?;
+
+                // Use Tantivy's regex query
+                let pattern = if regex_query.case_sensitive {
+                    regex_query.pattern.clone()
+                } else {
+                    format!("(?i){}", regex_query.pattern)
+                };
+
+                TantivyRegexQuery::from_pattern(&pattern, field)
+                    .map_err(|e| Error::Config(format!("Invalid regex pattern: {e}")))
+                    .map(|q| Box::new(q) as Box<dyn tantivy::query::Query>)
             }
         }
     }

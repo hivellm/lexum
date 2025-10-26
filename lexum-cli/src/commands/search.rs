@@ -198,6 +198,11 @@ fn parse_query(query: &str) -> Query {
 fn parse_advanced_query(query: &str) -> Result<Query> {
     let query = query.trim();
 
+    // Handle special case: "*" should not be parsed as advanced query
+    if query == "*" {
+        return Err(anyhow::anyhow!("MatchAll queries should be handled by parse_query"));
+    }
+
     // Match queries: field:value
     if let Some(colon_pos) = query.find(':') {
         let field = query[..colon_pos].trim();
@@ -225,7 +230,7 @@ fn parse_advanced_query(query: &str) -> Result<Query> {
                 fuzziness: None,
             });
         } else if value.starts_with('[') && value.ends_with(']') {
-            // Range query
+            // Range query - check if it's a valid range format
             let range_str = value[1..value.len() - 1].to_string();
             let parts: Vec<&str> = range_str.split(',').collect();
             if parts.len() == 2 {
@@ -237,6 +242,12 @@ fn parse_advanced_query(query: &str) -> Result<Query> {
                     lte,
                     gt: None,
                     lt: None,
+                });
+            } else {
+                // Invalid range format - treat as term query
+                return Ok(Query::Term {
+                    field: field.to_string(),
+                    value: value.to_string(),
                 });
             }
         } else {
@@ -866,7 +877,7 @@ mod tests {
     fn test_sort_order_serialization() {
         let asc = SortOrder::Asc;
         let desc = SortOrder::Desc;
-        
+
         assert_eq!(serde_json::to_string(&asc).unwrap(), "\"asc\"");
         assert_eq!(serde_json::to_string(&desc).unwrap(), "\"desc\"");
     }
@@ -877,7 +888,7 @@ mod tests {
             field: "content".to_string(),
             query: "test".to_string(),
         };
-        
+
         let json = serde_json::to_string(&query).unwrap();
         assert!(json.contains("match"));
         assert!(json.contains("content"));
@@ -890,7 +901,7 @@ mod tests {
             field: "status".to_string(),
             value: "active".to_string(),
         };
-        
+
         let json = serde_json::to_string(&query).unwrap();
         assert!(json.contains("term"));
         assert!(json.contains("status"));
@@ -906,7 +917,7 @@ mod tests {
             gt: None,
             lt: None,
         };
-        
+
         let json = serde_json::to_string(&query).unwrap();
         assert!(json.contains("range"));
         assert!(json.contains("age"));
@@ -921,7 +932,7 @@ mod tests {
             value: "john".to_string(),
             fuzziness: Some(1),
         };
-        
+
         let json = serde_json::to_string(&query).unwrap();
         assert!(json.contains("fuzzy"));
         assert!(json.contains("name"));
@@ -935,7 +946,7 @@ mod tests {
             query: "hello world".to_string(),
             slop: Some(2),
         };
-        
+
         let json = serde_json::to_string(&query).unwrap();
         assert!(json.contains("phrase"));
         assert!(json.contains("content"));
@@ -945,17 +956,15 @@ mod tests {
     #[test]
     fn test_query_bool_serialization() {
         let query = Query::Bool {
-            must: Some(vec![
-                Query::Match {
-                    field: "status".to_string(),
-                    query: "active".to_string(),
-                }
-            ]),
+            must: Some(vec![Query::Match {
+                field: "status".to_string(),
+                query: "active".to_string(),
+            }]),
             should: None,
             must_not: None,
             filter: None,
         };
-        
+
         let json = serde_json::to_string(&query).unwrap();
         assert!(json.contains("bool"));
         assert!(json.contains("must"));
@@ -972,15 +981,24 @@ mod tests {
     fn test_parse_query_simple_text() {
         let query = parse_query("hello world");
         match query {
-            Query::Bool { should, must, must_not, filter } => {
+            Query::Bool {
+                should,
+                must,
+                must_not,
+                filter,
+            } => {
                 assert!(should.is_some());
                 assert!(must.is_none());
                 assert!(must_not.is_none());
                 assert!(filter.is_none());
                 if let Some(should_queries) = should {
                     assert_eq!(should_queries.len(), 2);
-                    assert!(matches!(should_queries[0], Query::Match { field: ref f, query: ref q } if f == "content" && q == "hello"));
-                    assert!(matches!(should_queries[1], Query::Match { field: ref f, query: ref q } if f == "content" && q == "world"));
+                    assert!(
+                        matches!(should_queries[0], Query::Match { field: ref f, query: ref q } if f == "content" && q == "hello")
+                    );
+                    assert!(
+                        matches!(should_queries[1], Query::Match { field: ref f, query: ref q } if f == "content" && q == "world")
+                    );
                 }
             }
             _ => panic!("Expected Bool query, got: {:?}", query),
@@ -1003,7 +1021,11 @@ mod tests {
     fn test_parse_query_phrase() {
         let query = parse_query("title:\"hello world\"");
         match query {
-            Query::Phrase { field, query: q, slop } => {
+            Query::Phrase {
+                field,
+                query: q,
+                slop,
+            } => {
                 assert_eq!(field, "title");
                 assert_eq!(q, "hello world");
                 assert_eq!(slop, None);
@@ -1016,7 +1038,11 @@ mod tests {
     fn test_parse_query_fuzzy() {
         let query = parse_query("name:~john");
         match query {
-            Query::Fuzzy { field, value, fuzziness } => {
+            Query::Fuzzy {
+                field,
+                value,
+                fuzziness,
+            } => {
                 assert_eq!(field, "name");
                 assert_eq!(value, "john");
                 assert_eq!(fuzziness, None);
@@ -1029,7 +1055,13 @@ mod tests {
     fn test_parse_query_range() {
         let query = parse_query("age:[18,65]");
         match query {
-            Query::Range { field, gte, lte, gt, lt } => {
+            Query::Range {
+                field,
+                gte,
+                lte,
+                gt,
+                lt,
+            } => {
                 assert_eq!(field, "age");
                 assert_eq!(gte, Some(18.0));
                 assert_eq!(lte, Some(65.0));
@@ -1057,7 +1089,7 @@ mod tests {
     fn test_parse_advanced_query_invalid_field_value() {
         let result = parse_advanced_query(":value");
         assert!(result.is_err());
-        
+
         let result = parse_advanced_query("field:");
         assert!(result.is_err());
     }
@@ -1129,7 +1161,12 @@ mod tests {
             .build();
 
         match query {
-            Query::Bool { must, should, must_not, filter } => {
+            Query::Bool {
+                must,
+                should,
+                must_not,
+                filter,
+            } => {
                 assert!(must.is_some());
                 assert!(should.is_some());
                 assert!(must_not.is_some());
@@ -1143,7 +1180,12 @@ mod tests {
     fn test_query_builder_empty() {
         let query = QueryBuilder::new().build();
         match query {
-            Query::Bool { must, should, must_not, filter } => {
+            Query::Bool {
+                must,
+                should,
+                must_not,
+                filter,
+            } => {
                 assert!(must.is_none());
                 assert!(should.is_none());
                 assert!(must_not.is_none());
@@ -1234,13 +1276,11 @@ mod tests {
     #[test]
     fn test_search_response_creation() {
         let response = SearchResponse {
-            hits: vec![
-                SearchHit {
-                    id: "1".to_string(),
-                    score: 0.95,
-                    source: json!({"title": "Test Document"}),
-                }
-            ],
+            hits: vec![SearchHit {
+                id: "1".to_string(),
+                score: 0.95,
+                source: json!({"title": "Test Document"}),
+            }],
             total_hits: 1,
             took_ms: 15.5,
             max_score: Some(0.95),
@@ -1267,7 +1307,7 @@ mod tests {
     fn test_parse_simple_query_field_value() {
         let result = parse_simple_query("title:hello");
         assert!(result.is_ok());
-        
+
         match result.unwrap() {
             Query::Term { field, value } => {
                 assert_eq!(field, "title");
@@ -1287,7 +1327,7 @@ mod tests {
     fn test_parse_simple_query_text() {
         let result = parse_simple_query("hello world");
         assert!(result.is_ok());
-        
+
         match result.unwrap() {
             Query::Match { field, query } => {
                 assert_eq!(field, "content");

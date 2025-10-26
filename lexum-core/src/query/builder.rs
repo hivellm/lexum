@@ -36,6 +36,16 @@ impl QueryBuilder {
         Query::Phrase(PhraseQuery::new(field, phrase))
     }
 
+    /// Create a wildcard query
+    pub fn wildcard_query(field: impl Into<String>, pattern: impl Into<String>) -> Query {
+        Query::Wildcard(WildcardQuery::new(field, pattern))
+    }
+
+    /// Create a regex query
+    pub fn regex_query(field: impl Into<String>, pattern: impl Into<String>) -> Query {
+        Query::Regex(RegexQuery::new(field, pattern))
+    }
+
     /// Create a match all query
     pub fn match_all() -> Query {
         Query::MatchAll
@@ -68,5 +78,17 @@ mod tests {
     fn test_phrase_query_builder() {
         let query = QueryBuilder::phrase_query("content", "quick brown fox");
         assert!(matches!(query, Query::Phrase(_)));
+    }
+
+    #[test]
+    fn test_wildcard_query_builder() {
+        let query = QueryBuilder::wildcard_query("name", "test*");
+        assert!(matches!(query, Query::Wildcard(_)));
+    }
+
+    #[test]
+    fn test_regex_query_builder() {
+        let query = QueryBuilder::regex_query("content", "[A-Z][a-z]+");
+        assert!(matches!(query, Query::Regex(_)));
     }
 }

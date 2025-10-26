@@ -1,7 +1,9 @@
 //! API router configuration
 
 use crate::handlers::index::AppState;
-use crate::handlers::{admin, alias, document, health, index, reindex, search, snapshot, template};
+use crate::handlers::{
+    admin, alias, document, health, index, reindex, rollover, search, snapshot, template,
+};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower_http::cors::CorsLayer;
@@ -101,6 +103,19 @@ pub fn build_router(state: AppState) -> Router {
         .route("/_tasks", get(reindex::list_tasks))
         .route("/_tasks/{task_id}", get(reindex::get_task))
         .route("/_tasks/{task_id}/_cancel", post(reindex::cancel_task))
+        // Index rollover operations
+        .route(
+            "/api/v1/indices/{index_name}/_rollover",
+            post(rollover::rollover_index),
+        )
+        .route(
+            "/api/v1/indices/{index_name}/_rollover",
+            get(rollover::get_rollover_conditions),
+        )
+        .route(
+            "/api/v1/indices/{index_name}/_rollover",
+            put(rollover::update_rollover_conditions),
+        )
         // OpenAPI documentation (temporarily disabled due to version conflicts)
         // .merge(create_swagger_ui())
         // Middleware (rate limiting implemented, ready for full Tower integration)
