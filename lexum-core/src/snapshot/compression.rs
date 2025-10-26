@@ -405,3 +405,212 @@ impl Default for BinaryDiff {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_compression_type_default() {
+        let compression_type = CompressionType::default();
+        assert_eq!(compression_type, CompressionType::Zstd);
+    }
+
+    #[test]
+    fn test_compression_config_default() {
+        let config = CompressionConfig::default();
+        assert_eq!(config.algorithm, CompressionType::Zstd);
+        assert_eq!(config.level, 3);
+        assert!(config.use_dictionary);
+        assert_eq!(config.dictionary_size, 0);
+    }
+
+    #[test]
+    fn test_compression_config_serialization() {
+        let config = CompressionConfig {
+            algorithm: CompressionType::Gzip,
+            level: 6,
+            use_dictionary: false,
+            dictionary_size: 1024,
+        };
+
+        let serialized = serde_json::to_string(&config).unwrap();
+        let deserialized: CompressionConfig = serde_json::from_str(&serialized).unwrap();
+        
+        assert_eq!(deserialized.algorithm, CompressionType::Gzip);
+        assert_eq!(deserialized.level, 6);
+        assert!(!deserialized.use_dictionary);
+        assert_eq!(deserialized.dictionary_size, 1024);
+    }
+
+    #[test]
+    fn test_snapshot_compressor_creation() {
+        let compressor = SnapshotCompressor::new(CompressionConfig::default());
+        assert!(compressor.dictionary.is_none());
+    }
+
+    #[test]
+    fn test_snapshot_compressor_with_dictionary() {
+        let mut config = CompressionConfig::default();
+        config.use_dictionary = true;
+        config.dictionary_size = 1024;
+        
+        let compressor = SnapshotCompressor::with_dictionary(config, b"test dictionary".to_vec());
+        assert!(compressor.dictionary.is_some());
+    }
+
+    #[test]
+    fn test_compress_data_none() {
+        let config = CompressionConfig {
+            algorithm: CompressionType::None,
+            level: 0,
+            use_dictionary: false,
+            dictionary_size: 0,
+        };
+        let compressor = SnapshotCompressor::new(config);
+        let data = b"test data";
+        
+        let result = compressor.compress_data(data).unwrap();
+        assert_eq!(result, data.to_vec());
+    }
+
+    #[test]
+    fn test_decompress_data_none() {
+        let config = CompressionConfig {
+            algorithm: CompressionType::None,
+            level: 0,
+            use_dictionary: false,
+            dictionary_size: 0,
+        };
+        let compressor = SnapshotCompressor::new(config);
+        let data = b"test data";
+        
+        let result = compressor.decompress_data(data).unwrap();
+        assert_eq!(result, data.to_vec());
+    }
+
+    #[test]
+    fn test_compress_data_gzip() {
+        let config = CompressionConfig {
+            algorithm: CompressionType::Gzip,
+            level: 6,
+            use_dictionary: false,
+            dictionary_size: 0,
+        };
+        let compressor = SnapshotCompressor::new(config);
+        let data = b"test data for gzip compression";
+        
+        let compressed = compressor.compress_data(data).unwrap();
+        let decompressed = compressor.decompress_data(&compressed).unwrap();
+        
+        assert_eq!(decompressed, data);
+        assert!(compressed.len() < data.len());
+    }
+
+    #[test]
+    fn test_compress_data_zstd() {
+        let config = CompressionConfig {
+            algorithm: CompressionType::Zstd,
+            level: 3,
+            use_dictionary: false,
+            dictionary_size: 0,
+        };
+        let compressor = SnapshotCompressor::new(config);
+        let data = b"test data for zstd compression";
+        
+        let compressed = compressor.compress_data(data).unwrap();
+        let decompressed = compressor.decompress_data(&compressed).unwrap();
+        
+        assert_eq!(decompressed, data);
+        assert!(compressed.len() < data.len());
+    }
+
+    #[test]
+    fn test_compress_data_lz4() {
+        let config = CompressionConfig {
+            algorithm: CompressionType::Lz4,
+            level: 1,
+            use_dictionary: false,
+            dictionary_size: 0,
+        };
+        let compressor = SnapshotCompressor::new(config);
+        let data = b"test data for lz4 compression";
+        
+        let compressed = compressor.compress_data(data).unwrap();
+        let decompressed = compressor.decompress_data(&compressed).unwrap();
+        
+        assert_eq!(decompressed, data);
+        assert!(compressed.len() < data.len());
+    }
+
+    #[test]
+    fn test_compress_stream() {
+        let config = CompressionConfig::default();
+        let compressor = SnapshotCompressor::new(config);
+        let data = b"test data for stream compression";
+        
+        let mut input = Cursor::new(data);
+        let mut output = Vec::new();
+        
+        compressor.compress_stream(&mut input, &mut output).unwrap();
+        
+        let mut decompressed = Vec::new();
+        let mut input_compressed = Cursor::new(&output);
+        compressor.decompress_stream(&mut input_compressed, &mut decompressed).unwrap();
+        
+        assert_eq!(decompressed, data);
+    }
+
+    #[test]
+    fn test_content_deduplicator() {
+        let mut deduplicator = ContentDeduplicator::new();
+        
+        let data1 = b"duplicate content";
+        let data2 = b"duplicate content";
+        let data3 = b"unique content";
+        
+        let hash1 = deduplicator.add_content(data1).unwrap();
+        let hash2 = deduplicator.add_content(data2).unwrap();
+        let hash3 = deduplicator.add_content(data3).unwrap();
+        
+        assert_eq!(hash1, hash2);
+        assert_ne!(hash1, hash3);
+        
+        assert!(deduplicator.has_content(&hash1));
+        assert!(deduplicator.has_content(&hash3));
+        assert!(!deduplicator.has_content(&[0u8; 32]));
+    }
+
+    #[test]
+    fn test_compression_stats() {
+        let mut stats = CompressionStats::new();
+        
+        stats.record_compression(1000, 500, 100);
+        stats.record_compression(2000, 800, 150);
+        
+        assert_eq!(stats.total_input_bytes, 3000);
+        assert_eq!(stats.total_output_bytes, 1300);
+        assert_eq!(stats.total_compression_time_ms, 250);
+        assert!((stats.compression_ratio - 0.433).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_compression_validation() {
+        let valid_config = CompressionConfig {
+            algorithm: CompressionType::Zstd,
+            level: 3,
+            use_dictionary: false,
+            dictionary_size: 0,
+        };
+        assert!(valid_config.validate().is_ok());
+        
+        let invalid_config = CompressionConfig {
+            algorithm: CompressionType::Zstd,
+            level: 25, // Invalid level
+            use_dictionary: false,
+            dictionary_size: 0,
+        };
+        assert!(invalid_config.validate().is_err());
+    }
+}

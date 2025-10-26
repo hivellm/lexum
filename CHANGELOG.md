@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Index Aliases (NEW)
+- ✅ Alias creation and management
+- ✅ Atomic alias operations
+- ✅ Alias resolution and lookup
+- ✅ HTTP API endpoints for alias operations
+- ✅ Comprehensive test coverage
+
 ### Phase 2 Planning
-- Index aliases and atomic operations
 - Reindexing with transformation support
 - Advanced aggregations (terms, stats, date histogram)
 - Client SDKs (Python, JavaScript, Rust)

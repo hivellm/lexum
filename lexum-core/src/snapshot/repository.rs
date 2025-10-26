@@ -1841,6 +1841,124 @@ impl FsSnapshotRepository {
     }
 }
 
+impl FsSnapshotRepository {
+    /// Create enhanced incremental snapshot with Phase 3 optimizations
+    pub async fn create_enhanced_incremental_snapshot(
+        &self,
+        snapshot_name: SnapshotName,
+        request: CreateSnapshotRequest,
+    ) -> Result<crate::snapshot::incremental::EnhancedSnapshotResult> {
+        use crate::snapshot::incremental::IncrementalSnapshotManager;
+
+        let mut manager = IncrementalSnapshotManager::new();
+        manager
+            .create_enhanced_incremental_snapshot(
+                &self.name,
+                &snapshot_name,
+                &request.indices,
+                request.parent_snapshot.as_ref(),
+            )
+            .await
+    }
+
+    /// Optimize snapshot chains for better storage efficiency
+    pub async fn optimize_snapshot_chains(
+        &self,
+    ) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>> {
+        use crate::snapshot::incremental::IncrementalSnapshotManager;
+
+        let manager = IncrementalSnapshotManager::new();
+        manager.optimize_snapshot_chains(&self.name).await
+    }
+
+    /// Get incremental snapshot statistics
+    pub async fn get_incremental_stats(
+        &self,
+    ) -> Result<crate::snapshot::incremental::IncrementalStats> {
+        use crate::snapshot::incremental::IncrementalSnapshotManager;
+
+        let manager = IncrementalSnapshotManager::new();
+        Ok(manager.get_stats().clone())
+    }
+
+    /// Create snapshot with advanced compression
+    pub async fn create_compressed_snapshot(
+        &self,
+        snapshot_name: SnapshotName,
+        request: CreateSnapshotRequest,
+        compression_config: crate::snapshot::compression::CompressionConfig,
+    ) -> Result<SnapshotInfo> {
+        // Create a regular snapshot first
+        let mut snapshot_info = self.create_snapshot(snapshot_name.clone(), request).await?;
+
+        // Apply compression to the snapshot files
+        let snapshot_path = self.get_snapshot_path(&snapshot_name);
+        self.apply_compression_to_snapshot(&snapshot_path, &compression_config)
+            .await?;
+
+        // Update metadata with compression info
+        snapshot_info.metadata.settings.insert(
+            "compression_algorithm".to_string(),
+            format!("{:?}", compression_config.algorithm),
+        );
+        snapshot_info.metadata.settings.insert(
+            "compression_level".to_string(),
+            compression_config.level.to_string(),
+        );
+
+        Ok(snapshot_info)
+    }
+
+    /// Apply compression to snapshot files
+    async fn apply_compression_to_snapshot(
+        &self,
+        snapshot_path: &str,
+        compression_config: &crate::snapshot::compression::CompressionConfig,
+    ) -> Result<()> {
+        use crate::snapshot::compression::SnapshotCompressor;
+
+        let compressor = SnapshotCompressor::new(compression_config.clone());
+
+        // Compress all files in the snapshot directory
+        let mut entries = fs::read_dir(snapshot_path).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = path.file_name().unwrap().to_string_lossy().to_string();
+
+                // Skip already compressed files
+                if file_name.ends_with(".compressed")
+                    || file_name.ends_with(".gz")
+                    || file_name.ends_with(".zst")
+                    || file_name.ends_with(".lz4")
+                {
+                    continue;
+                }
+
+                // Read file content
+                let content = fs::read(&path).await?;
+
+                // Compress content
+                match compressor.compress(&content) {
+                    Ok(compressed) => {
+                        // Write compressed content
+                        let compressed_path = format!("{}.compressed", path.to_string_lossy());
+                        fs::write(&compressed_path, compressed).await?;
+
+                        // Remove original file
+                        fs::remove_file(&path).await?;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to compress file {}: {}", path.display(), e);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2554,123 +2672,5 @@ mod tests {
 
         assert!(!deltas.is_empty());
         assert_eq!(deltas[0].parent_snapshot, full_snapshot_name);
-    }
-}
-
-impl FsSnapshotRepository {
-    /// Create enhanced incremental snapshot with Phase 3 optimizations
-    pub async fn create_enhanced_incremental_snapshot(
-        &self,
-        snapshot_name: SnapshotName,
-        request: CreateSnapshotRequest,
-    ) -> Result<crate::snapshot::incremental::EnhancedSnapshotResult> {
-        use crate::snapshot::incremental::IncrementalSnapshotManager;
-
-        let mut manager = IncrementalSnapshotManager::new();
-        manager
-            .create_enhanced_incremental_snapshot(
-                &self.name,
-                &snapshot_name,
-                &request.indices,
-                request.parent_snapshot.as_ref(),
-            )
-            .await
-    }
-
-    /// Optimize snapshot chains for better storage efficiency
-    pub async fn optimize_snapshot_chains(
-        &self,
-    ) -> Result<Vec<crate::snapshot::incremental::OptimizationResult>> {
-        use crate::snapshot::incremental::IncrementalSnapshotManager;
-
-        let manager = IncrementalSnapshotManager::new();
-        manager.optimize_snapshot_chains(&self.name).await
-    }
-
-    /// Get incremental snapshot statistics
-    pub async fn get_incremental_stats(
-        &self,
-    ) -> Result<crate::snapshot::incremental::IncrementalStats> {
-        use crate::snapshot::incremental::IncrementalSnapshotManager;
-
-        let manager = IncrementalSnapshotManager::new();
-        Ok(manager.get_stats().clone())
-    }
-
-    /// Create snapshot with advanced compression
-    pub async fn create_compressed_snapshot(
-        &self,
-        snapshot_name: SnapshotName,
-        request: CreateSnapshotRequest,
-        compression_config: crate::snapshot::compression::CompressionConfig,
-    ) -> Result<SnapshotInfo> {
-        // Create a regular snapshot first
-        let mut snapshot_info = self.create_snapshot(snapshot_name.clone(), request).await?;
-
-        // Apply compression to the snapshot files
-        let snapshot_path = self.get_snapshot_path(&snapshot_name);
-        self.apply_compression_to_snapshot(&snapshot_path, &compression_config)
-            .await?;
-
-        // Update metadata with compression info
-        snapshot_info.metadata.settings.insert(
-            "compression_algorithm".to_string(),
-            format!("{:?}", compression_config.algorithm),
-        );
-        snapshot_info.metadata.settings.insert(
-            "compression_level".to_string(),
-            compression_config.level.to_string(),
-        );
-
-        Ok(snapshot_info)
-    }
-
-    /// Apply compression to snapshot files
-    async fn apply_compression_to_snapshot(
-        &self,
-        snapshot_path: &str,
-        compression_config: &crate::snapshot::compression::CompressionConfig,
-    ) -> Result<()> {
-        use crate::snapshot::compression::SnapshotCompressor;
-
-        let compressor = SnapshotCompressor::new(compression_config.clone());
-
-        // Compress all files in the snapshot directory
-        let mut entries = fs::read_dir(snapshot_path).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path.is_file() {
-                let file_name = path.file_name().unwrap().to_string_lossy().to_string();
-
-                // Skip already compressed files
-                if file_name.ends_with(".compressed")
-                    || file_name.ends_with(".gz")
-                    || file_name.ends_with(".zst")
-                    || file_name.ends_with(".lz4")
-                {
-                    continue;
-                }
-
-                // Read file content
-                let content = fs::read(&path).await?;
-
-                // Compress content
-                match compressor.compress(&content) {
-                    Ok(compressed) => {
-                        // Write compressed content
-                        let compressed_path = format!("{}.compressed", path.to_string_lossy());
-                        fs::write(&compressed_path, compressed).await?;
-
-                        // Remove original file
-                        fs::remove_file(&path).await?;
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to compress file {}: {}", path.display(), e);
-                    }
-                }
-            }
-        }
-
-        Ok(())
     }
 }

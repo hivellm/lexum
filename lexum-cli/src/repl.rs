@@ -1573,11 +1573,11 @@ mod tests {
 
         // Test no fuzzy match - should fallback to help
         let suggestions = ReplSession::suggest_commands("xyz");
-        println!("Suggestions for 'xyz': {:?}", suggestions);
+        println!("Suggestions for 'xyz': {suggestions:?}");
 
         // Test Levenshtein distance manually
         let distance = ReplSession::levenshtein_distance("xyz", "help");
-        println!("Manual distance between 'xyz' and 'help': {}", distance);
+        println!("Manual distance between 'xyz' and 'help': {distance}");
 
         // Should fallback to help when no fuzzy matches found
         assert_eq!(suggestions, vec!["help"]);

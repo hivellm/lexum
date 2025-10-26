@@ -72,7 +72,8 @@ pub use config::Config;
 pub use document::DocumentStore;
 pub use error::{Error, Result};
 pub use index::{
-    Index, IndexManager, IndexPattern, IndexSettings, IndexStats, IndexTemplate, TemplateManager,
+    AliasAction, AliasConfig, AliasManager, AliasName, AliasOperationsRequest, AliasOperationsResponse,
+    Index, IndexAlias, IndexManager, IndexPattern, IndexSettings, IndexStats, IndexTemplate, TemplateManager,
     TemplateMappings, TemplateName, TemplateSettings,
 };
 pub use query::{

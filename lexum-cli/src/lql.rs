@@ -655,6 +655,139 @@ impl LqlExecutor {
     }
 }
 
+impl LqlParser {
+    /// Parse COUNT query
+    fn parse_count_query(lql: &str) -> Result<Query> {
+        // COUNT FROM index [WHERE conditions]
+        let lql = lql.trim();
+
+        if !lql.starts_with("COUNT FROM") {
+            return Err(anyhow::anyhow!("Invalid COUNT query syntax"));
+        }
+
+        let parts: Vec<&str> = lql.split_whitespace().collect();
+        if parts.len() < 3 {
+            return Err(anyhow::anyhow!("COUNT query requires index name"));
+        }
+
+        let _index = parts[2];
+
+        // For now, return a match_all query since we don't have aggregation support yet
+        // In a real implementation, this would return a count aggregation query
+        Ok(Query::MatchAll)
+    }
+
+    /// Parse EXISTS query
+    fn parse_exists_query(lql: &str) -> Result<Query> {
+        // EXISTS field
+        let lql = lql.trim();
+
+        if !lql.starts_with("EXISTS") {
+            return Err(anyhow::anyhow!("Invalid EXISTS query syntax"));
+        }
+
+        let parts: Vec<&str> = lql.split_whitespace().collect();
+        if parts.len() < 2 {
+            return Err(anyhow::anyhow!("EXISTS query requires field name"));
+        }
+
+        let _field = parts[1];
+
+        // For now, return a match_all query since we don't have field existence support yet
+        // In a real implementation, this would return an exists query
+        Ok(Query::MatchAll)
+    }
+
+    /// Parse NOT EXISTS query
+    fn parse_not_exists_query(lql: &str) -> Result<Query> {
+        // NOT EXISTS field
+        let lql = lql.trim();
+
+        if !lql.starts_with("NOT EXISTS") {
+            return Err(anyhow::anyhow!("Invalid NOT EXISTS query syntax"));
+        }
+
+        // For now, return a match_all query since we don't have subquery support yet
+        // In a real implementation, this would return a not exists query
+        Ok(Query::MatchAll)
+    }
+
+    /// Parse GROUP BY query
+    fn parse_group_query(lql: &str) -> Result<Query> {
+        // GROUP BY field FROM index [WHERE conditions]
+        let lql = lql.trim();
+
+        if !lql.starts_with("GROUP BY") {
+            return Err(anyhow::anyhow!("Invalid GROUP BY query syntax"));
+        }
+
+        let parts: Vec<&str> = lql.split_whitespace().collect();
+        if parts.len() < 4 {
+            return Err(anyhow::anyhow!("GROUP BY query requires field and index"));
+        }
+
+        let _field = parts[2];
+        let _index = parts[4];
+
+        // For now, return a match_all query since we don't have grouping support yet
+        // In a real implementation, this would return a group aggregation query
+        Ok(Query::MatchAll)
+    }
+
+    /// Parse AGGREGATE query
+    fn parse_aggregate_query(lql: &str) -> Result<Query> {
+        // AGGREGATE function(field) FROM index [WHERE conditions]
+        let lql = lql.trim();
+
+        if !lql.starts_with("AGGREGATE") {
+            return Err(anyhow::anyhow!("Invalid AGGREGATE query syntax"));
+        }
+
+        let parts: Vec<&str> = lql.split_whitespace().collect();
+        if parts.len() < 4 {
+            return Err(anyhow::anyhow!(
+                "AGGREGATE query requires function, field, and index"
+            ));
+        }
+
+        let _function = parts[1];
+        let _field = parts[2];
+        let _index = parts[4];
+
+        // For now, return a match_all query since we don't have aggregation support yet
+        // In a real implementation, this would return an aggregation query
+        Ok(Query::MatchAll)
+    }
+
+    /// Parse JOIN query
+    fn parse_join_query(lql: &str) -> Result<Query> {
+        // JOIN table1.field = table2.field FROM table1, table2 [WHERE conditions]
+        let lql = lql.trim();
+
+        if !lql.starts_with("JOIN") {
+            return Err(anyhow::anyhow!("Invalid JOIN query syntax"));
+        }
+
+        // For now, return a match_all query since we don't have join support yet
+        // In a real implementation, this would return a join query
+        Ok(Query::MatchAll)
+    }
+
+    /// Parse UNION query
+    fn parse_union_query(lql: &str) -> Result<Query> {
+        // UNION query1, query2
+        let lql = lql.trim();
+
+        if !lql.starts_with("UNION") {
+            return Err(anyhow::anyhow!("Invalid UNION query syntax"));
+        }
+
+        // For now, return a match_all query since we don't have union support yet
+        // In a real implementation, this would return a union query
+        Ok(Query::MatchAll)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -851,128 +984,3 @@ mod tests {
     }
 }
 
-impl LqlParser {
-    /// Parse COUNT query
-    fn parse_count_query(lql: &str) -> Result<Query> {
-        // COUNT FROM index [WHERE conditions]
-        let lql = lql.trim();
-
-        if !lql.starts_with("COUNT FROM") {
-            return Err(anyhow::anyhow!("Invalid COUNT query syntax"));
-        }
-
-        let parts: Vec<&str> = lql.split_whitespace().collect();
-        if parts.len() < 3 {
-            return Err(anyhow::anyhow!("COUNT query requires index name"));
-        }
-
-        let _index = parts[2];
-
-        // For now, return a match_all query since we don't have aggregation support yet
-        // In a real implementation, this would return a count aggregation query
-        Ok(Query::MatchAll)
-    }
-
-    /// Parse GROUP BY query
-    fn parse_group_query(lql: &str) -> Result<Query> {
-        // GROUP BY field FROM index [WHERE conditions]
-        let lql = lql.trim();
-
-        if !lql.starts_with("GROUP BY") {
-            return Err(anyhow::anyhow!("Invalid GROUP BY query syntax"));
-        }
-
-        let parts: Vec<&str> = lql.split_whitespace().collect();
-        if parts.len() < 4 {
-            return Err(anyhow::anyhow!("GROUP BY query requires field and index"));
-        }
-
-        let _field = parts[2];
-        let _index = parts[4];
-
-        // For now, return a match_all query since we don't have grouping support yet
-        // In a real implementation, this would return a group aggregation query
-        Ok(Query::MatchAll)
-    }
-
-    /// Parse AGGREGATE query
-    fn parse_aggregate_query(lql: &str) -> Result<Query> {
-        // AGGREGATE function(field) FROM index [WHERE conditions]
-        let lql = lql.trim();
-
-        if !lql.starts_with("AGGREGATE") {
-            return Err(anyhow::anyhow!("Invalid AGGREGATE query syntax"));
-        }
-
-        let parts: Vec<&str> = lql.split_whitespace().collect();
-        if parts.len() < 4 {
-            return Err(anyhow::anyhow!(
-                "AGGREGATE query requires function, field, and index"
-            ));
-        }
-
-        let _function = parts[1];
-        let _field = parts[2];
-        let _index = parts[4];
-
-        // For now, return a match_all query since we don't have aggregation support yet
-        // In a real implementation, this would return an aggregation query
-        Ok(Query::MatchAll)
-    }
-
-    /// Parse JOIN query
-    fn parse_join_query(lql: &str) -> Result<Query> {
-        // JOIN table1.field = table2.field FROM table1, table2 [WHERE conditions]
-        let lql = lql.trim();
-
-        if !lql.starts_with("JOIN") {
-            return Err(anyhow::anyhow!("Invalid JOIN query syntax"));
-        }
-
-        // For now, return a match_all query since we don't have join support yet
-        // In a real implementation, this would return a join query
-        Ok(Query::MatchAll)
-    }
-
-    /// Parse UNION query
-    fn parse_union_query(lql: &str) -> Result<Query> {
-        // UNION query1, query2
-        let lql = lql.trim();
-
-        if !lql.starts_with("UNION") {
-            return Err(anyhow::anyhow!("Invalid UNION query syntax"));
-        }
-
-        // For now, return a match_all query since we don't have union support yet
-        // In a real implementation, this would return a union query
-        Ok(Query::MatchAll)
-    }
-
-    /// Parse EXISTS query
-    fn parse_exists_query(lql: &str) -> Result<Query> {
-        // EXISTS (subquery)
-        let lql = lql.trim();
-
-        if !lql.starts_with("EXISTS") {
-            return Err(anyhow::anyhow!("Invalid EXISTS query syntax"));
-        }
-
-        // For now, return a match_all query since we don't have subquery support yet
-        // In a real implementation, this would return an exists query
-        Ok(Query::MatchAll)
-    }
-
-    /// Parse NOT EXISTS query
-    fn parse_not_exists_query(lql: &str) -> Result<Query> {
-        // NOT EXISTS (subquery)
-        let lql = lql.trim();
-
-        if !lql.starts_with("NOT EXISTS") {
-            return Err(anyhow::anyhow!("Invalid NOT EXISTS query syntax"));
-        }
-
-        // For now, return a match_all query since we don't have subquery support yet
-        // In a real implementation, this would return a not exists query
-        Ok(Query::MatchAll)
-    }
-}

@@ -2,11 +2,13 @@
 //!
 //! Provides functionality for creating, managing, and deleting search indices.
 
+pub mod alias;
 pub mod manager;
 pub mod settings;
 pub mod template;
 pub mod template_manager;
 
+pub use alias::{AliasConfig, AliasManager, AliasName, AliasAction, AliasOperationsRequest, AliasOperationsResponse, IndexAlias};
 pub use manager::{Index, IndexManager, IndexStats};
 pub use settings::IndexSettings;
 pub use template::{IndexPattern, IndexTemplate, TemplateMappings, TemplateName, TemplateSettings};

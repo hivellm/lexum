@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tantivy::{Index as TantivyIndex, IndexWriter};
 
+use super::alias::{AliasManager, AliasName, AliasOperationsRequest, AliasOperationsResponse, IndexAlias};
 use super::settings::IndexSettings;
 
 /// Index wrapper around Tantivy index
@@ -56,6 +57,7 @@ impl Index {
 pub struct IndexManager {
     data_dir: PathBuf,
     indices: Arc<RwLock<HashMap<String, Index>>>,
+    alias_manager: AliasManager,
 }
 
 impl IndexManager {
@@ -64,6 +66,7 @@ impl IndexManager {
         Self {
             data_dir: data_dir.as_ref().to_path_buf(),
             indices: Arc::new(RwLock::new(HashMap::new())),
+            alias_manager: AliasManager::new(),
         }
     }
 
@@ -237,6 +240,119 @@ impl IndexManager {
         .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
 
         Ok(stats)
+    }
+
+    /// Create a new alias
+    pub fn create_alias(
+        &self,
+        name: impl Into<AliasName>,
+        indices: Vec<IndexName>,
+    ) -> Result<IndexAlias> {
+        // Validate that all target indices exist
+        for index_name in &indices {
+            if !self.index_exists(index_name.as_str()) {
+                return Err(Error::Validation(format!(
+                    "Index '{}' does not exist",
+                    index_name.as_str()
+                )));
+            }
+        }
+
+        self.alias_manager.create_alias(name, indices, None)
+    }
+
+    /// Get an alias by name
+    pub fn get_alias(&self, name: &str) -> Result<IndexAlias> {
+        self.alias_manager.get_alias(name)
+    }
+
+    /// Delete an alias
+    pub fn delete_alias(&self, name: &str) -> Result<()> {
+        self.alias_manager.delete_alias(name)
+    }
+
+    /// List all aliases
+    pub fn list_aliases(&self) -> Vec<IndexAlias> {
+        self.alias_manager.list_aliases()
+    }
+
+    /// Check if an alias exists
+    pub fn alias_exists(&self, name: &str) -> bool {
+        self.alias_manager.alias_exists(name)
+    }
+
+    /// Add indices to an existing alias
+    pub fn add_indices_to_alias(
+        &self,
+        name: &str,
+        indices: Vec<IndexName>,
+    ) -> Result<IndexAlias> {
+        // Validate that all target indices exist
+        for index_name in &indices {
+            if !self.index_exists(index_name.as_str()) {
+                return Err(Error::Validation(format!(
+                    "Index '{}' does not exist",
+                    index_name.as_str()
+                )));
+            }
+        }
+
+        self.alias_manager.add_indices_to_alias(name, indices)
+    }
+
+    /// Remove indices from an alias
+    pub fn remove_indices_from_alias(
+        &self,
+        name: &str,
+        indices: Vec<IndexName>,
+    ) -> Result<IndexAlias> {
+        self.alias_manager.remove_indices_from_alias(name, indices)
+    }
+
+    /// Execute multiple alias operations atomically
+    pub fn execute_alias_operations(&self, request: AliasOperationsRequest) -> Result<AliasOperationsResponse> {
+        // Validate that all target indices exist for add operations
+        for action in &request.actions {
+            if let super::alias::AliasAction::Add { indices, .. } = action {
+                for index_name in indices {
+                    if !self.index_exists(index_name.as_str()) {
+                        return Err(Error::Validation(format!(
+                            "Index '{}' does not exist",
+                            index_name.as_str()
+                        )));
+                    }
+                }
+            }
+        }
+
+        self.alias_manager.execute_operations(request)
+    }
+
+    /// Resolve an alias to its target indices
+    pub fn resolve_alias(&self, name: &str) -> Result<Vec<IndexName>> {
+        self.alias_manager.resolve_alias(name)
+    }
+
+    /// Get all aliases that point to a specific index
+    pub fn get_aliases_for_index(&self, index_name: &str) -> Vec<IndexAlias> {
+        self.alias_manager.get_aliases_for_index(index_name)
+    }
+
+    /// Resolve a name to either an index or alias
+    /// Returns the actual index names that should be used
+    pub fn resolve_name(&self, name: &str) -> Result<Vec<IndexName>> {
+        if self.index_exists(name) {
+            // It's a direct index name
+            Ok(vec![IndexName::new(name)])
+        } else if self.alias_exists(name) {
+            // It's an alias, resolve it
+            self.resolve_alias(name)
+        } else {
+            Err(Error::NotFound(format!(
+                "Neither index nor alias '{}' found",
+                name
+            )))
+        }
     }
 }
 
