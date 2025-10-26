@@ -148,7 +148,7 @@ impl IndexManager {
                     TantivyIndex::create_in_dir(&index_path, schema_clone.clone()).or_else(|e2| {
                         eprintln!("First attempt failed: {e}");
                         eprintln!("Second attempt failed: {e2}");
-                        
+
                         // For testing environments, try to create an in-memory index as fallback
                         // This helps with WSL and other environments where filesystem operations may fail
                         if cfg!(test) || std::env::var("LEXUM_TEST_MODE").is_ok() {
@@ -156,7 +156,12 @@ impl IndexManager {
                             use tantivy::directory::RamDirectory;
                             let ram_dir = RamDirectory::create();
                             let schema_for_ram = schema_clone.clone();
-                            TantivyIndex::create(ram_dir, schema_for_ram, tantivy::IndexSettings::default()).map_err(|e3| {
+                            TantivyIndex::create(
+                                ram_dir,
+                                schema_for_ram,
+                                tantivy::IndexSettings::default(),
+                            )
+                            .map_err(|e3| {
                                 eprintln!("In-memory fallback also failed: {e3}");
                                 e2 // Return the original filesystem error
                             })
@@ -456,7 +461,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -478,7 +483,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -505,7 +510,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -528,7 +533,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -563,7 +568,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -590,7 +595,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -623,7 +628,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -662,7 +667,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -688,7 +693,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -727,7 +732,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 
@@ -761,7 +766,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let temp_dir = tempfile::tempdir().unwrap();
         let manager = IndexManager::new(temp_dir.path());
 

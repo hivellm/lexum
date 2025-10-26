@@ -9,6 +9,10 @@ pub mod index;
 pub mod reindex;
 /// Rollover handler for index management
 pub mod rollover;
+
+#[cfg(test)]
+mod rollover_test;
+
 pub mod search;
 pub mod snapshot;
 pub mod template;

@@ -284,7 +284,7 @@ async fn perform_reindex(
     let mut total_created = 0;
     let mut total_failed = 0;
     let mut total_batches = 0;
-    
+
     // Handle throttling if configured
     let requests_per_second = request.requests_per_second.unwrap_or(0.0);
     let throttle_delay = if requests_per_second > 0.0 {
@@ -383,27 +383,31 @@ async fn perform_reindex(
 
             // Add document to destination index
             let doc_id = hit.id.clone();
-            
+
             // Handle operation type (index vs create)
             let op_type = request.dest.op_type.as_deref().unwrap_or("index");
             let should_create = op_type == "create";
-            
+
             // Use custom document ID if specified
             let final_doc_id = if let Some(custom_id) = &request.dest.id {
                 custom_id.clone()
             } else {
                 doc_id.to_string()
             };
-            
+
             let result = if should_create {
                 // For create operations, we need to check if document exists first
                 // For now, we'll use add_document_with_id which will overwrite
-                dest_store.add_document_with_id(final_doc_id.clone().into(), document.clone()).await
+                dest_store
+                    .add_document_with_id(final_doc_id.clone().into(), document.clone())
+                    .await
             } else {
                 // For index operations, we can overwrite existing documents
-                dest_store.add_document_with_id(final_doc_id.clone().into(), document.clone()).await
+                dest_store
+                    .add_document_with_id(final_doc_id.clone().into(), document.clone())
+                    .await
             };
-            
+
             match result {
                 Ok(_) => {
                     batch_created += 1;
@@ -592,7 +596,7 @@ pub async fn reindex(
         // Wait for completion if requested
         if let Err(e) = perform_reindex(state_clone, request_clone, task_id_clone).await {
             tracing::error!("Reindex operation failed: {}", e);
-            return Err(ApiError::Internal(format!("Reindex operation failed: {}", e)));
+            return Err(ApiError::Internal(format!("Reindex operation failed: {e}")));
         }
     } else {
         // Run in background
@@ -862,7 +866,7 @@ mod tests {
             requests_per_second: Some(100.0),
             slices: Some(4),
         };
-        
+
         let request = Request::builder()
             .uri("/_reindex")
             .method("POST")

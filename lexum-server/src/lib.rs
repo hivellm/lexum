@@ -32,6 +32,9 @@ pub mod router;
 /// Server configuration
 pub mod server;
 
+/// Services
+pub mod services;
+
 /// Load testing framework
 pub mod load_test;
 

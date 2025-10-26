@@ -698,7 +698,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let config = ChaosConfig {
             test_duration: Duration::from_secs(5),
             failure_probability: 0.2,
@@ -725,7 +725,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let config = ChaosConfig {
             test_duration: Duration::from_secs(5),
             failure_probability: 0.15,
@@ -747,7 +747,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let config = ChaosConfig {
             test_duration: Duration::from_secs(5),
             failure_probability: 0.1,
@@ -769,7 +769,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let config = ChaosConfig {
             test_duration: Duration::from_secs(5),
             failure_probability: 0.1,
@@ -791,7 +791,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let config = ChaosConfig {
             test_duration: Duration::from_secs(5),
             failure_probability: 0.1,
@@ -813,7 +813,7 @@ mod tests {
         // Set test mode to enable in-memory fallback for WSL compatibility
         // Note: We can't use std::env::set_var in tests due to unsafe_code deny
         // Instead, we'll rely on cfg!(test) which is always true in test builds
-        
+
         let config = ChaosConfig::default();
         let mut runner = ChaosTestRunner::new(config).unwrap();
 

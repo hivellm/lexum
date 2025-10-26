@@ -281,7 +281,7 @@ pub fn generate_rollover_index_name(original_name: &str) -> String {
         let suffix = &original_name[last_dash + 1..];
         if let Ok(num) = suffix.parse::<u64>() {
             let base_name = &original_name[..last_dash];
-            return format!("{}-{}", base_name, num + 1);
+            return format!("{}-{:06}", base_name, num + 1);
         }
     }
 
