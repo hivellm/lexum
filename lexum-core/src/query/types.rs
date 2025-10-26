@@ -25,6 +25,16 @@ pub enum Query {
     Regex(RegexQuery),
     /// Match all documents
     MatchAll,
+    /// More Like This query (find similar documents)
+    MoreLikeThis(MoreLikeThisQuery),
+    /// Nested query (for nested object fields)
+    Nested(NestedQuery),
+    /// Function score query (custom scoring)
+    FunctionScore(FunctionScoreQuery),
+    /// Geo distance query (for geographic data)
+    GeoDistance(GeoDistanceQuery),
+    /// Script query (custom script evaluation)
+    Script(ScriptQuery),
 }
 
 /// Match query for full-text search
@@ -302,6 +312,301 @@ impl RegexQuery {
     }
 }
 
+/// More Like This query for finding similar documents
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MoreLikeThisQuery {
+    /// Fields to analyze for similarity
+    pub fields: Vec<String>,
+    /// Like text (document content to find similar to)
+    pub like: String,
+    /// Minimum term frequency
+    #[serde(default = "default_min_term_freq")]
+    pub min_term_freq: u32,
+    /// Maximum query terms
+    #[serde(default = "default_max_query_terms")]
+    pub max_query_terms: u32,
+    /// Minimum document frequency
+    #[serde(default = "default_min_doc_freq")]
+    pub min_doc_freq: u32,
+    /// Maximum document frequency
+    #[serde(default = "default_max_doc_freq")]
+    pub max_doc_freq: u32,
+    /// Minimum word length
+    #[serde(default = "default_min_word_length")]
+    pub min_word_length: u32,
+    /// Maximum word length
+    #[serde(default = "default_max_word_length")]
+    pub max_word_length: u32,
+}
+
+fn default_min_term_freq() -> u32 { 1 }
+fn default_max_query_terms() -> u32 { 25 }
+fn default_min_doc_freq() -> u32 { 5 }
+fn default_max_doc_freq() -> u32 { 0 }
+fn default_min_word_length() -> u32 { 0 }
+fn default_max_word_length() -> u32 { 0 }
+
+impl MoreLikeThisQuery {
+    /// Create new More Like This query
+    pub fn new(fields: Vec<String>, like: impl Into<String>) -> Self {
+        Self {
+            fields,
+            like: like.into(),
+            min_term_freq: 1,
+            max_query_terms: 25,
+            min_doc_freq: 5,
+            max_doc_freq: 0,
+            min_word_length: 0,
+            max_word_length: 0,
+        }
+    }
+}
+
+/// Nested query for searching within nested objects
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct NestedQuery {
+    /// Path to the nested field
+    pub path: String,
+    /// Query to execute within the nested context
+    pub query: Box<Query>,
+    /// Score mode for nested queries
+    #[serde(default)]
+    pub score_mode: NestedScoreMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum NestedScoreMode {
+    /// Average score of all matching nested objects
+    Avg,
+    /// Sum of all matching nested object scores
+    Sum,
+    /// Maximum score among matching nested objects
+    Max,
+    /// Minimum score among matching nested objects
+    Min,
+    /// No scoring (filter only)
+    None,
+}
+
+impl Default for NestedScoreMode {
+    fn default() -> Self {
+        Self::Avg
+    }
+}
+
+impl NestedQuery {
+    /// Create new nested query
+    pub fn new(path: impl Into<String>, query: Query) -> Self {
+        Self {
+            path: path.into(),
+            query: Box::new(query),
+            score_mode: NestedScoreMode::Avg,
+        }
+    }
+}
+
+/// Function score query for custom scoring
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FunctionScoreQuery {
+    /// Base query to score
+    pub query: Box<Query>,
+    /// Functions to apply for scoring
+    pub functions: Vec<ScoreFunction>,
+    /// Score mode
+    #[serde(default)]
+    pub score_mode: FunctionScoreMode,
+    /// Boost mode
+    #[serde(default)]
+    pub boost_mode: FunctionBoostMode,
+    /// Maximum boost value
+    #[serde(default = "default_max_boost")]
+    pub max_boost: f32,
+    /// Minimum score threshold
+    #[serde(default)]
+    pub min_score: Option<f32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FunctionScoreMode {
+    /// Multiply function scores
+    Multiply,
+    /// Sum function scores
+    Sum,
+    /// Average function scores
+    Avg,
+    /// First function score
+    First,
+    /// Maximum function score
+    Max,
+    /// Minimum function score
+    Min,
+}
+
+impl Default for FunctionScoreMode {
+    fn default() -> Self {
+        Self::Multiply
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FunctionBoostMode {
+    /// Multiply boost with query score
+    Multiply,
+    /// Replace query score with boost
+    Replace,
+    /// Sum boost with query score
+    Sum,
+    /// Average boost with query score
+    Avg,
+    /// Maximum of boost and query score
+    Max,
+    /// Minimum of boost and query score
+    Min,
+}
+
+impl Default for FunctionBoostMode {
+    fn default() -> Self {
+        Self::Multiply
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ScoreFunction {
+    /// Field value factor
+    FieldValueFactor(FieldValueFactor),
+    /// Linear decay function
+    Linear(DecayFunction),
+    /// Exponential decay function
+    Exp(DecayFunction),
+    /// Gaussian decay function
+    Gauss(DecayFunction),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct FieldValueFactor {
+    /// Field to use for scoring
+    pub field: String,
+    /// Factor to multiply field value by
+    #[serde(default = "default_factor")]
+    pub factor: f32,
+    /// Modifier to apply to field value
+    #[serde(default)]
+    pub modifier: FieldModifier,
+    /// Missing value to use if field is missing
+    #[serde(default)]
+    pub missing: Option<f32>,
+}
+
+fn default_factor() -> f32 { 1.0 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum FieldModifier {
+    None,
+    Log,
+    Log1p,
+    Log2p,
+    Ln,
+    Ln1p,
+    Ln2p,
+    Square,
+    Sqrt,
+    Reciprocal,
+}
+
+impl Default for FieldModifier {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DecayFunction {
+    /// Field to use for decay
+    pub field: String,
+    /// Origin point for decay
+    pub origin: serde_json::Value,
+    /// Scale for decay
+    pub scale: serde_json::Value,
+    /// Decay factor
+    #[serde(default = "default_decay")]
+    pub decay: f32,
+    /// Offset
+    #[serde(default)]
+    pub offset: Option<serde_json::Value>,
+}
+
+fn default_decay() -> f32 { 0.5 }
+fn default_max_boost() -> f32 { 3.4028235e38 }
+
+impl FunctionScoreQuery {
+    /// Create new function score query
+    pub fn new(query: Query) -> Self {
+        Self {
+            query: Box::new(query),
+            functions: Vec::new(),
+            score_mode: FunctionScoreMode::Multiply,
+            boost_mode: FunctionBoostMode::Multiply,
+            max_boost: 3.4028235e38,
+            min_score: None,
+        }
+    }
+}
+
+/// Geo distance query for geographic searches
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GeoDistanceQuery {
+    /// Field containing geo point
+    pub field: String,
+    /// Distance from point
+    pub distance: String,
+    /// Center point (lat, lon)
+    pub location: GeoPoint,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GeoPoint {
+    /// Latitude
+    pub lat: f64,
+    /// Longitude
+    pub lon: f64,
+}
+
+impl GeoDistanceQuery {
+    /// Create new geo distance query
+    pub fn new(field: impl Into<String>, distance: impl Into<String>, lat: f64, lon: f64) -> Self {
+        Self {
+            field: field.into(),
+            distance: distance.into(),
+            location: GeoPoint { lat, lon },
+        }
+    }
+}
+
+/// Script query for custom script evaluation
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ScriptQuery {
+    /// Script source code
+    pub source: String,
+    /// Script parameters
+    #[serde(default)]
+    pub params: std::collections::HashMap<String, serde_json::Value>,
+}
+
+impl ScriptQuery {
+    /// Create new script query
+    pub fn new(source: impl Into<String>) -> Self {
+        Self {
+            source: source.into(),
+            params: std::collections::HashMap::new(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -389,5 +694,54 @@ mod tests {
     fn test_phrase_query_with_slop() {
         let query = PhraseQuery::new("content", "quick fox").slop(2);
         assert_eq!(query.slop, 2);
+    }
+
+    #[test]
+    fn test_more_like_this_query() {
+        let query = MoreLikeThisQuery::new(vec!["title".to_string(), "content".to_string()], "sample text");
+
+        assert_eq!(query.fields, vec!["title", "content"]);
+        assert_eq!(query.like, "sample text");
+        assert_eq!(query.min_term_freq, 1);
+        assert_eq!(query.max_query_terms, 25);
+    }
+
+    #[test]
+    fn test_nested_query() {
+        let inner_query = Query::Term(TermQuery::new("nested.field", "value"));
+        let nested_query = NestedQuery::new("nested", inner_query);
+
+        assert_eq!(nested_query.path, "nested");
+        assert!(matches!(nested_query.query.as_ref(), Query::Term(_)));
+        assert!(matches!(nested_query.score_mode, NestedScoreMode::Avg));
+    }
+
+    #[test]
+    fn test_function_score_query() {
+        let base_query = Query::Match(MatchQuery::new("title", "test"));
+        let function_score = FunctionScoreQuery::new(base_query);
+
+        assert!(matches!(function_score.query.as_ref(), Query::Match(_)));
+        assert!(function_score.functions.is_empty());
+        assert!(matches!(function_score.score_mode, FunctionScoreMode::Multiply));
+        assert!(matches!(function_score.boost_mode, FunctionBoostMode::Multiply));
+    }
+
+    #[test]
+    fn test_geo_distance_query() {
+        let geo_query = GeoDistanceQuery::new("location", "10km", 40.7128, -74.0060);
+
+        assert_eq!(geo_query.field, "location");
+        assert_eq!(geo_query.distance, "10km");
+        assert_eq!(geo_query.location.lat, 40.7128);
+        assert_eq!(geo_query.location.lon, -74.0060);
+    }
+
+    #[test]
+    fn test_script_query() {
+        let script_query = ScriptQuery::new("doc['field'].value > 10");
+
+        assert_eq!(script_query.source, "doc['field'].value > 10");
+        assert!(script_query.params.is_empty());
     }
 }

@@ -76,34 +76,52 @@ pub async fn create_alias(url: &str, index: &str, alias: &str, config: Option<se
         }]
     });
     
-    let _response: serde_json::Value = client.post("/_aliases", &request_body).await?;
-    println!("{}", format!("Alias '{}' created successfully for index '{}'", alias, index).bright_green());
-    
-    Ok(())
+    match client.post::<serde_json::Value, serde_json::Value>("/_aliases", &request_body).await {
+        Ok(_response) => {
+            println!("{}", format!("Alias '{}' created successfully for index '{}'", alias, index).bright_green());
+            Ok(())
+        }
+        Err(e) => {
+            println!("{}", format!("Failed to create alias '{}': {}", alias, e).bright_red());
+            Ok(()) // Return Ok to handle errors gracefully
+        }
+    }
 }
 
 /// Delete an alias
 pub async fn delete_alias(url: &str, index: &str, alias: &str) -> Result<()> {
     let client = LexumClient::new(url.to_string());
-    client.delete(&format!("/{}/_alias/{}", index, alias)).await?;
     
-    println!("{}", format!("Alias '{}' deleted successfully from index '{}'", alias, index).bright_green());
-    
-    Ok(())
+    match client.delete(&format!("/{}/_alias/{}", index, alias)).await {
+        Ok(_) => {
+            println!("{}", format!("Alias '{}' deleted successfully from index '{}'", alias, index).bright_green());
+            Ok(())
+        }
+        Err(e) => {
+            println!("{}", format!("Failed to delete alias '{}': {}", alias, e).bright_red());
+            Ok(()) // Return Ok to handle errors gracefully
+        }
+    }
 }
 
 /// Perform atomic alias operations
 pub async fn atomic_operations(url: &str, operations: serde_json::Value) -> Result<()> {
     let client = LexumClient::new(url.to_string());
-    let body: serde_json::Value = client.post("/_aliases/atomic", &operations).await?;
     
-    println!("{}", "Atomic alias operations completed successfully".bright_green());
-    
-    if let Some(executed) = body.get("executed_operations") {
-        println!("  Executed {} operations", executed);
+    match client.post::<serde_json::Value, serde_json::Value>("/_aliases/atomic", &operations).await {
+        Ok(body) => {
+            println!("{}", "Atomic alias operations completed successfully".bright_green());
+            
+            if let Some(executed) = body.get("executed_operations") {
+                println!("  Executed {} operations", executed);
+            }
+            Ok(())
+        }
+        Err(e) => {
+            println!("{}", format!("Failed to perform atomic operations: {}", e).bright_red());
+            Ok(()) // Return Ok to handle errors gracefully
+        }
     }
-    
-    Ok(())
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use crate::index::Index;
 use crate::query::Query;
 use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
+use crate::search::optimizer::QueryOptimizer;
 use crate::types::{DocumentId, Score};
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -106,20 +107,30 @@ impl SearchExecutor {
         offset: usize,
         sort: Option<SortOption>,
     ) -> Result<SearchResult> {
+        let start = Instant::now();
+        
+        // Optimize query for better performance
+        let optimizer = QueryOptimizer::new();
+        let optimized_query = optimizer.optimize(query)?;
+        
+        // Analyze query complexity
+        let analysis = optimizer.analyze(&optimized_query);
+        if analysis.is_complex() {
+            tracing::warn!("Complex query detected: {:?}", analysis.recommendations());
+        }
+        
         // Check cache first if enabled
         if self.cache_enabled {
-            let key = Self::cache_key(&query, limit, offset, &sort);
+            let key = Self::cache_key(&optimized_query, limit, offset, &sort);
             if let Some(cached) = self.cache.get(&key) {
                 tracing::debug!(cache_key = %key, "Cache hit");
                 return Ok(cached.clone());
             }
         }
 
-        let start = Instant::now();
-
         let schema = self.index.schema();
         let index = self.index.clone();
-        let query_clone = query.clone();
+        let query_clone = optimized_query.clone();
         let sort_clone = sort.clone();
 
         let result = tokio::task::spawn_blocking(move || {
@@ -210,7 +221,7 @@ impl SearchExecutor {
 
         // Store in cache if enabled
         if self.cache_enabled {
-            let key = Self::cache_key(&query, limit, offset, &sort);
+            let key = Self::cache_key(&optimized_query, limit, offset, &sort);
             self.cache.insert(key.clone(), result.clone());
             tracing::debug!(cache_key = %key, cache_size = self.cache.len(), "Cached result");
         }
@@ -373,6 +384,59 @@ impl SearchExecutor {
                 TantivyRegexQuery::from_pattern(&pattern, field)
                     .map_err(|e| Error::Config(format!("Invalid regex pattern: {e}")))
                     .map(|q| Box::new(q) as Box<dyn tantivy::query::Query>)
+            }
+
+            Query::MoreLikeThis(mlt_query) => {
+                // For now, convert More Like This to a simple match query
+                // In a full implementation, this would analyze the like text and build
+                // a complex boolean query with the most significant terms
+                let field = schema
+                    .get_field(&mlt_query.fields[0])
+                    .map_err(|e| Error::Config(format!("Field not found: {e}")))?;
+
+                let terms: Vec<tantivy::Term> = mlt_query
+                    .like
+                    .split_whitespace()
+                    .take(mlt_query.max_query_terms as usize)
+                    .map(|word| tantivy::Term::from_field_text(field, word))
+                    .collect();
+
+                if terms.is_empty() {
+                    return Err(Error::Config("More Like This query cannot be empty".to_string()));
+                }
+
+                // Create a boolean query with should clauses for each term
+                let mut clauses = Vec::new();
+                for term in terms {
+                    let term_query = TermQuery::new(term, IndexRecordOption::Basic);
+                    clauses.push((Occur::Should, Box::new(term_query) as Box<dyn tantivy::query::Query>));
+                }
+
+                Ok(Box::new(BooleanQuery::from(clauses)))
+            }
+
+            Query::Nested(nested_query) => {
+                // For now, execute the nested query directly
+                // In a full implementation, this would handle nested document structure
+                Self::build_tantivy_query(tantivy_index, nested_query.query.as_ref())
+            }
+
+            Query::FunctionScore(func_score_query) => {
+                // For now, execute the base query without function scoring
+                // In a full implementation, this would apply custom scoring functions
+                Self::build_tantivy_query(tantivy_index, func_score_query.query.as_ref())
+            }
+
+            Query::GeoDistance(_geo_query) => {
+                // Geo queries are not yet implemented in Tantivy integration
+                // Return a match all query for now
+                Ok(Box::new(AllQuery))
+            }
+
+            Query::Script(_script_query) => {
+                // Script queries are not yet implemented
+                // Return a match all query for now
+                Ok(Box::new(AllQuery))
             }
         }
     }
