@@ -20,6 +20,21 @@ pub enum SnapshotState {
     Partial,
 }
 
+/// Snapshot type
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub enum SnapshotType {
+    /// Full snapshot containing all data
+    Full,
+    /// Incremental snapshot containing only changes since last snapshot
+    Incremental,
+}
+
+impl Default for SnapshotType {
+    fn default() -> Self {
+        Self::Full
+    }
+}
+
 /// Snapshot information
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SnapshotInfo {
@@ -31,6 +46,9 @@ pub struct SnapshotInfo {
 
     /// Snapshot state
     pub state: SnapshotState,
+
+    /// Snapshot type
+    pub snapshot_type: SnapshotType,
 
     /// Indices included in snapshot
     pub indices: Vec<IndexName>,
@@ -52,6 +70,18 @@ pub struct SnapshotInfo {
 
     /// Snapshot metadata
     pub metadata: SnapshotMetadata,
+
+    /// Parent snapshot for incremental snapshots
+    pub parent_snapshot: Option<SnapshotName>,
+
+    /// Snapshot chain depth (0 for full snapshots)
+    pub chain_depth: u32,
+
+    /// Total size of this snapshot in bytes
+    pub size_bytes: u64,
+
+    /// Number of documents in this snapshot
+    pub document_count: u64,
 }
 
 /// Shard information
@@ -126,6 +156,15 @@ pub struct CreateSnapshotRequest {
 
     /// Include global state
     pub include_global_state: bool,
+
+    /// Snapshot type (defaults to Full)
+    pub snapshot_type: Option<SnapshotType>,
+
+    /// Parent snapshot for incremental snapshots
+    pub parent_snapshot: Option<SnapshotName>,
+
+    /// Force full snapshot even if incremental is possible
+    pub force_full: bool,
 }
 
 impl Default for CreateSnapshotRequest {
@@ -136,6 +175,9 @@ impl Default for CreateSnapshotRequest {
             wait_for_completion: false,
             ignore_unavailable: false,
             include_global_state: true,
+            snapshot_type: None,
+            parent_snapshot: None,
+            force_full: false,
         }
     }
 }
@@ -196,6 +238,90 @@ pub struct SnapshotStats {
 
     /// Number of in-progress snapshots
     pub in_progress_snapshots: u32,
+
+    /// Number of full snapshots
+    pub full_snapshots: u32,
+
+    /// Number of incremental snapshots
+    pub incremental_snapshots: u32,
+
+    /// Average chain depth
+    pub average_chain_depth: f64,
+}
+
+/// Incremental snapshot delta information
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SnapshotDelta {
+    /// Delta ID
+    pub delta_id: String,
+
+    /// Parent snapshot name
+    pub parent_snapshot: SnapshotName,
+
+    /// Index name this delta applies to
+    pub index_name: IndexName,
+
+    /// Type of changes in this delta
+    pub change_type: DeltaChangeType,
+
+    /// Files that were added
+    pub added_files: Vec<String>,
+
+    /// Files that were modified
+    pub modified_files: Vec<String>,
+
+    /// Files that were deleted
+    pub deleted_files: Vec<String>,
+
+    /// Number of documents added
+    pub documents_added: u64,
+
+    /// Number of documents modified
+    pub documents_modified: u64,
+
+    /// Number of documents deleted
+    pub documents_deleted: u64,
+
+    /// Delta size in bytes
+    pub size_bytes: u64,
+
+    /// Creation timestamp
+    pub created_at: DateTime<Utc>,
+}
+
+/// Type of changes in a delta
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub enum DeltaChangeType {
+    /// Only document changes
+    Documents,
+    /// Only schema changes
+    Schema,
+    /// Only segment changes
+    Segments,
+    /// Mixed changes
+    Mixed,
+}
+
+/// Snapshot chain information
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SnapshotChain {
+    /// Root snapshot (full snapshot)
+    pub root_snapshot: SnapshotName,
+
+    /// Chain of incremental snapshots
+    pub incremental_snapshots: Vec<SnapshotName>,
+
+    /// Total chain depth
+    pub depth: u32,
+
+    /// Total size of the entire chain
+    pub total_size: u64,
+
+    /// Creation time of the root snapshot
+    pub created_at: DateTime<Utc>,
+
+    /// Last update time
+    pub last_updated: DateTime<Utc>,
 }
 
 #[cfg(test)]
@@ -246,5 +372,27 @@ mod tests {
         assert_eq!(stats.successful_snapshots, 0);
         assert_eq!(stats.failed_snapshots, 0);
         assert_eq!(stats.in_progress_snapshots, 0);
+        assert_eq!(stats.full_snapshots, 0);
+        assert_eq!(stats.incremental_snapshots, 0);
+        assert_eq!(stats.average_chain_depth, 0.0);
+    }
+
+    #[test]
+    fn test_snapshot_type_default() {
+        let snapshot_type = SnapshotType::default();
+        assert_eq!(snapshot_type, SnapshotType::Full);
+    }
+
+    #[test]
+    fn test_create_snapshot_request_with_incremental() {
+        let request = CreateSnapshotRequest {
+            snapshot_type: Some(SnapshotType::Incremental),
+            parent_snapshot: Some(SnapshotName::new("parent_snapshot".to_string())),
+            force_full: false,
+            ..Default::default()
+        };
+        assert_eq!(request.snapshot_type, Some(SnapshotType::Incremental));
+        assert!(request.parent_snapshot.is_some());
+        assert!(!request.force_full);
     }
 }
