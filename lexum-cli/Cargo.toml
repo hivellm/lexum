@@ -57,6 +57,7 @@ mockito = "1.4"
 
 [[bench]]
 name = "lql_benchmarks"
+path = "benchmark/lql_benchmarks.rs"
 harness = false
 
 [lints]

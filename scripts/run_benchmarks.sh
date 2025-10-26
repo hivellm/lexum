@@ -11,7 +11,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-BENCHMARK_DIR="benches"
+BENCHMARK_DIR="benchmark"
 RESULTS_DIR="benchmark_results"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RESULTS_FILE="${RESULTS_DIR}/benchmark_${TIMESTAMP}.json"

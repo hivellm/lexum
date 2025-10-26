@@ -290,7 +290,7 @@ lexum/
 │   ├── lql/             # LQL parser
 │   └── repl/            # Interactive shell
 ├── tests/               # Integration tests
-├── benches/             # Performance benchmarks
+├── benchmark/           # Performance benchmarks
 └── docs/                # Documentation
 
 Total: 129 Rust files, ~93,000 LOC

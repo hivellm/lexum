@@ -65,5 +65,15 @@ proptest = { workspace = true }
 tokio-test = "0.4"
 tempfile = { workspace = true }
 
+[[bench]]
+name = "search_bench"
+path = "benchmark/search_bench.rs"
+harness = false
+
+[[bench]]
+name = "simple_bench"
+path = "benchmark/simple_bench.rs"
+harness = false
+
 [lints]
 workspace = true

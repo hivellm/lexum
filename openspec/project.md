@@ -55,7 +55,7 @@ lexum/
 ### Testing Strategy
 - **Unit Tests**: In-file with #[cfg(test)]
 - **Integration Tests**: In /tests directory
-- **Benchmarks**: Using criterion in /benches
+- **Benchmarks**: Using criterion in /benchmark
 - **Coverage**: >95% required for all code
 
 ### Documentation Standards

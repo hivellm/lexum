@@ -167,7 +167,7 @@ lexum/
 ├── lexum-cli/           # CLI tool
 ├── lexum-gui/           # GUI application
 ├── tests/               # Integration tests
-├── benches/             # Benchmarks
+├── benchmark/           # Benchmarks
 └── docs/                # Documentation
 ```
 

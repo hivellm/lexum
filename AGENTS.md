@@ -311,7 +311,7 @@ project/
 │   └── ...
 ├── tests/              # Integration tests
 ├── examples/           # Example code
-├── benches/            # Benchmarks
+├── benchmark/          # Benchmarks
 └── docs/               # Project documentation
 ```
 
@@ -361,7 +361,7 @@ categories = ["category"]
 exclude = [
     ".github/",
     "tests/",
-    "benches/",
+    "benchmark/",
     "examples/",
     "*.sh",
 ]

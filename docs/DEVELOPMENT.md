@@ -116,7 +116,7 @@ lexum/
 │   ├── package.json
 │   └── src/
 ├── tests/                     # Integration tests
-├── benches/                   # Benchmarks
+├── benchmark/                 # Benchmarks
 └── scripts/                   # Utility scripts
 ```
 
@@ -317,7 +317,7 @@ mod tests {
 ### Benchmarks
 
 ```rust
-// benches/search_bench.rs
+// benchmark/search_bench.rs
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lexum::search::search_index;
 
