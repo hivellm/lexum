@@ -75,23 +75,29 @@ impl IndexPattern {
         let pattern = &self.0;
         let pattern_chars: Vec<char> = pattern.chars().collect();
         let name_chars: Vec<char> = index_name.chars().collect();
-        
+
         self.matches_wildcard_recursive(&pattern_chars, &name_chars, 0, 0)
     }
-    
+
     /// Recursive wildcard matching helper
-    fn matches_wildcard_recursive(&self, pattern: &[char], name: &[char], p_idx: usize, n_idx: usize) -> bool {
+    fn matches_wildcard_recursive(
+        &self,
+        pattern: &[char],
+        name: &[char],
+        p_idx: usize,
+        n_idx: usize,
+    ) -> bool {
         // If we've consumed all pattern characters
         if p_idx >= pattern.len() {
             return n_idx >= name.len();
         }
-        
+
         // If we've consumed all name characters but pattern has more
         if n_idx >= name.len() {
             // Only match if remaining pattern is all '*'
             return pattern[p_idx..].iter().all(|&c| c == '*');
         }
-        
+
         match pattern[p_idx] {
             '*' => {
                 // Try matching zero characters (skip the *)
@@ -342,19 +348,11 @@ impl TemplateSettings {
 }
 
 /// Template mappings for field definitions
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 pub struct TemplateMappings {
     /// Field mappings - using serde_json::Value to avoid ToSchema issues
     #[serde(default)]
     pub properties: HashMap<String, serde_json::Value>,
-}
-
-impl Default for TemplateMappings {
-    fn default() -> Self {
-        Self {
-            properties: HashMap::new(),
-        }
-    }
 }
 
 impl TemplateMappings {
@@ -381,7 +379,8 @@ impl TemplateMappings {
 
     /// Get field mapping as FieldConfig
     pub fn get_field(&self, name: &str) -> Option<FieldConfig> {
-        self.properties.get(name)
+        self.properties
+            .get(name)
             .and_then(|v| serde_json::from_value(v.clone()).ok())
     }
 
@@ -393,8 +392,8 @@ impl TemplateMappings {
     /// Convert to Tantivy schema
     pub fn to_schema(&self) -> Result<Schema> {
         let mut builder = SchemaBuilder::new();
-        
-        for (_name, field_value) in &self.properties {
+
+        for field_value in self.properties.values() {
             if let Ok(field_config) = serde_json::from_value::<FieldConfig>(field_value.clone()) {
                 builder = builder.add_field(field_config);
             }
@@ -406,18 +405,16 @@ impl TemplateMappings {
 
     /// Validate mappings
     pub fn validate(&self) -> Result<()> {
-        for (name, field_value) in &self.properties {
+        for (name, field_value) in self.properties.iter() {
             if name.is_empty() {
-                return Err(Error::Validation(
-                    "Field name cannot be empty".to_string(),
-                ));
+                return Err(Error::Validation("Field name cannot be empty".to_string()));
             }
-            
+
             // Try to deserialize as FieldConfig to validate
             if let Err(e) = serde_json::from_value::<FieldConfig>(field_value.clone()) {
-                return Err(Error::Validation(
-                    format!("Invalid field configuration for '{}': {}", name, e),
-                ));
+                return Err(Error::Validation(format!(
+                    "Invalid field configuration for '{name}': {e}"
+                )));
             }
         }
         Ok(())
@@ -465,7 +462,7 @@ mod tests {
     #[test]
     fn test_template_validation() {
         let mut template = IndexTemplate::new("test");
-        
+
         // Should fail without patterns
         assert!(template.validate().is_err());
 

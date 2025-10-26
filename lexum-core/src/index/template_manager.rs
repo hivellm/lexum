@@ -58,9 +58,7 @@ impl TemplateManager {
             .collect();
 
         // Sort by priority (descending) then by order (ascending)
-        matching.sort_by(|a, b| {
-            b.priority.cmp(&a.priority).then(a.order.cmp(&b.order))
-        });
+        matching.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.order.cmp(&b.order)));
 
         matching
     }
@@ -97,7 +95,7 @@ mod tests {
     #[test]
     fn test_put_and_get_template() {
         let manager = TemplateManager::new();
-        
+
         let template = IndexTemplate::new("test")
             .with_pattern("logs-*")
             .with_priority(100);
@@ -117,9 +115,8 @@ mod tests {
     #[test]
     fn test_delete_template() {
         let manager = TemplateManager::new();
-        
-        let template = IndexTemplate::new("test")
-            .with_pattern("logs-*");
+
+        let template = IndexTemplate::new("test").with_pattern("logs-*");
 
         // Put template
         manager.put_template(template).unwrap();
@@ -135,7 +132,7 @@ mod tests {
     #[test]
     fn test_find_matching_templates() {
         let manager = TemplateManager::new();
-        
+
         // Create templates with different priorities
         let high_priority = IndexTemplate::new("high")
             .with_pattern("logs-*")
@@ -173,7 +170,7 @@ mod tests {
     #[test]
     fn test_template_validation() {
         let manager = TemplateManager::new();
-        
+
         // Create invalid template (no patterns)
         let invalid_template = IndexTemplate::new("invalid");
 
@@ -184,11 +181,9 @@ mod tests {
     #[test]
     fn test_list_templates() {
         let manager = TemplateManager::new();
-        
-        let template1 = IndexTemplate::new("template1")
-            .with_pattern("logs-*");
-        let template2 = IndexTemplate::new("template2")
-            .with_pattern("events-*");
+
+        let template1 = IndexTemplate::new("template1").with_pattern("logs-*");
+        let template2 = IndexTemplate::new("template2").with_pattern("events-*");
 
         manager.put_template(template1).unwrap();
         manager.put_template(template2).unwrap();
@@ -200,14 +195,13 @@ mod tests {
     #[test]
     fn test_has_template() {
         let manager = TemplateManager::new();
-        
-        let template = IndexTemplate::new("test")
-            .with_pattern("logs-*");
+
+        let template = IndexTemplate::new("test").with_pattern("logs-*");
 
         assert!(!manager.has_template("test"));
-        
+
         manager.put_template(template).unwrap();
-        
+
         assert!(manager.has_template("test"));
         assert!(!manager.has_template("nonexistent"));
     }

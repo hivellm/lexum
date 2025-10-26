@@ -121,15 +121,21 @@ impl IndexManager {
             let schema_clone = schema.clone();
             move || {
                 // Ensure the directory exists and is writable
-                std::fs::create_dir_all(&index_path)
-                    .map_err(|e| tantivy::TantivyError::IoError(std::sync::Arc::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to create index directory: {e}")))))?;
-                
+                std::fs::create_dir_all(&index_path).map_err(|e| {
+                    tantivy::TantivyError::IoError(std::sync::Arc::new(std::io::Error::other(
+                        format!("Failed to create index directory: {e}"),
+                    )))
+                })?;
+
                 // Check if the directory is writable
                 let test_file = index_path.join(".write_test");
-                std::fs::write(&test_file, "test")
-                    .map_err(|e| tantivy::TantivyError::IoError(std::sync::Arc::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Index directory is not writable: {e}")))))?;
+                std::fs::write(&test_file, "test").map_err(|e| {
+                    tantivy::TantivyError::IoError(std::sync::Arc::new(std::io::Error::other(
+                        format!("Index directory is not writable: {e}"),
+                    )))
+                })?;
                 let _ = std::fs::remove_file(&test_file);
-                
+
                 // Try to create the index
                 TantivyIndex::create_in_dir(&index_path, schema).or_else(|e| {
                     // If it fails, try to create the directory again and retry

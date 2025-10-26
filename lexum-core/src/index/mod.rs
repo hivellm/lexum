@@ -9,7 +9,5 @@ pub mod template_manager;
 
 pub use manager::{Index, IndexManager, IndexStats};
 pub use settings::IndexSettings;
-pub use template::{
-    IndexPattern, IndexTemplate, TemplateMappings, TemplateName, TemplateSettings,
-};
+pub use template::{IndexPattern, IndexTemplate, TemplateMappings, TemplateName, TemplateSettings};
 pub use template_manager::TemplateManager;

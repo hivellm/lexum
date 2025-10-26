@@ -279,9 +279,10 @@ async fn test_create_snapshot_with_multiple_indices() -> Result<()> {
     create_test_index(&index_manager, "index3", 50).await?;
 
     // Check if index creation was skipped due to Tantivy issues
-    if check_index_creation_skipped(&index_manager, "index1") ||
-       check_index_creation_skipped(&index_manager, "index2") ||
-       check_index_creation_skipped(&index_manager, "index3") {
+    if check_index_creation_skipped(&index_manager, "index1")
+        || check_index_creation_skipped(&index_manager, "index2")
+        || check_index_creation_skipped(&index_manager, "index3")
+    {
         return Ok(());
     }
 
@@ -440,9 +441,10 @@ async fn test_restore_partial_indices() -> Result<()> {
     create_test_index(&index_manager, "index3", 50).await?;
 
     // Check if index creation was skipped due to Tantivy issues
-    if check_index_creation_skipped(&index_manager, "index1") ||
-       check_index_creation_skipped(&index_manager, "index2") ||
-       check_index_creation_skipped(&index_manager, "index3") {
+    if check_index_creation_skipped(&index_manager, "index1")
+        || check_index_creation_skipped(&index_manager, "index2")
+        || check_index_creation_skipped(&index_manager, "index3")
+    {
         return Ok(());
     }
 
@@ -713,9 +715,10 @@ async fn test_concurrent_snapshot_operations() -> Result<()> {
     create_test_index(&index_manager, "concurrent_index3", 50).await?;
 
     // Check if index creation was skipped due to Tantivy issues
-    if check_index_creation_skipped(&index_manager, "concurrent_index1") ||
-       check_index_creation_skipped(&index_manager, "concurrent_index2") ||
-       check_index_creation_skipped(&index_manager, "concurrent_index3") {
+    if check_index_creation_skipped(&index_manager, "concurrent_index1")
+        || check_index_creation_skipped(&index_manager, "concurrent_index2")
+        || check_index_creation_skipped(&index_manager, "concurrent_index3")
+    {
         return Ok(());
     }
 
@@ -926,9 +929,10 @@ async fn test_complete_snapshot_restore_workflow() -> Result<()> {
     create_test_index(&index_manager, "workflow_index3", 200).await?;
 
     // Check if index creation was skipped due to Tantivy issues
-    if check_index_creation_skipped(&index_manager, "workflow_index1") ||
-       check_index_creation_skipped(&index_manager, "workflow_index2") ||
-       check_index_creation_skipped(&index_manager, "workflow_index3") {
+    if check_index_creation_skipped(&index_manager, "workflow_index1")
+        || check_index_creation_skipped(&index_manager, "workflow_index2")
+        || check_index_creation_skipped(&index_manager, "workflow_index3")
+    {
         return Ok(());
     }
 
