@@ -240,8 +240,8 @@ async fn main() -> Result<()> {
             println!("{}", "Lexum Interactive Shell".bright_cyan().bold());
             println!("Server: {}\n", cli.url.bright_yellow());
 
-            let mut repl = ReplSession::new(cli.url);
-            repl.run().await?;
+            let repl = ReplSession::new(cli.url);
+            repl.start().await?;
         }
         Some(Commands::Server { action }) => match action {
             ServerAction::Start { config, daemon } => {
@@ -420,8 +420,8 @@ async fn main() -> Result<()> {
             println!("{}", "Lexum Interactive Shell".bright_cyan().bold());
             println!("Server: {}\n", cli.url.bright_yellow());
 
-            let mut repl = ReplSession::new(cli.url);
-            repl.run().await?;
+            let repl = ReplSession::new(cli.url);
+            repl.start().await?;
         }
     }
 

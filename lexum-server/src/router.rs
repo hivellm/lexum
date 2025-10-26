@@ -1,7 +1,7 @@
 //! API router configuration
 
 use crate::handlers::index::AppState;
-use crate::handlers::{admin, alias, document, health, index, search, snapshot, template};
+use crate::handlers::{admin, alias, document, health, index, reindex, search, snapshot, template};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower_http::cors::CorsLayer;
@@ -90,14 +90,16 @@ pub fn build_router(state: AppState) -> Router {
         .route("/_template/{name}", get(template::get_template))
         .route("/_template/{name}", delete(template::delete_template))
         // Alias management
-        .route("/_aliases", get(alias::list_aliases))
-        .route("/_aliases", post(alias::execute_alias_operations))
-        .route("/_aliases/{alias_name}", post(alias::create_alias))
-        .route("/_aliases/{alias_name}", get(alias::get_alias))
-        .route("/_aliases/{alias_name}", delete(alias::delete_alias))
-        .route("/_aliases/{alias_name}/indices", post(alias::add_indices_to_alias))
-        .route("/_aliases/{alias_name}/indices", delete(alias::remove_indices_from_alias))
-        .route("/_aliases/index/{index_name}", get(alias::get_aliases_for_index))
+        .route("/_aliases", get(alias::get_aliases))
+        .route("/_aliases", post(alias::perform_alias_operations))
+        .route("/{index}/_alias", get(alias::get_index_aliases))
+        .route("/{index}/_alias/{alias}", put(alias::add_alias))
+        .route("/{index}/_alias/{alias}", delete(alias::remove_alias))
+        // Reindexing operations
+        .route("/_reindex", post(reindex::reindex))
+        .route("/_tasks", get(reindex::list_tasks))
+        .route("/_tasks/{task_id}", get(reindex::get_task))
+        .route("/_tasks/{task_id}/_cancel", post(reindex::cancel_task))
         // OpenAPI documentation (temporarily disabled due to version conflicts)
         // .merge(create_swagger_ui())
         // Middleware (rate limiting implemented, ready for full Tower integration)

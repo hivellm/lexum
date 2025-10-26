@@ -1,200 +1,157 @@
 # Lexum CLI User Manual
 
-Complete guide to using the Lexum command-line interface for search engine operations.
+**Version**: 0.1.0-alpha  
+**Last Updated**: 2025-10-25
 
-## Table of Contents
+## Overview
 
-1. [Installation](#installation)
-2. [Quick Start](#quick-start)
-3. [Interactive REPL](#interactive-repl)
-4. [Command Reference](#command-reference)
-5. [LQL Query Language](#lql-query-language)
-6. [Configuration](#configuration)
-7. [Examples](#examples)
-8. [Troubleshooting](#troubleshooting)
+The Lexum CLI is a command-line interface for managing and interacting with the Lexum search engine. It provides both interactive (REPL) and non-interactive modes for all Lexum operations.
 
 ## Installation
 
 ### From Source
 
 ```bash
-# Clone the repository
-git clone https://github.com/hivellm/lexum.git
+git clone https://github.com/your-org/lexum.git
 cd lexum
-
-# Build the CLI
-cargo build --package lexum-cli --release
-
-# Install globally (optional)
-cargo install --path lexum-cli
+cargo build --release --bin lexum
 ```
 
-### Binary Release
+### Binary Installation
 
-Download the latest release from the [GitHub releases page](https://github.com/hivellm/lexum/releases).
+```bash
+# Download the latest release binary
+wget https://github.com/your-org/lexum/releases/latest/download/lexum-linux-x86_64
+chmod +x lexum-linux-x86_64
+sudo mv lexum-linux-x86_64 /usr/local/bin/lexum
+```
 
 ## Quick Start
 
-1. **Start the Lexum server**:
-   ```bash
-   lexum-server
-   ```
+### Interactive Mode (REPL)
 
-2. **Open the CLI**:
-   ```bash
-   lexum
-   ```
-
-3. **Create your first index**:
-   ```bash
-   index create my_index --schema schema.yml
-   ```
-
-4. **Add some documents**:
-   ```bash
-   doc add my_index --file documents.json
-   ```
-
-5. **Search your data**:
-   ```bash
-   search my_index "hello world"
-   ```
-
-## Interactive REPL
-
-The Lexum CLI provides an interactive Read-Eval-Print Loop (REPL) for exploring your data.
-
-### Starting the REPL
+Start an interactive session:
 
 ```bash
-# Start interactive mode
-lexum
-
-# Or explicitly
 lexum repl
 ```
 
-### REPL Features
+This opens a REPL where you can type commands interactively:
 
-- **Tab Completion**: Press `Tab` to autocomplete commands and options
-- **Command History**: Use `↑`/`↓` arrows to navigate command history
-- **Colored Output**: Syntax highlighting and colored results
-- **Help System**: Type `help` for available commands
-- **Exit**: Type `exit`, `quit`, or press `Ctrl+D`
-
-### REPL Commands
-
-| Command | Description | Example |
-|---------|-------------|---------|
-| `help` | Show help information | `help` |
-| `exit` | Exit the REPL | `exit` |
-| `index` | Index management | `index list` |
-| `doc` | Document operations | `doc add my_index --file data.json` |
-| `search` | Search documents | `search my_index "query"` |
-| `lql` | LQL query language | `lql my_index "FROM my_index WHERE title:hello"` |
-| `server` | Server management | `server status` |
-| `snapshot` | Snapshot operations | `snapshot list-repos` |
-
-### Enhanced REPL Features
-
-The Lexum CLI REPL includes several advanced features to improve the user experience:
-
-#### Tab Completion
-
-The REPL supports comprehensive tab completion for commands, options, and query patterns:
-
-```bash
-lexum> <TAB>
-help    exit    quit    index   doc     search  server  snapshot lql
-
-lexum> search <TAB>
-# Shows search query patterns and options
-
-lexum> search products <TAB>
-# Shows query patterns like *, field:value, field:"phrase", etc.
-
-lexum> search products "test" --<TAB>
---limit     --offset    --sort      --fields    --highlight --explain   --min-score
 ```
-
-#### Command Suggestions
-
-When you make a typo or use an invalid command, the REPL provides intelligent suggestions:
-
-```bash
+lexum> help
 lexum> index list
-Error: Command not found
-💡 Did you mean one of these commands?
-  index list
-  help
-  Type 'help' for complete command reference
-
-lexum> search products "test"
-Error: Command not found
-💡 Did you mean one of these commands?
-  search <index> <query>
-  help
-  Type 'help' for complete command reference
+lexum> search my_index "hello world"
+lexum> exit
 ```
 
-#### Enhanced Error Handling
+### Non-Interactive Mode
 
-The REPL provides detailed error messages and suggestions for common mistakes:
+Execute single commands:
 
-- **Invalid commands**: Suggests similar commands
-- **Missing arguments**: Shows usage information
-- **Invalid options**: Lists available options
-- **Connection errors**: Provides troubleshooting tips
+```bash
+lexum index list
+lexum search my_index "hello world"
+lexum doc add my_index document.json
+```
 
-## Command Reference
+## Global Options
 
-### Global Options
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--url` | `-u` | Server URL | `http://localhost:9200` |
+| `--format` | `-f` | Output format | `table` |
+| `--help` | `-h` | Show help | - |
+| `--version` | `-V` | Show version | - |
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--url` | Server URL | `http://localhost:9200` |
-| `--format` | Output format (json, table, pretty) | `pretty` |
-| `--help` | Show help | - |
-| `--version` | Show version | - |
+### Output Formats
+
+- `table` - Human-readable table format
+- `json` - Raw JSON output
+- `json-pretty` - Pretty-printed JSON
+
+## Commands
+
+### Server Management
+
+#### Start Server
+
+```bash
+lexum server start [--config <file>] [--daemon]
+```
+
+**Options:**
+- `--config, -c` - Configuration file path (default: `config.yml`)
+- `--daemon, -d` - Run as daemon process
+
+**Examples:**
+```bash
+lexum server start
+lexum server start --config /etc/lexum/config.yml --daemon
+```
+
+#### Stop Server
+
+```bash
+lexum server stop
+```
+
+#### Server Status
+
+```bash
+lexum server status
+```
+
+#### Validate Configuration
+
+```bash
+lexum server config [--file <path>]
+```
+
+**Options:**
+- `--file, -f` - Configuration file path (default: `config.yml`)
 
 ### Index Management
 
 #### List Indices
 
 ```bash
-lexum index list [--format json|table|pretty]
+lexum index list
 ```
 
-Lists all available indices with their basic information.
+**Output:**
+```
+Name        Documents  Size    Health  Status
+my_index    1000      2.5MB   green   open
+logs        5000      15.2MB  yellow  open
+```
 
 #### Create Index
 
 ```bash
-lexum index create <name> --schema <schema_file>
+lexum index create <name> [--schema <file>]
 ```
 
-Creates a new index with the specified schema.
+**Options:**
+- `--schema, -s` - Schema definition file (YAML)
 
-**Example**:
+**Examples:**
 ```bash
+lexum index create my_index
 lexum index create products --schema product_schema.yml
 ```
 
 #### Get Index Information
 
 ```bash
-lexum index get <name> [--format json|table|pretty]
+lexum index get <name>
 ```
 
-Retrieves detailed information about an index.
-
-#### Index Statistics
+#### Get Index Statistics
 
 ```bash
-lexum index stats <name> [--format json|table|pretty]
+lexum index stats <name>
 ```
-
-Shows statistics about an index (document count, size, etc.).
 
 #### Delete Index
 
@@ -202,36 +159,43 @@ Shows statistics about an index (document count, size, etc.).
 lexum index delete <name>
 ```
 
-Deletes an index and all its data.
-
-**Warning**: This action cannot be undone!
+**Warning:** This permanently deletes the index and all its data.
 
 ### Document Operations
 
 #### Add Document
 
 ```bash
-lexum doc add <index> --file <file> [--id <id>]
+lexum doc add <index> <file>
 ```
 
-Adds a document to an index from a JSON file.
-
-**Examples**:
+**Examples:**
 ```bash
-# Add from file
-lexum doc add products --file product.json
+lexum doc add my_index document.json
+lexum doc add products product_123.json
+```
 
-# Add with specific ID
-lexum doc add products --file product.json --id "prod_123"
+**Document Format:**
+```json
+{
+  "title": "Sample Document",
+  "content": "This is the document content",
+  "tags": ["tag1", "tag2"],
+  "timestamp": "2025-10-25T10:00:00Z"
+}
 ```
 
 #### Get Document
 
 ```bash
-lexum doc get <index> <id> [--format json|table|pretty]
+lexum doc get <index> <id>
 ```
 
-Retrieves a document by its ID.
+**Examples:**
+```bash
+lexum doc get my_index doc_123
+lexum doc get products product_456
+```
 
 #### Delete Document
 
@@ -239,28 +203,18 @@ Retrieves a document by its ID.
 lexum doc delete <index> <id>
 ```
 
-Deletes a document by its ID.
-
 #### Bulk Operations
 
 ```bash
-lexum doc bulk <index> --file <file>
+lexum doc bulk <index> <file>
 ```
 
-Performs bulk document operations from a JSON file.
-
-**Bulk file format**:
+**Bulk File Format:**
 ```json
-[
-  {
-    "title": "Product 1",
-    "price": 99.99
-  },
-  {
-    "title": "Product 2", 
-    "price": 149.99
-  }
-]
+{"index": {"_index": "my_index", "_id": "1"}}
+{"title": "Document 1", "content": "Content 1"}
+{"index": {"_index": "my_index", "_id": "2"}}
+{"title": "Document 2", "content": "Content 2"}
 ```
 
 ### Search Operations
@@ -271,155 +225,113 @@ Performs bulk document operations from a JSON file.
 lexum search <index> <query> [options]
 ```
 
-Searches documents in an index.
-
 **Options:**
-- `--limit <number>`: Maximum number of results (default: 10)
-- `--offset <number>`: Number of results to skip for pagination (default: 0)
-- `--sort <field:order>`: Sort results by field (asc/desc)
-- `--fields <field1,field2>`: Return only specified fields
-- `--highlight`: Highlight search terms in results
-- `--explain`: Show query execution details and performance metrics
-- `--min-score <number>`: Minimum score threshold for results
+- `--limit, -l` - Maximum number of results (default: 10)
+- `--offset, -o` - Number of results to skip (default: 0)
+- `--sort` - Sort field and direction (e.g., `score:desc`, `title:asc`)
+- `--fields` - Fields to return (comma-separated)
+- `--format` - Output format override
 
-**Examples**:
+**Examples:**
 ```bash
-# Basic text search
-lexum search products "wireless headphones"
-
-# Search with limit
-lexum search products "gaming" --limit 20
-
-# Search with sorting
-lexum search products "electronics" --sort price:desc
-
-# Search with field selection
-lexum search products "keyboard" --fields title,price,category
-
-# Search with pagination
-lexum search products "electronics" --limit 10 --offset 20
-
-# Search with highlighting
-lexum search products "wireless headphones" --highlight
-
-# Search with query explanation
-lexum search products "gaming" --explain
-
-# Search with minimum score
-lexum search products "electronics" --min-score 0.5
-
-# Combined advanced search
-lexum search products "wireless" \
-  --limit 5 \
-  --offset 0 \
-  --sort price:desc \
-  --fields title,price,description \
-  --highlight \
-  --explain \
-  --min-score 0.3
+lexum search my_index "hello world"
+lexum search products "laptop" --limit 20 --sort "price:asc"
+lexum search logs "error" --fields "timestamp,message" --limit 5
 ```
 
-#### Advanced Query Syntax
+#### Advanced Search with File
 
 ```bash
-# Field-specific search
-lexum search products "title:gaming"
-
-# Phrase search
-lexum search products "description:\"wireless headphones\""
-
-# Range search
-lexum search products "price:[100,500]"
-
-# Fuzzy search
-lexum search products "title:~gaming"
-
-# Boolean search
-lexum search products "+category:electronics -status:discontinued"
+lexum search <index> @query.json
 ```
 
-#### File-based Queries
-
-```bash
-# Query from file
-lexum search products @query.json --limit 100
+**Query File Format:**
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {"title": "laptop"}},
+        {"range": {"price": {"gte": 500, "lte": 1000}}}
+      ]
+    }
+  },
+  "sort": [{"price": {"order": "asc"}}],
+  "size": 20
+}
 ```
 
 ### LQL (Lexum Query Language)
 
-#### Basic LQL
+#### Execute LQL Query
 
 ```bash
-lexum lql <index> <lql_query> [--limit N] [--sort field:asc/desc] [--fields field1,field2]
+lexum lql <query> [options]
 ```
 
-Executes LQL queries against an index.
+**Options:**
+- `--limit, -l` - Maximum number of results
+- `--sort` - Sort specification
+- `--fields` - Fields to return
 
-**Examples**:
+**Examples:**
 ```bash
-# Basic LQL query
-lexum lql products "FROM products WHERE category:electronics"
-
-# LQL with conditions
-lexum lql products "FROM products WHERE price:[100,500] AND in_stock:true"
-
-# LQL with sorting
-lexum lql products "FROM products WHERE category:electronics" --sort price:desc
-
-# LQL from file
-lexum lql products "@complex_query.lql"
+lexum lql "FROM products WHERE price > 100"
+lexum lql "SELECT title, price FROM products ORDER BY price DESC LIMIT 10"
+lexum lql "MATCH 'laptop' IN title,description"
 ```
 
-#### LQL Syntax
-
-- **FROM queries**: `FROM <index> [WHERE <conditions>]`
-- **SELECT queries**: `SELECT * FROM <index> [WHERE <conditions>]`
-- **MATCH queries**: `MATCH <field>:<value>`
-
-#### LQL Conditions
-
-- **Exact match**: `field:value`
-- **Range match**: `field:[min,max]`
-- **Fuzzy match**: `field:~value`
-- **Phrase match**: `field:"exact phrase"`
-- **Boolean AND**: `+field:value`
-- **Boolean NOT**: `-field:value`
-
-### Server Management
-
-#### Start Server
+#### LQL Query from File
 
 ```bash
-lexum server start [config_file] [--daemon]
+lexum lql @query.lql
 ```
 
-Starts the Lexum server.
-
-#### Stop Server
-
-```bash
-lexum server stop
+**LQL File Example:**
+```sql
+-- Find expensive laptops
+SELECT title, price, brand
+FROM products
+WHERE category = 'laptop' AND price > 1000
+ORDER BY price DESC
+LIMIT 20;
 ```
-
-Stops the Lexum server.
-
-#### Server Status
-
-```bash
-lexum server status
-```
-
-Checks the server status.
-
-#### Validate Configuration
-
-```bash
-lexum server config [file]
-```
-
-Validates a configuration file.
 
 ### Snapshot Management
+
+#### List Snapshots
+
+```bash
+lexum snapshot list
+```
+
+#### Create Snapshot
+
+```bash
+lexum snapshot create <name> [--indices <indices>] [--wait]
+```
+
+**Options:**
+- `--indices` - Comma-separated list of indices (default: all)
+- `--wait` - Wait for completion
+
+**Examples:**
+```bash
+lexum snapshot create backup_2025_10_25
+lexum snapshot create products_backup --indices "products,products_v2" --wait
+```
+
+#### Get Snapshot Information
+
+```bash
+lexum snapshot get <name>
+```
+
+#### Delete Snapshot
+
+```bash
+lexum snapshot delete <name>
+```
 
 #### List Repositories
 
@@ -427,352 +339,347 @@ Validates a configuration file.
 lexum snapshot list-repos
 ```
 
-Lists all snapshot repositories.
+### Template Management
 
-#### List Snapshots
-
-```bash
-lexum snapshot list <repository>
-```
-
-Lists snapshots in a repository.
-
-#### Create Snapshot
+#### List Templates
 
 ```bash
-lexum snapshot create <repository> <snapshot> [--indices INDEX1,INDEX2] [--wait]
+lexum template list
 ```
 
-Creates a snapshot.
-
-#### Delete Snapshot
+#### Create Template
 
 ```bash
-lexum snapshot delete <repository> <snapshot>
+lexum template create <name> [--pattern <pattern>] [--priority <priority>]
 ```
 
-Deletes a snapshot.
+**Options:**
+- `--pattern` - Index pattern (default: `*`)
+- `--priority` - Template priority (default: 0)
 
-## LQL Query Language
+#### Get Template
 
-LQL (Lexum Query Language) provides a SQL-like syntax for complex queries.
-
-### Basic Syntax
-
-```sql
-FROM <index> [WHERE <conditions>]
-SELECT * FROM <index> [WHERE <conditions>]
-MATCH <field>:<value>
+```bash
+lexum template get <name>
 ```
 
-### Query Types
+#### Delete Template
 
-#### FROM Queries
-
-```sql
--- Match all documents
-FROM products
-
--- Match with conditions
-FROM products WHERE title:laptop
-
--- Multiple conditions
-FROM products WHERE category:electronics AND price:[100,500]
+```bash
+lexum template delete <name>
 ```
 
-#### SELECT Queries
+## Interactive Mode (REPL)
 
-```sql
--- Select all fields
-SELECT * FROM products WHERE category:books
+### Starting REPL
 
--- Select specific fields (planned feature)
-SELECT title, price FROM products WHERE category:electronics
+```bash
+lexum repl
 ```
 
-#### MATCH Queries
+### REPL Features
 
-```sql
--- Simple field match
-MATCH title:laptop
+- **Tab Completion**: Press Tab to complete commands and parameters
+- **Command History**: Use Up/Down arrows to navigate history
+- **Syntax Highlighting**: Commands are color-coded for better readability
+- **Error Suggestions**: Get helpful suggestions when commands fail
+- **Multi-line Support**: Use `\` at end of line for multi-line commands
 
--- Phrase match
-MATCH description:"wireless headphones"
+### REPL Commands
 
--- Range match
-MATCH price:[100,500]
+| Command | Description |
+|---------|-------------|
+| `help` | Show available commands |
+| `clear` | Clear the screen |
+| `exit`, `quit` | Exit the REPL |
+| `index <subcommand>` | Index management |
+| `doc <subcommand>` | Document operations |
+| `search <index> <query>` | Search documents |
+| `lql <query>` | Execute LQL query |
+| `server <subcommand>` | Server management |
+| `snapshot <subcommand>` | Snapshot operations |
+| `template <subcommand>` | Template management |
 
--- Fuzzy match
-MATCH title:~laptp
+### REPL Examples
+
 ```
+lexum> help
+Available commands:
+Index Management:
+  index list                    - List all indices
+  index create <name>           - Create a new index
+  ...
 
-### Condition Operators
+lexum> index list
+Name        Documents  Size    Health  Status
+my_index    1000      2.5MB   green   open
 
-| Operator | Description | Example |
-|----------|-------------|---------|
-| `:` | Exact match | `title:laptop` |
-| `[min,max]` | Range match | `price:[100,500]` |
-| `~` | Fuzzy match | `title:~laptp` |
-| `"phrase"` | Phrase match | `description:"wireless headphones"` |
-| `+` | Boolean AND | `+category:electronics` |
-| `-` | Boolean NOT | `-status:discontinued` |
-| `AND` | Logical AND | `title:laptop AND price:[100,500]` |
-| `OR` | Logical OR | `category:electronics OR category:computers` |
+lexum> search my_index "hello world"
+{
+  "hits": {
+    "total": {"value": 5},
+    "hits": [
+      {
+        "_id": "1",
+        "_score": 1.0,
+        "_source": {
+          "title": "Hello World",
+          "content": "This is a hello world document"
+        }
+      }
+    ]
+  }
+}
 
-### Examples
-
-```sql
--- Find all electronics under $200
-FROM products WHERE category:electronics AND price:[0,200]
-
--- Find laptops with wireless capability
-FROM products WHERE title:laptop AND description:"wireless"
-
--- Find products with fuzzy title matching
-FROM products WHERE title:~gaming
-
--- Find products excluding discontinued ones
-FROM products WHERE +category:electronics -status:discontinued
-
--- Complex boolean query
-FROM products WHERE (category:electronics OR category:computers) AND price:[100,1000] AND in_stock:true
+lexum> exit
+Goodbye!
 ```
 
 ## Configuration
 
-### Server Configuration
+### Environment Variables
 
-The Lexum server can be configured using a YAML file:
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LEXUM_URL` | Server URL | `http://localhost:9200` |
+| `LEXUM_CONFIG` | Config file path | `config.yml` |
+| `LEXUM_FORMAT` | Default output format | `table` |
+
+### Configuration File
+
+Create a `config.yml` file:
 
 ```yaml
-# config.yml
 server:
   host: "0.0.0.0"
   port: 9200
-
-storage:
-  data_path: "./data"
+  workers: 4
 
 logging:
   level: "info"
   format: "json"
 
+indices:
+  default_shards: 1
+  default_replicas: 0
+
 search:
-  cache:
-    enabled: true
-    max_size_mb: 100
-    ttl_seconds: 3600
-```
-
-### CLI Configuration
-
-The CLI can be configured using environment variables:
-
-```bash
-# Set default server URL
-export LEXUM_URL="http://localhost:9200"
-
-# Set default output format
-export LEXUM_FORMAT="json"
-
-# Set API key for authentication
-export LEXUM_API_KEY="your-api-key"
+  default_size: 10
+  max_size: 1000
+  timeout: "30s"
 ```
 
 ## Examples
 
-### E-commerce Product Search
+### Complete Workflow
 
 ```bash
-# Create products index
+# 1. Start server
+lexum server start --daemon
+
+# 2. Create an index
 lexum index create products --schema product_schema.yml
 
-# Add sample products
-lexum doc bulk products --file sample_products.json
+# 3. Add documents
+lexum doc add products product1.json
+lexum doc add products product2.json
 
-# Search for gaming products under $200
-lexum search products "category:gaming AND price:[0,200]"
+# 4. Search documents
+lexum search products "laptop" --limit 10
 
-# Search for wireless products with fuzzy matching
-lexum search products "title:~wireless"
+# 5. Create snapshot
+lexum snapshot create backup_$(date +%Y%m%d) --wait
 
-# Search for products in stock, sorted by price
-lexum search products "in_stock:true" --sort price:asc
+# 6. Stop server
+lexum server stop
 ```
 
-### Content Management System
+### Batch Processing
 
 ```bash
-# Create articles index
-lexum index create articles --schema article_schema.yml
+# Process multiple files
+for file in documents/*.json; do
+    lexum doc add my_index "$file"
+done
 
-# Add articles
-lexum doc bulk articles --file articles.json
-
-# Search for recent articles about technology
-lexum lql articles "FROM articles WHERE category:technology AND created_at:[2024-01-01,2024-12-31]"
-
-# Search for articles with specific tags
-lexum search articles "tags:rust OR tags:programming"
+# Search with different parameters
+lexum search my_index "error" --limit 100 --sort "timestamp:desc"
+lexum search my_index "warning" --fields "timestamp,level,message"
 ```
 
-### Log Analysis
+### LQL Queries
 
 ```bash
-# Create logs index
-lexum index create logs --schema log_schema.yml
+# Simple queries
+lexum lql "FROM products WHERE price > 100"
+lexum lql "SELECT title, price FROM products ORDER BY price DESC LIMIT 10"
 
-# Add log entries
-lexum doc bulk logs --file logs.json
-
-# Search for error logs
-lexum search logs "level:error"
-
-# Search for logs from specific time range
-lexum lql logs "FROM logs WHERE timestamp:[2024-01-15T00:00:00Z,2024-01-15T23:59:59Z]"
-
-# Search for logs from specific IP
-lexum search logs "ip:192.168.1.100"
-```
-
-### File-based Operations
-
-Create query files for complex searches:
-
-**`price_range_query.lql`**:
-```sql
-FROM products 
-WHERE price:[100,500] 
-  AND category:electronics
-  AND in_stock:true
-```
-
-**`search_products.json`**:
-```json
-{
-  "query": {
-    "bool": {
-      "must": [
-        {
-          "term": {
-            "category": "electronics"
-          }
-        },
-        {
-          "range": {
-            "price": {
-              "gte": 100,
-              "lte": 500
-            }
-          }
-        }
-      ]
-    }
-  },
-  "limit": 20,
-  "sort": [
-    {
-      "price": "asc"
-    }
-  ]
-}
-```
-
-**Usage**:
-```bash
-# Execute LQL from file
-lexum lql products "@price_range_query.lql"
-
-# Execute JSON query from file
-lexum search products "@search_products.json"
+# Complex queries
+lexum lql "SELECT COUNT(*) FROM logs WHERE level = 'ERROR' AND timestamp > '2025-10-01'"
+lexum lql "SELECT category, AVG(price) FROM products GROUP BY category"
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### Index not found
+#### Connection Refused
+
+```
+Error: Failed to connect to server
+```
+
+**Solution:**
+- Check if server is running: `lexum server status`
+- Verify URL: `lexum --url http://localhost:9200 index list`
+- Check firewall settings
+
+#### Index Not Found
+
 ```
 Error: Index 'my_index' not found
 ```
-**Solution**: Check if the index exists with `lexum index list`
 
-#### No results returned
-```
-Found 0 results in 5ms
-```
-**Solution**: 
-- Check your query syntax
-- Verify field names exist in the index
-- Try a broader search query like `*`
+**Solution:**
+- List indices: `lexum index list`
+- Create index: `lexum index create my_index`
 
-#### Connection refused
-```
-Error: Connection refused
-```
-**Solution**: 
-- Ensure the Lexum server is running
-- Check the server URL with `--url` option
-- Verify the server is listening on the correct port
+#### Permission Denied
 
-#### Invalid JSON
-```
-Error: Invalid JSON in document
-```
-**Solution**: 
-- Validate your JSON before adding documents
-- Use a JSON validator tool
-- Check for trailing commas or missing quotes
-
-#### Permission denied
 ```
 Error: Permission denied
 ```
-**Solution**: 
+
+**Solution:**
 - Check file permissions
-- Ensure you have write access to the data directory
-- Run with appropriate user permissions
+- Run with appropriate user privileges
+- Verify server configuration
+
+#### Invalid JSON
+
+```
+Error: Invalid JSON in document
+```
+
+**Solution:**
+- Validate JSON: `cat document.json | jq .`
+- Check file encoding (should be UTF-8)
+- Fix JSON syntax errors
 
 ### Debug Mode
 
-Enable debug logging for troubleshooting:
+Enable debug logging:
 
 ```bash
-# Set debug level
 export RUST_LOG=debug
-
-# Run CLI with debug output
-lexum search products "query"
+lexum index list
 ```
 
-### Getting Help
+### Verbose Output
+
+Use verbose mode for detailed information:
 
 ```bash
-# Show help for specific commands
-lexum search --help
-lexum lql --help
-lexum index --help
-
-# Use interactive help in REPL
-lexum
-lexum> help
+lexum --format json index list
 ```
 
-### Performance Tips
+## Advanced Usage
 
-1. **Use appropriate field types** in your schema for better search performance
-2. **Index frequently searched fields** as keywords for exact matches
-3. **Use text fields** for full-text search capabilities
-4. **Leverage sorting** to control result ordering
-5. **Use field selection** to reduce response size for large documents
-6. **Test queries** in the interactive REPL before using in scripts
-7. **Use file-based queries** for complex, reusable search patterns
-8. **Monitor index statistics** to understand your data distribution
+### Scripting
 
-### Support
+Create shell scripts for automation:
 
-For additional help:
+```bash
+#!/bin/bash
+# backup_indices.sh
 
-- **Documentation**: Check the [project documentation](https://github.com/hivellm/lexum/docs)
-- **Issues**: Report bugs on [GitHub Issues](https://github.com/hivellm/lexum/issues)
-- **Discussions**: Join discussions on [GitHub Discussions](https://github.com/hivellm/lexum/discussions)
+DATE=$(date +%Y%m%d_%H%M%S)
+SNAPSHOT_NAME="backup_$DATE"
+
+echo "Creating snapshot: $SNAPSHOT_NAME"
+lexum snapshot create "$SNAPSHOT_NAME" --wait
+
+if [ $? -eq 0 ]; then
+    echo "Snapshot created successfully"
+else
+    echo "Failed to create snapshot"
+    exit 1
+fi
+```
+
+### Integration with CI/CD
+
+```yaml
+# .github/workflows/search-test.yml
+name: Search Test
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Start Lexum
+        run: |
+          lexum server start --daemon
+          sleep 10
+      - name: Test Search
+        run: |
+          lexum index create test_index
+          lexum doc add test_index test_document.json
+          lexum search test_index "test query"
+      - name: Stop Lexum
+        run: lexum server stop
+```
+
+## API Reference
+
+### Command Structure
+
+```
+lexum [GLOBAL_OPTIONS] <COMMAND> [COMMAND_OPTIONS] [ARGUMENTS]
+```
+
+### Exit Codes
+
+| Code | Description |
+|------|-------------|
+| 0 | Success |
+| 1 | General error |
+| 2 | Invalid arguments |
+| 3 | Server connection error |
+| 4 | File I/O error |
+| 5 | JSON parsing error |
+
+### Output Formats
+
+#### Table Format
+```
+Name        Documents  Size    Health  Status
+my_index    1000      2.5MB   green   open
+```
+
+#### JSON Format
+```json
+{
+  "indices": [
+    {
+      "name": "my_index",
+      "documents": 1000,
+      "size": "2.5MB",
+      "health": "green",
+      "status": "open"
+    }
+  ]
+}
+```
+
+## Support
+
+- **Documentation**: [https://docs.lexum.dev](https://docs.lexum.dev)
+- **Issues**: [https://github.com/your-org/lexum/issues](https://github.com/your-org/lexum/issues)
+- **Discussions**: [https://github.com/your-org/lexum/discussions](https://github.com/your-org/lexum/discussions)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

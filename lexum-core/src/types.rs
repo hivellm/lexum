@@ -60,6 +60,18 @@ impl fmt::Display for IndexName {
     }
 }
 
+impl From<String> for IndexName {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for IndexName {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
 /// Relevance score
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, ToSchema)]
 pub struct Score(f32);

@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tantivy::{Index as TantivyIndex, IndexWriter};
 
-use super::alias::{AliasManager, AliasName, AliasOperationsRequest, AliasOperationsResponse, IndexAlias};
+use super::alias::{
+    AliasManager, AliasName, AliasOperationsRequest, AliasOperationsResponse, IndexAlias,
+};
 use super::settings::IndexSettings;
 
 /// Index wrapper around Tantivy index
@@ -282,11 +284,7 @@ impl IndexManager {
     }
 
     /// Add indices to an existing alias
-    pub fn add_indices_to_alias(
-        &self,
-        name: &str,
-        indices: Vec<IndexName>,
-    ) -> Result<IndexAlias> {
+    pub fn add_indices_to_alias(&self, name: &str, indices: Vec<IndexName>) -> Result<IndexAlias> {
         // Validate that all target indices exist
         for index_name in &indices {
             if !self.index_exists(index_name.as_str()) {
@@ -310,7 +308,10 @@ impl IndexManager {
     }
 
     /// Execute multiple alias operations atomically
-    pub fn execute_alias_operations(&self, request: AliasOperationsRequest) -> Result<AliasOperationsResponse> {
+    pub fn execute_alias_operations(
+        &self,
+        request: AliasOperationsRequest,
+    ) -> Result<AliasOperationsResponse> {
         // Validate that all target indices exist for add operations
         for action in &request.actions {
             if let super::alias::AliasAction::Add { indices, .. } = action {
@@ -349,8 +350,7 @@ impl IndexManager {
             self.resolve_alias(name)
         } else {
             Err(Error::NotFound(format!(
-                "Neither index nor alias '{}' found",
-                name
+                "Neither index nor alias '{name}' found"
             )))
         }
     }

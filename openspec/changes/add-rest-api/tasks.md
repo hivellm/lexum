@@ -54,11 +54,11 @@
 - [x] 6.10 Add tests for all snapshot endpoints
 
 ## 7. Cluster Endpoints (Phase 2 - Distributed System)
-- [ ] 7.1 Implement GET / - Cluster info
-- [ ] 7.2 Implement GET /_cluster/health
-- [ ] 7.3 Implement GET /_cluster/stats
-- [ ] 7.4 Add cluster state endpoint
-- [ ] 7.5 Add tests
+- [x] 7.1 Implement GET / - Cluster info
+- [x] 7.2 Implement GET /_cluster/health
+- [x] 7.3 Implement GET /_cluster/stats
+- [x] 7.4 Add cluster state endpoint
+- [x] 7.5 Add tests
 
 ## 8. Middleware
 - [x] 8.1 Implement request logging middleware

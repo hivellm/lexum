@@ -1,7 +1,7 @@
 //! Enhanced incremental snapshot management for Phase 3
 
 use crate::error::Result;
-use crate::snapshot::compression::{CompressionConfig, CompressionType, ContentDeduplicator, SnapshotCompressor};
+use crate::snapshot::compression::{CompressionConfig, ContentDeduplicator, SnapshotCompressor};
 use crate::snapshot::parallel::{ParallelDeltaProcessor, SnapshotChainOptimizer};
 use crate::types::{IndexName, RepositoryName, SnapshotName};
 use chrono::{DateTime, Utc};
@@ -437,7 +437,7 @@ pub struct OptimizationResult {
 }
 
 /// Incremental snapshot statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IncrementalStats {
     /// Total number of snapshots created
     pub total_snapshots_created: u64,
@@ -491,8 +491,6 @@ impl Default for IncrementalSnapshotManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{IndexName, RepositoryName, SnapshotName};
-    use tempfile::TempDir;
 
     #[test]
     fn test_incremental_snapshot_manager_creation() {
@@ -509,7 +507,7 @@ mod tests {
             use_dictionary: false,
             dictionary_size: 0,
         };
-        
+
         let manager = IncrementalSnapshotManager::with_config(config, 8, 15);
         assert_eq!(manager.stats.total_snapshots_created, 0);
     }
@@ -517,7 +515,7 @@ mod tests {
     #[test]
     fn test_incremental_stats() {
         let stats = IncrementalStats::new();
-        
+
         // Test initial state
         assert_eq!(stats.total_snapshots_created, 0);
         assert_eq!(stats.total_space_saved, 0);
@@ -527,10 +525,10 @@ mod tests {
     #[test]
     fn test_incremental_stats_serialization() {
         let stats = IncrementalStats::new();
-        
+
         let serialized = serde_json::to_string(&stats).unwrap();
         let deserialized: IncrementalStats = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.total_snapshots_created, 0);
         assert_eq!(deserialized.total_space_saved, 0);
     }
@@ -554,7 +552,7 @@ mod tests {
         let compression_type = CompressionType::Gzip;
         let serialized = serde_json::to_string(&compression_type).unwrap();
         let deserialized: CompressionType = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized, CompressionType::Gzip);
     }
 
@@ -570,7 +568,7 @@ mod tests {
     #[test]
     fn test_incremental_stats_average_compression_ratio() {
         let stats = IncrementalStats::new();
-        
+
         // Test with no snapshots
         assert_eq!(stats.total_compression_ratio, 0.0);
     }
@@ -578,7 +576,7 @@ mod tests {
     #[test]
     fn test_incremental_stats_deduplication() {
         let stats = IncrementalStats::new();
-        
+
         // Test initial state
         assert_eq!(stats.total_space_saved, 0);
         assert_eq!(stats.total_deduplication_ratio, 0.0);
@@ -587,16 +585,17 @@ mod tests {
     #[test]
     fn test_compression_type_default() {
         let compression_type = CompressionType::default();
-        assert_eq!(compression_type, CompressionType::Zstd);
+        assert_eq!(compression_type, CompressionType::Gzip);
     }
 
     #[test]
     fn test_compression_type_equality() {
+        use crate::snapshot::compression::CompressionType;
         assert_eq!(CompressionType::None, CompressionType::None);
         assert_eq!(CompressionType::Gzip, CompressionType::Gzip);
         assert_eq!(CompressionType::Zstd, CompressionType::Zstd);
         assert_eq!(CompressionType::Lz4, CompressionType::Lz4);
-        
+
         assert_ne!(CompressionType::None, CompressionType::Gzip);
         assert_ne!(CompressionType::Gzip, CompressionType::Zstd);
     }

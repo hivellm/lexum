@@ -26,7 +26,11 @@ impl ParallelDeltaProcessor {
     pub fn with_chunk_size(max_workers: usize, chunk_size: usize) -> Self {
         Self {
             max_workers,
-            chunk_size,
+            chunk_size: if chunk_size == 0 {
+                1024 * 1024
+            } else {
+                chunk_size
+            },
         }
     }
 
@@ -295,7 +299,7 @@ impl SnapshotChainOptimizer {
     pub fn new(max_chain_depth: usize, min_compression_ratio: f64) -> Self {
         Self {
             max_chain_depth,
-            min_compression_ratio,
+            min_compression_ratio: min_compression_ratio.clamp(0.0, 1.0),
         }
     }
 
@@ -430,7 +434,6 @@ pub struct OptimizationResult {
 mod tests {
     use super::*;
     use crate::types::{IndexName, SnapshotName};
-    use tempfile::TempDir;
 
     #[test]
     fn test_parallel_delta_processor_creation() {
@@ -468,14 +471,14 @@ mod tests {
             deleted_files: vec!["file3.txt".to_string()],
             total_size: 1024,
         };
-        
+
         let result = IndexDeltaResult {
             index_name: IndexName::new("test_index"),
             delta,
             processing_time: std::time::Duration::from_millis(100),
             success: true,
         };
-        
+
         assert_eq!(result.index_name.as_str(), "test_index");
         assert_eq!(result.delta.total_size, 1024);
         assert_eq!(result.delta.added_files.len(), 1);
@@ -486,11 +489,14 @@ mod tests {
     #[test]
     fn test_consolidation_result_creation() {
         let result = ConsolidationResult {
-            consolidated_snapshots: vec![SnapshotName::new("snapshot1"), SnapshotName::new("snapshot2")],
+            consolidated_snapshots: vec![
+                SnapshotName::new("snapshot1"),
+                SnapshotName::new("snapshot2"),
+            ],
             new_snapshot: "consolidated_snapshot".to_string(),
             space_saved: 2048,
         };
-        
+
         assert_eq!(result.consolidated_snapshots.len(), 2);
         assert_eq!(result.new_snapshot, "consolidated_snapshot");
         assert_eq!(result.space_saved, 2048);
@@ -503,10 +509,10 @@ mod tests {
             new_snapshot: "consolidated".to_string(),
             space_saved: 1024,
         };
-        
+
         let serialized = serde_json::to_string(&result).unwrap();
         let deserialized: ConsolidationResult = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.consolidated_snapshots.len(), 1);
         assert_eq!(deserialized.new_snapshot, "consolidated");
         assert_eq!(deserialized.space_saved, 1024);
@@ -520,17 +526,17 @@ mod tests {
             deleted_files: vec![],
             total_size: 512,
         };
-        
+
         let result = IndexDeltaResult {
             index_name: IndexName::new("test_index"),
             delta,
             processing_time: std::time::Duration::from_millis(50),
             success: true,
         };
-        
+
         let serialized = serde_json::to_string(&result).unwrap();
         let deserialized: IndexDeltaResult = serde_json::from_str(&serialized).unwrap();
-        
+
         assert_eq!(deserialized.index_name.as_str(), "test_index");
         assert_eq!(deserialized.delta.total_size, 512);
         assert!(deserialized.success);
@@ -553,11 +559,14 @@ mod tests {
     #[test]
     fn test_consolidation_result_space_saved_calculation() {
         let result = ConsolidationResult {
-            consolidated_snapshots: vec![SnapshotName::new("snapshot1"), SnapshotName::new("snapshot2")],
+            consolidated_snapshots: vec![
+                SnapshotName::new("snapshot1"),
+                SnapshotName::new("snapshot2"),
+            ],
             new_snapshot: "consolidated".to_string(),
             space_saved: 1000,
         };
-        
+
         // Test that space saved is positive
         assert!(result.space_saved > 0);
         assert_eq!(result.consolidated_snapshots.len(), 2);
@@ -572,14 +581,14 @@ mod tests {
             deleted_files: vec![],
             total_size: 1000,
         };
-        
+
         let result = IndexDeltaResult {
             index_name: IndexName::new("test_index"),
             delta,
             processing_time: std::time::Duration::from_millis(100),
             success: true,
         };
-        
+
         // Test that total size is positive
         assert!(result.delta.total_size > 0);
         assert_eq!(result.delta.added_files.len(), 1);

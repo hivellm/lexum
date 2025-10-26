@@ -7,6 +7,7 @@ use serde::de::DeserializeOwned;
 use std::time::Duration;
 
 /// Lexum HTTP client with optimized configuration
+#[derive(Clone)]
 pub struct LexumClient {
     base_url: String,
     client: Client,

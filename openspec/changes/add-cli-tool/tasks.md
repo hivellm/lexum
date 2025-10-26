@@ -53,8 +53,8 @@
 - [x] 6.4 Implement comprehensive help system
 - [x] 6.5 Support for all commands in REPL
 - [x] 6.6 Graceful exit (Ctrl+D, exit, quit)
-- [ ] 6.7 Add tab autocomplete
-- [ ] 6.8 Command suggestions on errors
+- [x] 6.7 Add tab autocomplete
+- [x] 6.8 Command suggestions on errors
 
 ## 7. HTTP Client
 - [x] 7.1 Implement LexumClient wrapper
@@ -95,6 +95,6 @@
 - [x] 11.4 Add integration tests (comprehensive_integration_test.rs)
 - [x] 11.5 Add CLI tests (cli_test.rs)
 - [x] 11.6 Add command-specific tests (snapshot, lql, search, index, document)
-- [ ] 11.7 Write user manual
+- [x] 11.7 Write user manual
 - [x] 11.8 Command examples in help text (extensive)
 

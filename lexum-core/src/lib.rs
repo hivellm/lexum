@@ -72,9 +72,9 @@ pub use config::Config;
 pub use document::DocumentStore;
 pub use error::{Error, Result};
 pub use index::{
-    AliasAction, AliasConfig, AliasManager, AliasName, AliasOperationsRequest, AliasOperationsResponse,
-    Index, IndexAlias, IndexManager, IndexPattern, IndexSettings, IndexStats, IndexTemplate, TemplateManager,
-    TemplateMappings, TemplateName, TemplateSettings,
+    AliasAction, AliasConfig, AliasManager, AliasName, AliasOperationsRequest,
+    AliasOperationsResponse, Index, IndexAlias, IndexManager, IndexPattern, IndexSettings,
+    IndexStats, IndexTemplate, TemplateManager, TemplateMappings, TemplateName, TemplateSettings,
 };
 pub use query::{
     BoolQuery, FuzzyQuery, MatchQuery, PhraseQuery, Query, QueryBuilder, RangeQuery, TermQuery,

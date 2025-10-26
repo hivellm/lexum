@@ -46,7 +46,7 @@ impl From<&str> for AliasName {
 }
 
 /// Alias configuration
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 pub struct AliasConfig {
     /// Filter query for the alias (optional)
     pub filter: Option<serde_json::Value>,
@@ -58,18 +58,6 @@ pub struct AliasConfig {
     pub index_routing: Option<String>,
     /// Whether the alias is writeable
     pub is_write_index: Option<bool>,
-}
-
-impl Default for AliasConfig {
-    fn default() -> Self {
-        Self {
-            filter: None,
-            routing: None,
-            search_routing: None,
-            index_routing: None,
-            is_write_index: None,
-        }
-    }
 }
 
 /// Index alias definition
@@ -215,7 +203,9 @@ impl AliasManager {
 
         // Validate that indices are not empty
         if indices.is_empty() {
-            return Err(Error::Validation("Alias must have at least one target index".to_string()));
+            return Err(Error::Validation(
+                "Alias must have at least one target index".to_string(),
+            ));
         }
 
         // Check if alias already exists
@@ -223,17 +213,13 @@ impl AliasManager {
             let aliases = self.aliases.read();
             if aliases.contains_key(&name_str) {
                 return Err(Error::Validation(format!(
-                    "Alias '{}' already exists",
-                    name_str
+                    "Alias '{name_str}' already exists"
                 )));
             }
         }
 
-        let alias = IndexAlias::new_with_config(
-            alias_name.clone(),
-            indices,
-            config.unwrap_or_default(),
-        );
+        let alias =
+            IndexAlias::new_with_config(alias_name.clone(), indices, config.unwrap_or_default());
 
         // Store the alias
         {
@@ -251,14 +237,14 @@ impl AliasManager {
         aliases
             .get(name)
             .cloned()
-            .ok_or_else(|| Error::NotFound(format!("Alias '{}' not found", name)))
+            .ok_or_else(|| Error::NotFound(format!("Alias '{name}' not found")))
     }
 
     /// Delete an alias
     pub fn delete_alias(&self, name: &str) -> Result<()> {
         let mut aliases = self.aliases.write();
         if aliases.remove(name).is_none() {
-            return Err(Error::NotFound(format!("Alias '{}' not found", name)));
+            return Err(Error::NotFound(format!("Alias '{name}' not found")));
         }
 
         tracing::info!(alias = %name, "Alias deleted");
@@ -278,15 +264,11 @@ impl AliasManager {
     }
 
     /// Add indices to an existing alias
-    pub fn add_indices_to_alias(
-        &self,
-        name: &str,
-        indices: Vec<IndexName>,
-    ) -> Result<IndexAlias> {
+    pub fn add_indices_to_alias(&self, name: &str, indices: Vec<IndexName>) -> Result<IndexAlias> {
         let mut aliases = self.aliases.write();
         let alias = aliases
             .get_mut(name)
-            .ok_or_else(|| Error::NotFound(format!("Alias '{}' not found", name)))?;
+            .ok_or_else(|| Error::NotFound(format!("Alias '{name}' not found")))?;
 
         for index in indices {
             alias.add_index(index);
@@ -305,7 +287,7 @@ impl AliasManager {
         let mut aliases = self.aliases.write();
         let alias = aliases
             .get_mut(name)
-            .ok_or_else(|| Error::NotFound(format!("Alias '{}' not found", name)))?;
+            .ok_or_else(|| Error::NotFound(format!("Alias '{name}' not found")))?;
 
         for index in indices {
             alias.remove_index(&index);
@@ -315,7 +297,9 @@ impl AliasManager {
         if alias.is_empty() {
             aliases.remove(name);
             tracing::info!(alias = %name, "Alias removed (no indices remaining)");
-            return Err(Error::Validation("Alias removed because it has no indices".to_string()));
+            return Err(Error::Validation(
+                "Alias removed because it has no indices".to_string(),
+            ));
         }
 
         tracing::info!(alias = %name, "Indices removed from alias");
@@ -323,19 +307,28 @@ impl AliasManager {
     }
 
     /// Execute multiple alias operations atomically
-    pub fn execute_operations(&self, request: AliasOperationsRequest) -> Result<AliasOperationsResponse> {
+    pub fn execute_operations(
+        &self,
+        request: AliasOperationsRequest,
+    ) -> Result<AliasOperationsResponse> {
         let mut aliases = self.aliases.write();
         let mut updated_aliases = Vec::new();
         let actions_count = request.actions.len();
 
         for action in request.actions {
             match action {
-                AliasAction::Add { alias, indices, config } => {
+                AliasAction::Add {
+                    alias,
+                    indices,
+                    config,
+                } => {
                     let alias_name = alias.as_str().to_string();
-                    
+
                     // Validate that indices are not empty
                     if indices.is_empty() {
-                        return Err(Error::Validation("Alias must have at least one target index".to_string()));
+                        return Err(Error::Validation(
+                            "Alias must have at least one target index".to_string(),
+                        ));
                     }
 
                     let alias_def = IndexAlias::new_with_config(
@@ -349,7 +342,7 @@ impl AliasManager {
                 }
                 AliasAction::Remove { alias, indices } => {
                     let alias_name = alias.as_str();
-                    
+
                     if let Some(alias_def) = aliases.get_mut(alias_name) {
                         for index in indices {
                             alias_def.remove_index(&index);
@@ -381,7 +374,7 @@ impl AliasManager {
         let aliases = self.aliases.read();
         let alias = aliases
             .get(name)
-            .ok_or_else(|| Error::NotFound(format!("Alias '{}' not found", name)))?;
+            .ok_or_else(|| Error::NotFound(format!("Alias '{name}' not found")))?;
 
         Ok(alias.indices.clone())
     }
@@ -428,7 +421,7 @@ mod tests {
     #[test]
     fn test_index_alias_operations() {
         let mut alias = IndexAlias::new("test-alias", vec![IndexName::new("index1")]);
-        
+
         let index2 = IndexName::new("index2");
         alias.add_index(index2.clone());
         assert_eq!(alias.index_count(), 2);
@@ -450,11 +443,11 @@ mod tests {
     fn test_create_alias() {
         let manager = AliasManager::new();
         let indices = vec![IndexName::new("index1"), IndexName::new("index2")];
-        
+
         let alias = manager.create_alias("test-alias", indices, None).unwrap();
         assert_eq!(alias.name.as_str(), "test-alias");
         assert_eq!(alias.index_count(), 2);
-        
+
         assert!(manager.alias_exists("test-alias"));
         assert_eq!(manager.list_aliases().len(), 1);
     }
@@ -464,14 +457,19 @@ mod tests {
         let manager = AliasManager::new();
         let result = manager.create_alias("test-alias", vec![], None);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("at least one target index"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("at least one target index")
+        );
     }
 
     #[test]
     fn test_create_duplicate_alias() {
         let manager = AliasManager::new();
         let indices = vec![IndexName::new("index1")];
-        
+
         manager.create_alias("test-alias", indices, None).unwrap();
         let result = manager.create_alias("test-alias", vec![IndexName::new("index2")], None);
         assert!(result.is_err());
@@ -490,10 +488,10 @@ mod tests {
     fn test_delete_alias() {
         let manager = AliasManager::new();
         let indices = vec![IndexName::new("index1")];
-        
+
         manager.create_alias("test-alias", indices, None).unwrap();
         assert!(manager.alias_exists("test-alias"));
-        
+
         manager.delete_alias("test-alias").unwrap();
         assert!(!manager.alias_exists("test-alias"));
     }
@@ -502,8 +500,10 @@ mod tests {
     fn test_resolve_alias() {
         let manager = AliasManager::new();
         let indices = vec![IndexName::new("index1"), IndexName::new("index2")];
-        
-        manager.create_alias("test-alias", indices.clone(), None).unwrap();
+
+        manager
+            .create_alias("test-alias", indices.clone(), None)
+            .unwrap();
         let resolved = manager.resolve_alias("test-alias").unwrap();
         assert_eq!(resolved, indices);
     }
@@ -511,11 +511,21 @@ mod tests {
     #[test]
     fn test_get_aliases_for_index() {
         let manager = AliasManager::new();
-        
-        manager.create_alias("alias1", vec![IndexName::new("index1")], None).unwrap();
-        manager.create_alias("alias2", vec![IndexName::new("index1"), IndexName::new("index2")], None).unwrap();
-        manager.create_alias("alias3", vec![IndexName::new("index2")], None).unwrap();
-        
+
+        manager
+            .create_alias("alias1", vec![IndexName::new("index1")], None)
+            .unwrap();
+        manager
+            .create_alias(
+                "alias2",
+                vec![IndexName::new("index1"), IndexName::new("index2")],
+                None,
+            )
+            .unwrap();
+        manager
+            .create_alias("alias3", vec![IndexName::new("index2")], None)
+            .unwrap();
+
         let aliases = manager.get_aliases_for_index("index1");
         assert_eq!(aliases.len(), 2);
         assert!(aliases.iter().any(|a| a.name.as_str() == "alias1"));

@@ -7,3 +7,4 @@ pub mod lql;
 pub mod search;
 pub mod server;
 pub mod snapshot;
+pub mod template;
