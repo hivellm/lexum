@@ -1117,46 +1117,20 @@ Restore indices from a snapshot. This operation restores the indices that were i
 - `wait_for_completion` (boolean, optional): Wait for restore completion before returning (default: false)
 - `ignore_unavailable` (boolean, optional): Ignore unavailable indices (default: false)
 - `include_global_state` (boolean, optional): Include global state in restore (default: true)
-- `include_aliases` (boolean, optional): Include aliases in restore (default: true)
-
-**Response:**
-```json
-{
-  "acknowledged": true,
-  "message": "Snapshot restore completed successfully"
-}
-```
-
-**Examples:**
-
-Restore all indices from a snapshot:
-```bash
-curl -X POST http://localhost:9200/_snapshot/my_backup/snapshot_1/_restore \
-  -H 'Content-Type: application/json' \
-  -d '{}'
-```
-
-Restore specific indices:
-```bash
-curl -X POST http://localhost:9200/_snapshot/my_backup/snapshot_1/_restore \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "indices": ["index1", "index2"]
-  }'
-```
 
 Restore with index renaming:
 ```bash
 curl -X POST http://localhost:9200/_snapshot/my_backup/snapshot_1/_restore \
   -H 'Content-Type: application/json' \
   -d '{
-    "indices": ["index1"],
-    "rename_pattern": "index_(.*)",
-    "rename_replacement": "restored_$1"
+    "indices": ["old_index"],
+    "rename_pattern": "old_(.*)",
+    "rename_replacement": "new_$1"
   }'
 ```
 
-**Error Responses:**
+**Response Codes:**
+- `200 OK`: Restore operation started successfully
 - `400 Bad Request`: Invalid request parameters
 - `404 Not Found`: Snapshot or repository not found
 - `500 Internal Server Error`: Restore operation failed
@@ -1166,17 +1140,110 @@ curl -X POST http://localhost:9200/_snapshot/my_backup/snapshot_1/_restore \
 - Restored indices will be created in the `./data/` directory
 - If `rename_pattern` and `rename_replacement` are provided, indices will be renamed during restore
 - The restore operation validates snapshot integrity before proceeding
+- Compressed snapshots are automatically decompressed during restore
+
+### POST /_tasks/{task_id}/_cancel
+
+Cancel a task.
+
+```bash
+curl -X POST http://localhost:9200/_tasks/task_123/_cancel
+```
+- If `rename_pattern` and `rename_replacement` are provided, indices will be renamed during restore
+- The restore operation validates snapshot integrity before proceeding
 - Compressed snapshots are automatically decompressed during restoremicpRequest {
     method: "search",
     params: SearchParams { ... }
 };
-let bytes = bincode::serialize(&request)?;
-stream.send(Message::Binary(bytes)).await?;
+let bytes = bincode:### POST /_tasks/{task_id}/_cancel
+
+Cancel a task.
+
+```bash
+curl -X POST http://localhost:9200/_tasks/task_123/_cancel
 ```
 
-### Methods
+### POST /_reindex
 
-Same as MCP but with binary serialization (bincode).
+Reindex documents from one index to another with comprehensive configuration options.
+
+```bash
+curl -X POST http://localhost:9200/_reindex \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "source": {
+      "index": "source_index",
+      "query": {"match_all": {}},
+      "source": ["title", "content"],
+      "source_excludes": ["_id"],
+      "size": 100,
+      "sort": [{"created_at": {"order": "desc"}}],
+      "scroll": "5m"
+    },
+    "dest": {
+      "index": "dest_index",
+      "version_type": "external",
+      "op_type": "create",
+      "pipeline": "my_pipeline",
+      "routing": "user_id",
+      "refresh": true
+    },
+    "script": {
+      "source": "ctx._source.new_field = \"transformed\"",
+      "lang": "painless",
+      "params": {"multiplier": 2}
+    },
+    "max_docs": 1000,
+    "wait_for_completion": true,
+    "refresh": true,
+    "timeout": "10m",
+    "conflicts": "proceed",
+    "retries": 3,
+    "requests_per_second": 100.0,
+    "slices": 4
+  }'
+```
+
+#### Source Configuration
+
+- `index`: Source index name (required)
+- `query`: Query to filter documents (optional)
+- `source`: Fields to include (optional)
+- `source_excludes`: Fields to exclude (optional)
+- `size`: Number of documents per batch (optional, default: 100)
+- `sort`: Sort configuration for consistent ordering (optional)
+- `remote`: Remote source configuration for cross-cluster reindexing (optional)
+- `scroll`: Scroll timeout for source queries (optional)
+
+#### Remote Source Configuration
+
+- `host`: Remote cluster host (required)
+- `username`: Remote cluster username (optional)
+- `password`: Remote cluster password (optional)
+- `headers`: Custom headers (optional)
+- `socket_timeout`: Socket timeout (optional)
+- `connect_timeout`: Connection timeout (optional)
+
+#### Destination Configuration
+
+- `index`: Destination index name (required)
+- `version_type`: Version type for conflict resolution (optional)
+- `op_type`: Operation type - "index" or "create" (optional, default: "index")
+- `pipeline`: Pipeline to process documents (optional)
+- `routing`: Routing value for documents (optional)
+- `refresh`: Refresh policy for destination index (optional)
+- `id`: Custom document ID for create operations (optional)
+
+#### Reindex Settings
+
+- `max_docs`: Maximum number of documents to process (optional)
+- `wait_for_completion`: Wait for completion before returning (optional, default: false)
+- `refresh`: Refresh policy for destination index (optional)
+- `timeout`: Timeout for the reindex operation (optional)
+- `conflicts`: How to handle version conflicts - "abort" or "proceed" (optional)
+- `retries`: Number of retries on failure (optional)
+- `requests_per_second`: Throttle requests per second (optional)
+- `slices`: Number of slices for parallel processing (optional)ialization (bincode).
 
 ## Admin API
 

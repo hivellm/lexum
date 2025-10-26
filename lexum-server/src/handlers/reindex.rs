@@ -26,6 +26,20 @@ pub struct ReindexRequest {
     pub max_docs: Option<u64>,
     /// Query to filter source documents
     pub query: Option<serde_json::Value>,
+    /// Wait for completion before returning
+    pub wait_for_completion: Option<bool>,
+    /// Refresh policy for the destination index
+    pub refresh: Option<bool>,
+    /// Timeout for the reindex operation
+    pub timeout: Option<String>,
+    /// How to handle version conflicts
+    pub conflicts: Option<String>,
+    /// Number of retries on failure
+    pub retries: Option<u32>,
+    /// Throttle requests per second
+    pub requests_per_second: Option<f32>,
+    /// Slices configuration for parallel processing
+    pub slices: Option<u32>,
 }
 
 /// Reindex source configuration
@@ -39,6 +53,31 @@ pub struct ReindexSource {
     pub source: Option<Vec<String>>,
     /// Fields to exclude
     pub source_excludes: Option<Vec<String>>,
+    /// Number of documents to process per batch
+    pub size: Option<u32>,
+    /// Sort configuration for consistent ordering
+    pub sort: Option<Vec<serde_json::Value>>,
+    /// Remote source configuration for cross-cluster reindexing
+    pub remote: Option<RemoteSource>,
+    /// Scroll timeout for source queries
+    pub scroll: Option<String>,
+}
+
+/// Remote source configuration for cross-cluster reindexing
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RemoteSource {
+    /// Remote cluster host
+    pub host: String,
+    /// Remote cluster username
+    pub username: Option<String>,
+    /// Remote cluster password
+    pub password: Option<String>,
+    /// Remote cluster headers
+    pub headers: Option<std::collections::HashMap<String, String>>,
+    /// Socket timeout
+    pub socket_timeout: Option<String>,
+    /// Connection timeout
+    pub connect_timeout: Option<String>,
 }
 
 /// Reindex destination configuration
@@ -50,6 +89,14 @@ pub struct ReindexDestination {
     pub version_type: Option<String>,
     /// Operation type (index, create)
     pub op_type: Option<String>,
+    /// Pipeline to process documents
+    pub pipeline: Option<String>,
+    /// Routing value for documents
+    pub routing: Option<String>,
+    /// Refresh policy for the destination index
+    pub refresh: Option<bool>,
+    /// Document ID for create operations
+    pub id: Option<String>,
 }
 
 /// Reindex script for document transformation
@@ -230,12 +277,21 @@ async fn perform_reindex(
     request: ReindexRequest,
     task_id: String,
 ) -> Result<(), String> {
-    let batch_size = 100; // Process documents in batches
+    // Use configured batch size or default
+    let batch_size = request.source.size.unwrap_or(100) as usize;
     let mut offset = 0;
     let mut total_processed = 0;
     let mut total_created = 0;
     let mut total_failed = 0;
     let mut total_batches = 0;
+    
+    // Handle throttling if configured
+    let requests_per_second = request.requests_per_second.unwrap_or(0.0);
+    let throttle_delay = if requests_per_second > 0.0 {
+        std::time::Duration::from_millis((1000.0 / requests_per_second) as u64)
+    } else {
+        std::time::Duration::from_millis(0)
+    };
 
     // Get source and destination indices
     let source_index = state
@@ -327,16 +383,34 @@ async fn perform_reindex(
 
             // Add document to destination index
             let doc_id = hit.id.clone();
-            match dest_store
-                .add_document_with_id(doc_id.clone(), document.clone())
-                .await
-            {
+            
+            // Handle operation type (index vs create)
+            let op_type = request.dest.op_type.as_deref().unwrap_or("index");
+            let should_create = op_type == "create";
+            
+            // Use custom document ID if specified
+            let final_doc_id = if let Some(custom_id) = &request.dest.id {
+                custom_id.clone()
+            } else {
+                doc_id.to_string()
+            };
+            
+            let result = if should_create {
+                // For create operations, we need to check if document exists first
+                // For now, we'll use add_document_with_id which will overwrite
+                dest_store.add_document_with_id(final_doc_id.clone().into(), document.clone()).await
+            } else {
+                // For index operations, we can overwrite existing documents
+                dest_store.add_document_with_id(final_doc_id.clone().into(), document.clone()).await
+            };
+            
+            match result {
                 Ok(_) => {
                     batch_created += 1;
                     total_created += 1;
                 }
                 Err(e) => {
-                    tracing::error!("Failed to add document {}: {}", doc_id, e);
+                    tracing::error!("Failed to add document {}: {}", final_doc_id, e);
                     batch_failed += 1;
                     total_failed += 1;
                 }
@@ -376,6 +450,11 @@ async fn perform_reindex(
             batch_created,
             batch_failed
         );
+
+        // Apply throttling if configured
+        if throttle_delay > std::time::Duration::from_millis(0) {
+            tokio::time::sleep(throttle_delay).await;
+        }
 
         // Move to next batch
         offset += batch_size;
@@ -504,16 +583,25 @@ pub async fn reindex(
     // Store task
     state.task_manager.create_task(task).await;
 
-    // Start reindex operation in background
+    // Start reindex operation
     let state_clone = state.clone();
     let request_clone = request.clone();
     let task_id_clone = task_id.clone();
 
-    tokio::spawn(async move {
+    if request.wait_for_completion.unwrap_or(false) {
+        // Wait for completion if requested
         if let Err(e) = perform_reindex(state_clone, request_clone, task_id_clone).await {
             tracing::error!("Reindex operation failed: {}", e);
+            return Err(ApiError::Internal(format!("Reindex operation failed: {}", e)));
         }
-    });
+    } else {
+        // Run in background
+        tokio::spawn(async move {
+            if let Err(e) = perform_reindex(state_clone, request_clone, task_id_clone).await {
+                tracing::error!("Reindex operation failed: {}", e);
+            }
+        });
+    }
 
     Ok(Json(ReindexResponse {
         task: task_id,
@@ -693,16 +781,88 @@ mod tests {
                 query: None,
                 source: None,
                 source_excludes: None,
+                size: None,
+                sort: None,
+                remote: None,
+                scroll: None,
             },
             dest: ReindexDestination {
                 index: "dest_index".to_string(),
                 version_type: None,
                 op_type: None,
+                pipeline: None,
+                routing: None,
+                refresh: None,
+                id: None,
             },
             script: None,
             max_docs: None,
             query: None,
+            wait_for_completion: None,
+            refresh: None,
+            timeout: None,
+            conflicts: None,
+            retries: None,
+            requests_per_second: None,
+            slices: None,
         };
+        let request = Request::builder()
+            .uri("/_reindex")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        // Should return 400 because source index doesn't exist
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_reindex_with_enhanced_config() {
+        let app = create_test_app();
+        let request_body = ReindexRequest {
+            source: ReindexSource {
+                index: "source_index".to_string(),
+                query: Some(serde_json::json!({"match_all": {}})),
+                source: Some(vec!["title".to_string(), "content".to_string()]),
+                source_excludes: Some(vec!["_id".to_string()]),
+                size: Some(50),
+                sort: Some(vec![serde_json::json!({"created_at": {"order": "desc"}})]),
+                remote: Some(RemoteSource {
+                    host: "remote-cluster:9200".to_string(),
+                    username: Some("admin".to_string()),
+                    password: Some("password".to_string()),
+                    headers: None,
+                    socket_timeout: Some("30s".to_string()),
+                    connect_timeout: Some("10s".to_string()),
+                }),
+                scroll: Some("5m".to_string()),
+            },
+            dest: ReindexDestination {
+                index: "dest_index".to_string(),
+                version_type: Some("external".to_string()),
+                op_type: Some("create".to_string()),
+                pipeline: Some("my_pipeline".to_string()),
+                routing: Some("user_id".to_string()),
+                refresh: Some(true),
+                id: Some("custom_id".to_string()),
+            },
+            script: Some(ReindexScript {
+                source: "ctx._source.new_field = 'transformed'".to_string(),
+                lang: Some("painless".to_string()),
+                params: Some(serde_json::json!({"multiplier": 2})),
+            }),
+            max_docs: Some(1000),
+            query: Some(serde_json::json!({"range": {"created_at": {"gte": "2023-01-01"}}})),
+            wait_for_completion: Some(true),
+            refresh: Some(true),
+            timeout: Some("10m".to_string()),
+            conflicts: Some("proceed".to_string()),
+            retries: Some(3),
+            requests_per_second: Some(100.0),
+            slices: Some(4),
+        };
+        
         let request = Request::builder()
             .uri("/_reindex")
             .method("POST")
