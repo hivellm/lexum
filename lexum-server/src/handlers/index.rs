@@ -5,7 +5,7 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use lexum_core::{
-    FieldConfig, FieldType, IndexManager, IndexSettings, SchemaBuilder, SnapshotManager,
+    FieldConfig, FieldType, IndexManager, IndexSettings, SchemaBuilder, SnapshotManager, TemplateManager,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -19,6 +19,8 @@ pub struct AppState {
     pub index_manager: Arc<IndexManager>,
     /// Snapshot manager
     pub snapshot_manager: Arc<RwLock<SnapshotManager>>,
+    /// Template manager
+    pub template_manager: Arc<TemplateManager>,
 }
 
 impl Default for AppState {
@@ -49,6 +51,7 @@ impl Default for AppState {
         Self {
             index_manager: Arc::new(IndexManager::new(&temp_dir)),
             snapshot_manager,
+            template_manager: Arc::new(TemplateManager::new()),
         }
     }
 }
@@ -369,6 +372,7 @@ mod tests {
         AppState {
             index_manager: Arc::new(IndexManager::new(temp_path)),
             snapshot_manager,
+            template_manager: Arc::new(TemplateManager::new()),
         }
     }
 

@@ -555,8 +555,203 @@ curl -X POST http://localhost:9200/my_index/_search \
     "view_stats": {
       "count": 1000,
       "min": 0,
-      "max": 5000,
-      "avg": 250.5,
+      "max": 5000,```
+
+## Template API
+
+Index templates allow you to automatically apply settings and mappings to new indices based on naming patterns.
+
+### PUT /_template/{name}
+
+Create or update an index template.
+
+**Request Body:**
+```json
+{
+  "index_patterns": ["logs-*", "metrics-*"],
+  "priority": 1,
+  "version": 1,
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "refresh_interval": 5,
+    "custom": {
+      "analysis": {
+        "analyzer": "standard"
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "title": {
+        "type": "text",
+        "analyzer": "standard"
+      },
+      "timestamp": {
+        "type": "date"
+      },
+      "level": {
+        "type": "keyword"
+      }
+    }
+  },
+  "order": 0
+}
+```
+
+**Response:**
+```json
+{
+  "name": "logs-template",
+  "acknowledged": true
+}
+```
+
+**Example:**
+```bash
+curl -X PUT http://localhost:9200/_template/logs-template \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "index_patterns": ["logs-*"],
+    "priority": 1,
+    "version": 1,
+    "settings": {
+      "number_of_shards": 2,
+      "number_of_replicas": 1,
+      "refresh_interval": 5
+    },
+    "mappings": {
+      "properties": {
+        "message": {
+          "type": "text",
+          "analyzer": "standard"
+        },
+        "timestamp": {
+          "type": "date"
+        },
+        "level": {
+          "type": "keyword"
+        }
+      }
+    },
+    "order": 0
+  }'
+```
+
+### GET /_template/{name}
+
+Get a specific template.
+
+**Response:**
+```json
+{
+  "name": "logs-template",
+  "index_patterns": ["logs-*"],
+  "priority": 1,
+  "version": 1,
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "refresh_interval": 5
+  },
+  "mappings": {
+    "properties": {
+      "message": {
+        "type": "text",
+        "analyzer": "standard"
+      },
+      "timestamp": {
+        "type": "date"
+      },
+      "level": {
+        "type": "keyword"
+      }
+    }
+  },
+  "order": 0
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_template/logs-template
+```
+
+### GET /_template
+
+List all templates.
+
+**Response:**
+```json
+{
+  "templates": [
+    {
+      "name": "logs-template",
+      "index_patterns": ["logs-*"],
+      "priority": 1,
+      "version": 1,
+      "settings": {
+        "number_of_shards": 2,
+        "number_of_replicas": 1,
+        "refresh_interval": 5
+      },
+      "mappings": {
+        "properties": {
+          "message": {
+            "type": "text",
+            "analyzer": "standard"
+          },
+          "timestamp": {
+            "type": "date"
+          },
+          "level": {
+            "type": "keyword"
+          }
+        }
+      },
+      "order": 0
+    }
+  ]
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:9200/_template
+```
+
+### DELETE /_template/{name}
+
+Delete a template.
+
+**Response:**
+```json
+{
+  "name": "logs-template",
+  "acknowledged": true
+}
+```
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:9200/_template/logs-template
+```
+
+### Template Parameters
+
+- **index_patterns**: Array of index patterns this template applies to (required)
+- **priority**: Template priority, higher numbers have higher priority (default: 0)
+- **version**: Template version number (default: 1)
+- **settings**: Index settings to apply
+  - **number_of_shards**: Number of primary shards (default: 1)
+  - **number_of_replicas**: Number of replica shards (default: 0)
+  - **refresh_interval**: Refresh interval in seconds (default: 1)
+  - **custom**: Additional custom settings
+- **mappings**: Field mappings to apply
+  - **properties**: Field definitions
+- **order**: Template order for sorting when priority is equal (default: 0)
+
+## LQL API50.5,
       "sum": 250500
     },
     "created_histogram": {

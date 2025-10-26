@@ -48,6 +48,12 @@ use utoipa_swagger_ui::SwaggerUi;
         crate::handlers::admin::get_node_stats,
         crate::handlers::admin::get_cluster_settings,
         crate::handlers::admin::update_cluster_settings,
+
+        // Template management
+        crate::handlers::template::put_template,
+        crate::handlers::template::get_template,
+        crate::handlers::template::delete_template,
+        crate::handlers::template::list_templates,
     ),
     components(
         schemas(
@@ -102,6 +108,18 @@ use utoipa_swagger_ui::SwaggerUi;
             crate::handlers::admin::NetworkSettings,
             crate::handlers::admin::UpdateClusterSettingsRequest,
 
+            // Template schemas
+            crate::handlers::template::PutTemplateRequest,
+            crate::handlers::template::TemplateSettingsRequest,
+            crate::handlers::template::TemplateMappingsRequest,
+            crate::handlers::template::TemplateResponse,
+            crate::handlers::template::ListTemplatesResponse,
+            lexum_core::index::template::IndexTemplate,
+            lexum_core::index::template::TemplateName,
+            lexum_core::index::template::IndexPattern,
+            lexum_core::index::template::TemplateSettings,
+            lexum_core::index::template::TemplateMappings,
+
             // Error schemas
             crate::error::ApiError,
             crate::error::ErrorResponse,
@@ -114,6 +132,7 @@ use utoipa_swagger_ui::SwaggerUi;
         (name = "Documents", description = "Document CRUD operations and bulk processing"),
         (name = "Search", description = "Search operations and query execution"),
         (name = "Snapshots", description = "Snapshot and repository management"),
+        (name = "Templates", description = "Index template management and configuration"),
         (name = "Admin", description = "Administrative operations and cluster management"),
     ),
     info(

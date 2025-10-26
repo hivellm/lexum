@@ -6,5 +6,6 @@ pub mod health;
 pub mod index;
 pub mod search;
 pub mod snapshot;
+pub mod template;
 
 pub use health::health_check;

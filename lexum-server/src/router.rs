@@ -1,7 +1,7 @@
 //! API router configuration
 
 use crate::handlers::index::AppState;
-use crate::handlers::{admin, document, health, index, search, snapshot};
+use crate::handlers::{admin, document, health, index, search, snapshot, template};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower_http::cors::CorsLayer;
@@ -83,6 +83,11 @@ pub fn build_router(state: AppState) -> Router {
             "/_snapshot/_stats",
             get(snapshot::get_global_snapshot_stats),
         )
+        // Template management
+        .route("/_template", get(template::list_templates))
+        .route("/_template/{name}", put(template::put_template))
+        .route("/_template/{name}", get(template::get_template))
+        .route("/_template/{name}", delete(template::delete_template))
         // OpenAPI documentation (temporarily disabled due to version conflicts)
         // .merge(create_swagger_ui())
         // Middleware (rate limiting implemented, ready for full Tower integration)

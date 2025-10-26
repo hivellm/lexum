@@ -6,7 +6,7 @@ use anyhow::Result;
 use lexum_core::config::Config;
 #[allow(unused_imports)]
 use lexum_core::{
-    FieldConfig, FieldType, IndexManager, IndexSettings, Query, SchemaBuilder, SearchExecutor,
+    FieldConfig, FieldType, IndexManager, IndexSettings, Query, SchemaBuilder, SearchExecutor, TemplateManager,
 };
 #[allow(unused_imports)]
 use lexum_server::handlers::index::AppState;
@@ -32,6 +32,7 @@ async fn test_full_workflow() -> Result<()> {
     let _app_state = AppState {
         index_manager: index_manager.clone(),
         snapshot_manager,
+        template_manager: Arc::new(TemplateManager::new()),
     };
 
     // Test 1: Create an index
@@ -69,6 +70,7 @@ async fn test_server_integration() -> Result<()> {
     let app_state = AppState {
         index_manager,
         snapshot_manager,
+        template_manager: Arc::new(TemplateManager::new()),
     };
 
     // Test that we can create the app state

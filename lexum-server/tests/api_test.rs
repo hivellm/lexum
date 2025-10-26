@@ -3,7 +3,7 @@
 use axum::body::Body;
 use axum::http::Request;
 use axum::http::StatusCode;
-use lexum_core::{IndexManager, SnapshotManager};
+use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
 use lexum_server::{handlers::index::AppState, router::build_router};
 use serde_json::json;
 use std::sync::Arc;
@@ -43,6 +43,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
     let state = AppState {
         index_manager,
         snapshot_manager,
+        template_manager: Arc::new(TemplateManager::new()),
     };
     (state, temp_dir)
 }

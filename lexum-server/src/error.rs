@@ -38,6 +38,10 @@ pub enum ApiError {
     #[error("Document not found: {0}")]
     DocumentNotFound(String),
 
+    /// Template not found
+    #[error("Template not found: {0}")]
+    TemplateNotFound(String),
+
     /// Invalid request
     #[error("Invalid request: {0}")]
     InvalidRequest(String),
@@ -55,7 +59,7 @@ impl ApiError {
     /// Get HTTP status code for error
     pub fn status_code(&self) -> StatusCode {
         match self {
-            Self::IndexNotFound(_) | Self::DocumentNotFound(_) => StatusCode::NOT_FOUND,
+            Self::IndexNotFound(_) | Self::DocumentNotFound(_) | Self::TemplateNotFound(_) => StatusCode::NOT_FOUND,
             Self::InvalidRequest(_) => StatusCode::BAD_REQUEST,
             Self::Internal(_) | Self::Core(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
