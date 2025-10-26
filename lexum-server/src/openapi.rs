@@ -28,6 +28,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
         // Search operations
         crate::handlers::search::search,
+        crate::handlers::search::search_get,
 
         // Snapshot and repository management
         crate::handlers::snapshot::create_or_update_repository,

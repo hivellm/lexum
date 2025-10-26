@@ -560,9 +560,11 @@ mod tests {
 
     #[test]
     fn test_snapshot_compressor_with_dictionary() {
-        let mut config = CompressionConfig::default();
-        config.use_dictionary = true;
-        config.dictionary_size = 1024;
+        let config = CompressionConfig {
+            use_dictionary: true,
+            dictionary_size: 1024,
+            ..Default::default()
+        };
 
         let compressor = SnapshotCompressor::with_dictionary(config, b"test dictionary".to_vec());
         assert!(compressor.dictionary.is_some());

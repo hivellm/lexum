@@ -141,8 +141,8 @@ fn show_document_help() {
 fn show_search_help() {
     println!("{}", "SEARCH:".bright_cyan().bold());
     println!(
-        "  {}    Search documents",
-        "search <INDEX> <QUERY> [--limit N] [--offset N] [--sort field:asc/desc] [--fields field1,field2] [--highlight] [--explain] [--min-score N]"
+        "  {}    Search documents (supports indices and aliases)",
+        "search <INDEX_OR_ALIAS> <QUERY> [--limit N] [--offset N] [--sort field:asc/desc] [--fields field1,field2] [--highlight] [--explain] [--min-score N]"
             .bright_yellow()
     );
     println!();
@@ -153,11 +153,21 @@ fn show_search_help() {
     );
     println!(
         "      {}",
-        "lexum search my_index \"search query\" --limit 20".bright_green()
+        "lexum search my_alias \"search query\" --limit 20".bright_green()
     );
     println!(
         "      {}",
         "lexum search my_index \"*\" --limit 100".bright_green()
+    );
+    println!();
+    println!("    Alias Examples:");
+    println!(
+        "      {}",
+        "lexum search my_alias \"search query\"".bright_green()
+    );
+    println!(
+        "      {}",
+        "lexum search multi_index_alias \"search across multiple indices\"".bright_green()
     );
     println!();
     println!("    Advanced Query Examples:");
@@ -167,7 +177,7 @@ fn show_search_help() {
     );
     println!(
         "      {}",
-        "lexum search my_index \"content:\"exact phrase\"\" --fields title,content".bright_green()
+        "lexum search my_alias \"content:\"exact phrase\"\" --fields title,content".bright_green()
     );
     println!(
         "      {}",
@@ -175,7 +185,7 @@ fn show_search_help() {
     );
     println!(
         "      {}",
-        "lexum search my_index \"+category:tech -status:deprecated\"".bright_green()
+        "lexum search my_alias \"+category:tech -status:deprecated\"".bright_green()
     );
     println!(
         "      {}",
@@ -369,8 +379,8 @@ fn show_examples() {
 fn show_lql_help() {
     println!("{}", "LQL (LEXUM QUERY LANGUAGE):".bright_cyan().bold());
     println!(
-        "  {}    Execute LQL query",
-        "lql <INDEX> <LQL_QUERY> [--limit N] [--sort field:asc/desc] [--fields field1,field2]"
+        "  {}    Execute LQL query (supports indices and aliases)",
+        "lql <INDEX_OR_ALIAS> <LQL_QUERY> [--limit N] [--sort field:asc/desc] [--fields field1,field2]"
             .bright_yellow()
     );
     println!();
@@ -381,7 +391,7 @@ fn show_lql_help() {
     );
     println!(
         "      {}",
-        "lexum lql my_index \"SELECT * FROM my_index WHERE category:electronics\"".bright_green()
+        "lexum lql my_alias \"FROM my_alias WHERE category:electronics\"".bright_green()
     );
     println!(
         "      {}",

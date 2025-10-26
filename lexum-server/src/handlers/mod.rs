@@ -7,6 +7,8 @@ pub mod document;
 pub mod health;
 pub mod index;
 pub mod reindex;
+/// Rollover handler for index management
+pub mod rollover;
 pub mod search;
 pub mod snapshot;
 pub mod template;

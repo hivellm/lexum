@@ -62,14 +62,14 @@ impl ReplSession {
                             break;
                         }
                         "help" => {
-                            self.show_help();
+                            Self::show_help();
                         }
                         "clear" => {
                             print!("\x1B[2J\x1B[1;1H");
                         }
                         _ => {
                             if let Err(e) = self.handle_command(line).await {
-                                println!("{}", format!("Error: {}", e).bright_red());
+                                println!("{}", format!("Error: {e}").bright_red());
                             }
                         }
                     }
@@ -82,7 +82,7 @@ impl ReplSession {
                     break;
                 }
                 Err(err) => {
-                    println!("{}", format!("Error: {}", err).bright_red());
+                    println!("{}", format!("Error: {err}").bright_red());
                     break;
                 }
             }
@@ -107,14 +107,19 @@ impl ReplSession {
             "snapshot" => self.handle_snapshot_command(&parts[1..]).await,
             "template" => self.handle_template_command(&parts[1..]).await,
             _ => {
-                println!(
-                    "{}",
-                    format!(
-                        "Unknown command: {}. Type 'help' for available commands.",
-                        parts[0]
-                    )
-                    .bright_red()
-                );
+                let command = parts[0];
+                let suggestions = Self::get_command_suggestions(command);
+
+                println!("{}", format!("Unknown command: '{command}'").bright_red());
+
+                if !suggestions.is_empty() {
+                    println!("{}", "Did you mean one of these?".bright_yellow());
+                    for suggestion in suggestions {
+                        println!("  {}", suggestion.bright_cyan());
+                    }
+                } else {
+                    println!("{}", "Type 'help' for available commands.".bright_yellow());
+                }
                 Ok(())
             }
         }
@@ -160,16 +165,13 @@ impl ReplSession {
                 });
                 match self
                     .client
-                    .put::<serde_json::Value, serde_json::Value>(
-                        &format!("/{}", name),
-                        &index_config,
-                    )
+                    .put::<serde_json::Value, serde_json::Value>(&format!("/{name}"), &index_config)
                     .await
                 {
                     Ok(_) => {
                         println!(
                             "{}",
-                            format!("Index '{}' created successfully", name).bright_green()
+                            format!("Index '{name}' created successfully").bright_green()
                         );
                     }
                     Err(_) => {
@@ -183,11 +185,11 @@ impl ReplSession {
                     return Ok(());
                 }
                 let name = args[1];
-                match self.client.delete(&format!("/{}", name)).await {
+                match self.client.delete(&format!("/{name}")).await {
                     Ok(_) => {
                         println!(
                             "{}",
-                            format!("Index '{}' deleted successfully", name).bright_green()
+                            format!("Index '{name}' deleted successfully").bright_green()
                         );
                     }
                     Err(_) => {
@@ -203,7 +205,7 @@ impl ReplSession {
                 let name = args[1];
                 match self
                     .client
-                    .get::<serde_json::Value>(&format!("/{}", name))
+                    .get::<serde_json::Value>(&format!("/{name}"))
                     .await
                 {
                     Ok(info) => {
@@ -222,7 +224,7 @@ impl ReplSession {
                 let name = args[1];
                 match self
                     .client
-                    .get::<serde_json::Value>(&format!("/{}/_stats", name))
+                    .get::<serde_json::Value>(&format!("/{name}/_stats"))
                     .await
                 {
                     Ok(stats) => {
@@ -234,11 +236,25 @@ impl ReplSession {
                 }
             }
             _ => {
+                let subcommand = args[0];
+                let suggestions = Self::get_subcommand_suggestions("index", subcommand);
+
                 println!(
                     "{}",
-                    "Unknown index command. Available: list, create, delete, get, stats"
-                        .bright_red()
+                    format!("Unknown index command: '{subcommand}'").bright_red()
                 );
+
+                if !suggestions.is_empty() {
+                    println!("{}", "Did you mean one of these?".bright_yellow());
+                    for suggestion in suggestions {
+                        println!("  {}", suggestion.bright_cyan());
+                    }
+                } else {
+                    println!(
+                        "{}",
+                        "Available: list, create, delete, get, stats".bright_yellow()
+                    );
+                }
             }
         }
         Ok(())
@@ -263,7 +279,7 @@ impl ReplSession {
                 let doc: serde_json::Value = serde_json::from_str(&content)?;
                 match self
                     .client
-                    .post::<serde_json::Value, serde_json::Value>(&format!("/{}/_doc", index), &doc)
+                    .post::<serde_json::Value, serde_json::Value>(&format!("/{index}/_doc"), &doc)
                     .await
                 {
                     Ok(result) => {
@@ -286,7 +302,7 @@ impl ReplSession {
                 let id = args[2];
                 match self
                     .client
-                    .get::<serde_json::Value>(&format!("/{}/_doc/{}", index, id))
+                    .get::<serde_json::Value>(&format!("/{index}/_doc/{id}"))
                     .await
                 {
                     Ok(doc) => {
@@ -304,7 +320,7 @@ impl ReplSession {
                 }
                 let index = args[1];
                 let id = args[2];
-                match self.client.delete(&format!("/{}/_doc/{}", index, id)).await {
+                match self.client.delete(&format!("/{index}/_doc/{id}")).await {
                     Ok(_) => {
                         println!("{}", "Document deleted successfully".bright_green());
                     }
@@ -323,7 +339,7 @@ impl ReplSession {
                 let content = std::fs::read_to_string(file)?;
                 match self
                     .client
-                    .post::<String, serde_json::Value>(&format!("/{}/_bulk", index), &content)
+                    .post::<String, serde_json::Value>(&format!("/{index}/_bulk"), &content)
                     .await
                 {
                     Ok(result) => {
@@ -377,7 +393,7 @@ impl ReplSession {
         match self
             .client
             .post::<serde_json::Value, serde_json::Value>(
-                &format!("/{}/_search", index),
+                &format!("/{index}/_search"),
                 &search_request,
             )
             .await
@@ -442,7 +458,7 @@ impl ReplSession {
                             "red" => "bright_red",
                             _ => "white",
                         };
-                        println!("{}", format!("Cluster status: {}", status).color(color));
+                        println!("{}", format!("Cluster status: {status}").color(color));
                     }
                     Err(_) => {
                         println!("{}", "Failed to get cluster health".bright_red());
@@ -492,7 +508,7 @@ impl ReplSession {
                 match self
                     .client
                     .put::<serde_json::Value, serde_json::Value>(
-                        &format!("/_snapshot/repo/{}", name),
+                        &format!("/_snapshot/repo/{name}"),
                         &snapshot_config,
                     )
                     .await
@@ -500,7 +516,7 @@ impl ReplSession {
                     Ok(_response) => {
                         println!(
                             "{}",
-                            format!("Snapshot '{}' created successfully", name).bright_green()
+                            format!("Snapshot '{name}' created successfully").bright_green()
                         );
                     }
                     Err(_) => {
@@ -514,15 +530,11 @@ impl ReplSession {
                     return Ok(());
                 }
                 let name = args[1];
-                match self
-                    .client
-                    .delete(&format!("/_snapshot/repo/{}", name))
-                    .await
-                {
+                match self.client.delete(&format!("/_snapshot/repo/{name}")).await {
                     Ok(_) => {
                         println!(
                             "{}",
-                            format!("Snapshot '{}' deleted successfully", name).bright_green()
+                            format!("Snapshot '{name}' deleted successfully").bright_green()
                         );
                     }
                     Err(_) => {
@@ -575,7 +587,7 @@ impl ReplSession {
                 match self
                     .client
                     .put::<serde_json::Value, serde_json::Value>(
-                        &format!("/_template/{}", name),
+                        &format!("/_template/{name}"),
                         &template_config,
                     )
                     .await
@@ -583,7 +595,7 @@ impl ReplSession {
                     Ok(_response) => {
                         println!(
                             "{}",
-                            format!("Template '{}' created successfully", name).bright_green()
+                            format!("Template '{name}' created successfully").bright_green()
                         );
                     }
                     Err(_) => {
@@ -597,11 +609,11 @@ impl ReplSession {
                     return Ok(());
                 }
                 let name = args[1];
-                match self.client.delete(&format!("/_template/{}", name)).await {
+                match self.client.delete(&format!("/_template/{name}")).await {
                     Ok(_) => {
                         println!(
                             "{}",
-                            format!("Template '{}' deleted successfully", name).bright_green()
+                            format!("Template '{name}' deleted successfully").bright_green()
                         );
                     }
                     Err(_) => {
@@ -619,8 +631,42 @@ impl ReplSession {
         Ok(())
     }
 
+    /// Get command suggestions for unknown commands
+    fn get_command_suggestions(command: &str) -> Vec<String> {
+        let all_commands = vec![
+            "help", "exit", "quit", "index", "doc", "search", "server", "snapshot", "template",
+            "lql",
+        ];
+
+        all_commands
+            .into_iter()
+            .filter(|cmd| cmd.starts_with(command) || command.len() > 2 && cmd.contains(command))
+            .map(|cmd| cmd.to_string())
+            .collect()
+    }
+
+    /// Get subcommand suggestions for unknown subcommands
+    fn get_subcommand_suggestions(command: &str, subcommand: &str) -> Vec<String> {
+        let subcommands = match command {
+            "index" => vec!["list", "create", "delete", "get", "stats"],
+            "doc" => vec!["add", "get", "delete", "bulk"],
+            "server" => vec!["start", "stop", "status", "config"],
+            "snapshot" => vec!["list", "create", "delete", "get", "list-repos", "repo"],
+            "template" => vec!["list", "create", "delete", "get"],
+            _ => vec![],
+        };
+
+        subcommands
+            .into_iter()
+            .filter(|cmd| {
+                cmd.starts_with(subcommand) || subcommand.len() > 2 && cmd.contains(subcommand)
+            })
+            .map(|cmd| cmd.to_string())
+            .collect()
+    }
+
     /// Show help information
-    fn show_help(&self) {
+    fn show_help() {
         println!("{}", "Available commands:".bright_blue().bold());
         println!();
         println!("{}", "Index Management:".bright_yellow());
@@ -723,7 +769,7 @@ impl LexumHelper {
                     }
                 }
                 "server" => {
-                    let subcommands = vec!["status", "health"];
+                    let subcommands = vec!["start", "stop", "status", "config"];
                     for subcmd in subcommands {
                         if subcmd.starts_with(line.trim()) {
                             suggestions.push(Pair {
@@ -734,7 +780,7 @@ impl LexumHelper {
                     }
                 }
                 "snapshot" => {
-                    let subcommands = vec!["list", "create", "delete"];
+                    let subcommands = vec!["list", "create", "delete", "get", "list-repos", "repo"];
                     for subcmd in subcommands {
                         if subcmd.starts_with(line.trim()) {
                             suggestions.push(Pair {
@@ -745,7 +791,7 @@ impl LexumHelper {
                     }
                 }
                 "template" => {
-                    let subcommands = vec!["list", "create", "delete"];
+                    let subcommands = vec!["list", "create", "delete", "get"];
                     for subcmd in subcommands {
                         if subcmd.starts_with(line.trim()) {
                             suggestions.push(Pair {
@@ -831,7 +877,8 @@ impl Highlighter for LexumHelper {
         candidate: &'c str,
         _completion: rustyline::CompletionType,
     ) -> std::borrow::Cow<'c, str> {
-        self.highlighter.highlight_candidate(candidate, _completion)
+        self.highlighter
+            .highlight_candidate(candidate, rustyline::CompletionType::List)
     }
 
     fn highlight_char(&self, line: &str, pos: usize, forced: bool) -> bool {

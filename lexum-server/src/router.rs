@@ -46,6 +46,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/bulk", post(document::bulk_operations))
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
+        .route("/api/v1/indices/{index}/search", get(search::search_get))
         // Snapshot repositories
         .route(
             "/_snapshot/{repository}",

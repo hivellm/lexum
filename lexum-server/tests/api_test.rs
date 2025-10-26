@@ -125,6 +125,11 @@ fn test_search_request() {
         limit: 20,
         offset: 10,
         sort: Some(SortOption::desc("_score")),
+        fields: None,
+        highlight: None,
+        explain: false,
+        min_score: None,
+        q: None,
     };
 
     assert_eq!(request.limit, 20);

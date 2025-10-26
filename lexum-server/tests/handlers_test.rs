@@ -198,6 +198,11 @@ fn test_search_request_defaults() {
         limit: 10,
         offset: 0,
         sort: None,
+        fields: None,
+        highlight: None,
+        explain: false,
+        min_score: None,
+        q: None,
     };
 
     assert_eq!(request.limit, 10);
@@ -212,6 +217,11 @@ fn test_search_request_with_sort() {
         limit: 20,
         offset: 5,
         sort: Some(SortOption::asc("date")),
+        fields: None,
+        highlight: None,
+        explain: false,
+        min_score: None,
+        q: None,
     };
 
     assert_eq!(request.limit, 20);
@@ -230,6 +240,11 @@ fn test_search_request_with_fuzzy_query() {
         limit: 10,
         offset: 0,
         sort: None,
+        fields: None,
+        highlight: None,
+        explain: false,
+        min_score: None,
+        q: None,
     };
 
     assert!(matches!(request.query, Query::Fuzzy(_)));
@@ -242,6 +257,11 @@ fn test_search_request_with_phrase_query() {
         limit: 10,
         offset: 0,
         sort: None,
+        fields: None,
+        highlight: None,
+        explain: false,
+        min_score: None,
+        q: None,
     };
 
     assert!(matches!(request.query, Query::Phrase(_)));
@@ -258,6 +278,11 @@ fn test_search_request_with_bool_query() {
         limit: 50,
         offset: 0,
         sort: Some(SortOption::desc("_score")),
+        fields: None,
+        highlight: None,
+        explain: false,
+        min_score: None,
+        q: None,
     };
 
     assert_eq!(request.limit, 50);
@@ -297,6 +322,11 @@ fn test_search_request_serialization() {
         limit: 15,
         offset: 5,
         sort: Some(SortOption::desc("timestamp")),
+        fields: None,
+        highlight: None,
+        explain: false,
+        min_score: None,
+        q: None,
     };
 
     let json = serde_json::to_string(&request).unwrap();

@@ -16,6 +16,15 @@ pub enum SortOrder {
     Desc,
 }
 
+impl std::fmt::Display for SortOrder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SortOrder::Asc => write!(f, "asc"),
+            SortOrder::Desc => write!(f, "desc"),
+        }
+    }
+}
+
 /// Sort option for a field
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SortOption {

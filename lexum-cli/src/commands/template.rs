@@ -58,10 +58,10 @@ pub async fn handle_template_command(
                 .await
             {
                 Ok(_response) => {
-                    print_success(&format!("Template '{}' created successfully", name));
+                    print_success(&format!("Template '{name}' created successfully"));
                 }
                 Err(e) => {
-                    print_error(&format!("Error creating template: {}", e));
+                    print_error(&format!("Error creating template: {e}"));
                 }
             }
         }
@@ -70,29 +70,29 @@ pub async fn handle_template_command(
                 println!("{}", format_output(&templates, output_format)?);
             }
             Err(e) => {
-                print_error(&format!("Error listing templates: {}", e));
+                print_error(&format!("Error listing templates: {e}"));
             }
         },
         TemplateAction::Get { name } => {
             match client
-                .get::<serde_json::Value>(&format!("/_template/{}", name))
+                .get::<serde_json::Value>(&format!("/_template/{name}"))
                 .await
             {
                 Ok(template) => {
                     println!("{}", format_output(&template, output_format)?);
                 }
                 Err(e) => {
-                    print_error(&format!("Error getting template: {}", e));
+                    print_error(&format!("Error getting template: {e}"));
                 }
             }
         }
         TemplateAction::Delete { name } => {
-            match client.delete(&format!("/_template/{}", name)).await {
+            match client.delete(&format!("/_template/{name}")).await {
                 Ok(_response) => {
-                    print_success(&format!("Template '{}' deleted successfully", name));
+                    print_success(&format!("Template '{name}' deleted successfully"));
                 }
                 Err(e) => {
-                    print_error(&format!("Error deleting template: {}", e));
+                    print_error(&format!("Error deleting template: {e}"));
                 }
             }
         }

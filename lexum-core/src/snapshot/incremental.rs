@@ -491,6 +491,7 @@ impl Default for IncrementalSnapshotManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::snapshot::compression::CompressionType;
 
     #[test]
     fn test_incremental_snapshot_manager_creation() {
