@@ -1,0 +1,418 @@
+//! Performance profiler for detailed analysis
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
+use serde::{Deserialize, Serialize};
+
+/// Performance profiler for detailed analysis
+#[derive(Debug, Clone)]
+pub struct Profiler {
+    profiles: Arc<RwLock<HashMap<String, Profile>>>,
+    enabled: bool,
+}
+
+impl Profiler {
+    /// Create new profiler
+    pub fn new() -> Self {
+        Self {
+            profiles: Arc::new(RwLock::new(HashMap::new())),
+            enabled: true,
+        }
+    }
+
+    /// Create profiler with enabled/disabled state
+    pub fn with_enabled(enabled: bool) -> Self {
+        Self {
+            profiles: Arc::new(RwLock::new(HashMap::new())),
+            enabled,
+        }
+    }
+
+    /// Start profiling an operation
+    pub async fn start_profile(&self, name: &str) -> Option<ProfileHandle> {
+        if !self.enabled {
+            return None;
+        }
+
+        let mut profiles = self.profiles.write().await;
+        let profile = profiles.entry(name.to_string()).or_insert_with(Profile::new);
+        profile.start();
+        
+        Some(ProfileHandle {
+            name: name.to_string(),
+            start_time: Instant::now(),
+            profiler: self.clone(),
+        })
+    }
+
+    /// Get profile for an operation
+    pub async fn get_profile(&self, name: &str) -> Option<Profile> {
+        let profiles = self.profiles.read().await;
+        profiles.get(name).cloned()
+    }
+
+    /// Get all profiles
+    pub async fn get_all_profiles(&self) -> HashMap<String, Profile> {
+        self.profiles.read().await.clone()
+    }
+
+    /// Clear all profiles
+    pub async fn clear(&self) {
+        let mut profiles = self.profiles.write().await;
+        profiles.clear();
+    }
+
+    /// Enable/disable profiling
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    /// Check if profiling is enabled
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+}
+
+impl Default for Profiler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Profile handle for tracking a single operation
+#[derive(Debug)]
+pub struct ProfileHandle {
+    name: String,
+    start_time: Instant,
+    profiler: Profiler,
+}
+
+impl ProfileHandle {
+    /// Finish profiling and record the measurement
+    pub async fn finish(self) {
+        let duration = self.start_time.elapsed();
+        let mut profiles = self.profiler.profiles.write().await;
+        if let Some(profile) = profiles.get_mut(&self.name) {
+            profile.add_measurement(duration);
+        }
+    }
+}
+
+/// Detailed profile for an operation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Profile {
+    /// Operation name
+    pub name: String,
+    /// Number of measurements
+    pub count: u64,
+    /// Total time
+    pub total_time: Duration,
+    /// Average time
+    pub avg_time: Duration,
+    /// Minimum time
+    pub min_time: Duration,
+    /// Maximum time
+    pub max_time: Duration,
+    /// Standard deviation
+    pub std_dev: Duration,
+    /// All measurements (for detailed analysis)
+    pub measurements: Vec<Duration>,
+    /// Currently running
+    pub is_running: bool,
+}
+
+impl Profile {
+    /// Create new profile
+    pub fn new() -> Self {
+        Self {
+            name: String::new(),
+            count: 0,
+            total_time: Duration::ZERO,
+            avg_time: Duration::ZERO,
+            min_time: Duration::MAX,
+            max_time: Duration::ZERO,
+            std_dev: Duration::ZERO,
+            measurements: Vec::new(),
+            is_running: false,
+        }
+    }
+
+    /// Start timing
+    pub fn start(&mut self) {
+        self.is_running = true;
+    }
+
+    /// Add a measurement
+    pub fn add_measurement(&mut self, duration: Duration) {
+        self.count += 1;
+        self.total_time += duration;
+        
+        if duration < self.min_time {
+            self.min_time = duration;
+        }
+        if duration > self.max_time {
+            self.max_time = duration;
+        }
+        
+        self.avg_time = Duration::from_nanos((self.total_time.as_nanos() / self.count as u128) as u64);
+        
+        // Keep measurements for analysis
+        self.measurements.push(duration);
+        if self.measurements.len() > 10000 {
+            self.measurements.drain(0..1000); // Keep only last 9000
+        }
+        
+        self.calculate_std_dev();
+        self.is_running = false;
+    }
+
+    /// Calculate standard deviation
+    fn calculate_std_dev(&mut self) {
+        if self.measurements.len() < 2 {
+            self.std_dev = Duration::ZERO;
+            return;
+        }
+        
+        let avg_nanos = self.avg_time.as_nanos() as f64;
+        let variance = self.measurements
+            .iter()
+            .map(|&d| {
+                let diff = d.as_nanos() as f64 - avg_nanos;
+                diff * diff
+            })
+            .sum::<f64>() / (self.measurements.len() - 1) as f64;
+        
+        let std_dev_nanos = variance.sqrt() as u64;
+        self.std_dev = Duration::from_nanos(std_dev_nanos);
+    }
+
+    /// Get percentile value
+    pub fn get_percentile(&self, percentile: f64) -> Duration {
+        if self.measurements.is_empty() {
+            return Duration::ZERO;
+        }
+        
+        let mut sorted = self.measurements.clone();
+        sorted.sort();
+        
+        let index = ((percentile / 100.0) * (sorted.len() - 1) as f64) as usize;
+        sorted[index.min(sorted.len() - 1)]
+    }
+
+    /// Get P50 (median)
+    pub fn get_p50(&self) -> Duration {
+        self.get_percentile(50.0)
+    }
+
+    /// Get P95
+    pub fn get_p95(&self) -> Duration {
+        self.get_percentile(95.0)
+    }
+
+    /// Get P99
+    pub fn get_p99(&self) -> Duration {
+        self.get_percentile(99.0)
+    }
+
+    /// Get throughput (operations per second)
+    pub fn get_throughput(&self) -> f64 {
+        if self.avg_time.is_zero() {
+            0.0
+        } else {
+            1.0 / self.avg_time.as_secs_f64()
+        }
+    }
+}
+
+/// Profiler context for automatic profiling
+pub struct ProfilerContext {
+    profiler: Profiler,
+    operation: String,
+}
+
+impl ProfilerContext {
+    /// Create new profiler context
+    pub fn new(profiler: Profiler, operation: &str) -> Self {
+        Self {
+            profiler,
+            operation: operation.to_string(),
+        }
+    }
+
+    /// Start profiling
+    pub async fn start(self) -> Option<ProfileHandle> {
+        self.profiler.start_profile(&self.operation).await
+    }
+}
+
+/// Macro for easy profiling
+#[macro_export]
+macro_rules! profile_operation {
+    ($profiler:expr, $operation:expr, $code:block) => {{
+        if let Some(mut handle) = $profiler.start_profile($operation).await {
+            let result = $code;
+            handle.finish().await;
+            result
+        } else {
+            $code
+        }
+    }};
+}
+
+/// Performance analysis tools
+pub struct PerformanceAnalyzer;
+
+impl PerformanceAnalyzer {
+    /// Analyze profiles and generate recommendations
+    pub fn analyze_profiles(profiles: &HashMap<String, Profile>) -> AnalysisReport {
+        let mut report = AnalysisReport::new();
+        
+        for (name, profile) in profiles {
+            if profile.count < 10 {
+                continue; // Skip profiles with too few samples
+            }
+            
+            // Check for performance issues
+            if profile.avg_time > Duration::from_millis(100) {
+                report.slow_operations.push(SlowOperation {
+                    name: name.clone(),
+                    avg_time: profile.avg_time,
+                    count: profile.count,
+                    recommendation: "Consider optimizing this operation".to_string(),
+                });
+            }
+            
+            // Check for high variance
+            let coefficient_of_variation = if profile.avg_time.is_zero() {
+                0.0
+            } else {
+                profile.std_dev.as_secs_f64() / profile.avg_time.as_secs_f64()
+            };
+            
+            if coefficient_of_variation > 0.5 {
+                report.inconsistent_operations.push(InconsistentOperation {
+                    name: name.clone(),
+                    std_dev: profile.std_dev,
+                    coefficient_of_variation,
+                    recommendation: "High variance detected, investigate for bottlenecks".to_string(),
+                });
+            }
+            
+            // Check for memory usage patterns
+            if profile.count > 1000 && profile.avg_time > Duration::from_millis(10) {
+                report.high_frequency_operations.push(HighFrequencyOperation {
+                    name: name.clone(),
+                    count: profile.count,
+                    avg_time: profile.avg_time,
+                    total_time: profile.total_time,
+                    recommendation: "High frequency operation, consider caching or batching".to_string(),
+                });
+            }
+        }
+        
+        report
+    }
+}
+
+/// Analysis report
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalysisReport {
+    pub slow_operations: Vec<SlowOperation>,
+    pub inconsistent_operations: Vec<InconsistentOperation>,
+    pub high_frequency_operations: Vec<HighFrequencyOperation>,
+}
+
+impl AnalysisReport {
+    pub fn new() -> Self {
+        Self {
+            slow_operations: Vec::new(),
+            inconsistent_operations: Vec::new(),
+            high_frequency_operations: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SlowOperation {
+    pub name: String,
+    pub avg_time: Duration,
+    pub count: u64,
+    pub recommendation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InconsistentOperation {
+    pub name: String,
+    pub std_dev: Duration,
+    pub coefficient_of_variation: f64,
+    pub recommendation: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HighFrequencyOperation {
+    pub name: String,
+    pub count: u64,
+    pub avg_time: Duration,
+    pub total_time: Duration,
+    pub recommendation: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_profiler() {
+        let profiler = Profiler::new();
+        
+        // Profile an operation
+        if let Some(handle) = profiler.start_profile("test_operation").await {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            handle.finish().await;
+        }
+        
+        let profile = profiler.get_profile("test_operation").await.unwrap();
+        assert_eq!(profile.count, 1);
+        assert!(profile.avg_time >= Duration::from_millis(50));
+    }
+
+    #[tokio::test]
+    async fn test_profile_analysis() {
+        let profiler = Profiler::new();
+        
+        // Add multiple measurements
+        for i in 0..20 {
+            if let Some(handle) = profiler.start_profile("test_analysis").await {
+                tokio::time::sleep(Duration::from_millis(10 + i)).await;
+                handle.finish().await;
+            }
+        }
+        
+        let profiles = profiler.get_all_profiles().await;
+        let report = PerformanceAnalyzer::analyze_profiles(&profiles);
+        
+        // Should have some analysis results
+        assert!(!report.slow_operations.is_empty() || !report.inconsistent_operations.is_empty());
+    }
+
+    #[test]
+    fn test_profile_calculations() {
+        let mut profile = Profile::new();
+        
+        profile.add_measurement(Duration::from_millis(100));
+        profile.add_measurement(Duration::from_millis(200));
+        profile.add_measurement(Duration::from_millis(300));
+        
+        assert_eq!(profile.count, 3);
+        assert_eq!(profile.total_time, Duration::from_millis(600));
+        assert_eq!(profile.avg_time, Duration::from_millis(200));
+        assert_eq!(profile.min_time, Duration::from_millis(100));
+        assert_eq!(profile.max_time, Duration::from_millis(300));
+        
+        let p50 = profile.get_p50();
+        assert!(p50 >= Duration::from_millis(100) && p50 <= Duration::from_millis(300));
+    }
+}
