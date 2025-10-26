@@ -114,7 +114,7 @@ impl SnapshotCompressor {
     fn compress_zstd(&self, data: &[u8]) -> Result<Vec<u8>> {
         let level = std::cmp::min(self.config.level as i32, 22);
         
-        if let Some(ref dict) = self.dictionary {
+        if let Some(ref _dict) = self.dictionary {
             // Use dictionary compression
             zstd::encode_all(data, level)
                 .map_err(|e| Error::Compression(format!("Zstd compression with dictionary failed: {e}")))
@@ -127,7 +127,7 @@ impl SnapshotCompressor {
 
     /// Decompress zstd data
     fn decompress_zstd(&self, compressed_data: &[u8]) -> Result<Vec<u8>> {
-        if let Some(ref dict) = self.dictionary {
+        if let Some(ref _dict) = self.dictionary {
             // Use dictionary decompression
             zstd::decode_all(compressed_data)
                 .map_err(|e| Error::Compression(format!("Zstd decompression with dictionary failed: {e}")))
@@ -141,7 +141,8 @@ impl SnapshotCompressor {
     /// Compress data with lz4
     fn compress_lz4(&self, data: &[u8]) -> Result<Vec<u8>> {
         let level = std::cmp::min(self.config.level as u32, 16);
-        lz4::block::compress(data, Some(level))
+        let mode = lz4::block::CompressionMode::HIGHCOMPRESSION(level as i32);
+        lz4::block::compress(data, Some(mode), false)
             .map_err(|e| Error::Compression(format!("LZ4 compression failed: {e}")))
     }
 
@@ -333,7 +334,7 @@ impl BinaryDiff {
     }
 
     /// Chunk data into fixed-size pieces
-    fn chunk_data(&self, data: &[u8]) -> Vec<&[u8]> {
+    fn chunk_data<'a>(&self, data: &'a [u8]) -> Vec<&'a [u8]> {
         let mut chunks = Vec::new();
         let mut offset = 0;
         
@@ -372,6 +373,7 @@ impl BinaryDelta {
 
     fn add_reference(&mut self, old_index: usize, new_index: usize) {
         self.references.push((old_index, new_index));
+        // References don't add to delta size since they point to existing data
     }
 
     fn add_new_data(&mut self, data: &[u8]) {

@@ -42,6 +42,10 @@ pub enum Error {
     /// File watching error
     #[error("File watching error: {0}")]
     FileWatch(String),
+
+    /// Compression error
+    #[error("Compression error: {0}")]
+    Compression(String),
 }
 
 impl From<serde_yaml::Error> for Error {
@@ -59,6 +63,12 @@ impl From<serde_json::Error> for Error {
 impl From<notify::Error> for Error {
     fn from(err: notify::Error) -> Self {
         Error::FileWatch(err.to_string())
+    }
+}
+
+impl From<tokio::task::JoinError> for Error {
+    fn from(err: tokio::task::JoinError) -> Self {
+        Error::Io(std::io::Error::new(std::io::ErrorKind::Other, err))
     }
 }
 

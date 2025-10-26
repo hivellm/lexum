@@ -1,16 +1,14 @@
 //! Parallel processing utilities for incremental snapshots
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::types::{IndexName, SnapshotName};
-use std::collections::HashMap;
-use std::path::Path;
 use tokio::fs;
 use tokio::task::JoinSet;
 
 /// Parallel delta processor for incremental snapshots
 pub struct ParallelDeltaProcessor {
     /// Maximum number of parallel workers
-    max_workers: usize,
+    pub max_workers: usize,
     /// Chunk size for processing
     chunk_size: usize,
 }
@@ -43,7 +41,7 @@ impl ParallelDeltaProcessor {
         let mut results = Vec::new();
 
         // Process indices in parallel with limited concurrency
-        for (i, index_name) in indices.iter().enumerate() {
+        for (_i, index_name) in indices.iter().enumerate() {
             if join_set.len() >= self.max_workers {
                 // Wait for a task to complete before starting a new one
                 if let Some(result) = join_set.join_next().await {
@@ -76,12 +74,12 @@ impl ParallelDeltaProcessor {
         index_name: IndexName,
         parent_snapshot: SnapshotName,
         snapshot_path: String,
-        chunk_size: usize,
+        _chunk_size: usize,
     ) -> Result<IndexDeltaResult> {
         let start_time = std::time::Instant::now();
         
         // Calculate delta for this index
-        let delta = Self::calculate_index_delta_chunked(&index_name, &parent_snapshot, &snapshot_path, chunk_size).await?;
+        let delta = Self::calculate_index_delta_chunked(&index_name, &parent_snapshot, &snapshot_path, _chunk_size).await?;
         
         let duration = start_time.elapsed();
         
@@ -98,7 +96,7 @@ impl ParallelDeltaProcessor {
         index_name: &IndexName,
         parent_snapshot: &SnapshotName,
         snapshot_path: &str,
-        chunk_size: usize,
+        _chunk_size: usize,
     ) -> Result<IndexDelta> {
         // This is a simplified implementation
         // In a real implementation, this would:
@@ -166,7 +164,7 @@ impl ParallelDeltaProcessor {
     /// Process a single file pair for differences
     async fn process_file_pair(
         file_pair: FilePair,
-        chunk_size: usize,
+        _chunk_size: usize,
     ) -> Result<FileDifference> {
         let start_time = std::time::Instant::now();
 
@@ -358,7 +356,7 @@ impl SnapshotChainOptimizer {
     async fn apply_consolidation(
         &self,
         plan: &ConsolidationPlan,
-        repository_path: &str,
+        _repository_path: &str,
     ) -> Result<ConsolidationResult> {
         // This is a simplified implementation
         // In a real implementation, this would:

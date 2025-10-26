@@ -103,6 +103,9 @@ pub struct SnapshotMetadata {
 
     /// Creation timestamp
     pub creation_time: DateTime<Utc>,
+
+    /// Settings metadata
+    pub settings: HashMap<String, String>,
 }
 
 impl Default for SnapshotMetadata {
@@ -111,6 +114,7 @@ impl Default for SnapshotMetadata {
             user_metadata: HashMap::new(),
             version: "1.0".to_string(),
             creation_time: Utc::now(),
+            settings: HashMap::new(),
         }
     }
 }
