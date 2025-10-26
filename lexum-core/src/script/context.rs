@@ -49,23 +49,23 @@ impl ScriptContext {
 
     /// Get a field from the source document
     pub fn get_field(&self, path: &str) -> Option<&Value> {
-        self.get_field_by_path(&self.source, path)
+        Self::get_field_by_path(&self.source, path)
     }
 
     /// Set a field in the source document
     pub fn set_field(&mut self, path: &str, value: Value) -> Result<(), String> {
         let source = &mut self.source;
-        Self::set_field_by_path_static(source, path, value)
+        Self::set_field_by_path(source, path, value)
     }
 
     /// Remove a field from the source document
     pub fn remove_field(&mut self, path: &str) -> bool {
         let source = &mut self.source;
-        Self::remove_field_by_path_static(source, path)
+        Self::remove_field_by_path(source, path)
     }
 
     /// Get field by dot-notation path
-    fn get_field_by_path<'a>(&self, value: &'a Value, path: &str) -> Option<&'a Value> {
+    fn get_field_by_path<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
         let parts: Vec<&str> = path.split('.').collect();
         let mut current = value;
 
@@ -86,7 +86,8 @@ impl ScriptContext {
     }
 
     /// Set field by dot-notation path
-    fn set_field_by_path(&mut self, value: &mut Value, path: &str, new_value: Value) -> Result<(), String> {
+    #[allow(dead_code)]
+    fn set_field_by_path(value: &mut Value, path: &str, new_value: Value) -> Result<(), String> {
         let parts: Vec<&str> = path.split('.').collect();
         let mut current = value;
 
@@ -99,16 +100,17 @@ impl ScriptContext {
                         return Ok(());
                     }
                     Value::Array(arr) => {
-                        let index: usize = part.parse()
-                            .map_err(|_| format!("Invalid array index: {}", part))?;
+                        let index: usize = part
+                            .parse()
+                            .map_err(|_| format!("Invalid array index: {part}"))?;
                         if index >= arr.len() {
-                            return Err(format!("Array index {} out of bounds", index));
+                            return Err(format!("Array index {index} out of bounds"));
                         }
                         arr[index] = new_value;
                         return Ok(());
                     }
                     _ => {
-                        return Err(format!("Cannot set field on non-object/non-array value"));
+                        return Err("Cannot set field on non-object/non-array value".to_string());
                     }
                 }
             } else {
@@ -122,15 +124,16 @@ impl ScriptContext {
                         current = map.get_mut(&part_str).unwrap();
                     }
                     Value::Array(arr) => {
-                        let index: usize = part.parse()
-                            .map_err(|_| format!("Invalid array index: {}", part))?;
+                        let index: usize = part
+                            .parse()
+                            .map_err(|_| format!("Invalid array index: {part}"))?;
                         if index >= arr.len() {
-                            return Err(format!("Array index {} out of bounds", index));
+                            return Err(format!("Array index {index} out of bounds"));
                         }
                         current = &mut arr[index];
                     }
                     _ => {
-                        return Err(format!("Cannot navigate into non-object/non-array value"));
+                        return Err("Cannot navigate into non-object/non-array value".to_string());
                     }
                 }
             }
@@ -140,7 +143,8 @@ impl ScriptContext {
     }
 
     /// Remove field by dot-notation path
-    fn remove_field_by_path(&mut self, value: &mut Value, path: &str) -> bool {
+    #[allow(dead_code)]
+    fn remove_field_by_path(value: &mut Value, path: &str) -> bool {
         let parts: Vec<&str> = path.split('.').collect();
         let mut current = value;
 
@@ -176,115 +180,6 @@ impl ScriptContext {
                         if let Ok(index) = part.parse::<usize>() {
                             if let Some(next) = arr.get_mut(index) {
                                 current = next;
-                            } else {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
-                    }
-                    _ => return false,
-                }
-            }
-        }
-
-        false
-    }
-
-    /// Set field by dot-notation path (static method)
-    fn set_field_by_path_static(value: &mut Value, path: &str, new_value: Value) -> Result<(), String> {
-        let parts: Vec<&str> = path.split('.').collect();
-        let mut current = value;
-
-        for (i, part) in parts.iter().enumerate() {
-            if i == parts.len() - 1 {
-                // Last part - set the value
-                match current {
-                    Value::Object(map) => {
-                        map.insert(part.to_string(), new_value);
-                        return Ok(());
-                    }
-                    Value::Array(arr) => {
-                        let index: usize = part.parse()
-                            .map_err(|_| format!("Invalid array index: {}", part))?;
-                        if index >= arr.len() {
-                            return Err(format!("Array index {} out of bounds", index));
-                        }
-                        arr[index] = new_value;
-                        return Ok(());
-                    }
-                    _ => {
-                        return Err(format!("Cannot set field on non-object/non-array value at path: {}", path));
-                    }
-                }
-            } else {
-                // Navigate deeper
-                match current {
-                    Value::Object(map) => {
-                        if map.contains_key(part as &str) {
-                            current = map.get_mut(part as &str).unwrap();
-                        } else {
-                            // Create intermediate object
-                            let new_obj = serde_json::Map::new();
-                            map.insert(part.to_string(), Value::Object(new_obj));
-                            current = map.get_mut(part as &str).unwrap();
-                        }
-                    }
-                    Value::Array(arr) => {
-                        let index: usize = part.parse()
-                            .map_err(|_| format!("Invalid array index: {}", part))?;
-                        if index >= arr.len() {
-                            return Err(format!("Array index {} out of bounds", index));
-                        }
-                        current = &mut arr[index];
-                    }
-                    _ => {
-                        return Err(format!("Cannot navigate into non-object/non-array value at path: {}", path));
-                    }
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Remove field by dot-notation path (static method)
-    fn remove_field_by_path_static(value: &mut Value, path: &str) -> bool {
-        let parts: Vec<&str> = path.split('.').collect();
-        let mut current = value;
-
-        for (i, part) in parts.iter().enumerate() {
-            if i == parts.len() - 1 {
-                // Last part - remove the value
-                match current {
-                    Value::Object(map) => {
-                        return map.remove(part as &str).is_some();
-                    }
-                    Value::Array(arr) => {
-                        if let Ok(index) = part.parse::<usize>() {
-                            if index < arr.len() {
-                                arr.remove(index);
-                                return true;
-                            }
-                        }
-                        return false;
-                    }
-                    _ => return false,
-                }
-            } else {
-                // Navigate deeper
-                match current {
-                    Value::Object(map) => {
-                        if let Some(next) = map.get_mut(part as &str) {
-                            current = next;
-                        } else {
-                            return false;
-                        }
-                    }
-                    Value::Array(arr) => {
-                        if let Ok(index) = part.parse::<usize>() {
-                            if index < arr.len() {
-                                current = &mut arr[index];
                             } else {
                                 return false;
                             }
@@ -357,8 +252,13 @@ mod tests {
         context.set_field("user.age", json!(30)).unwrap();
         assert_eq!(context.get_field("user.age"), Some(&json!(30)));
 
-        context.set_field("user.address.city", json!("New York")).unwrap();
-        assert_eq!(context.get_field("user.address.city"), Some(&json!("New York")));
+        context
+            .set_field("user.address.city", json!("New York"))
+            .unwrap();
+        assert_eq!(
+            context.get_field("user.address.city"),
+            Some(&json!("New York"))
+        );
     }
 
     #[test]

@@ -2,10 +2,9 @@
 //!
 //! Executes parsed script operations on document contexts.
 
-use crate::script::context::{ScriptContext, DocumentMetadata};
-use crate::script::parser::{ScriptOp, Condition, MathOp, StringOp};
+use crate::script::context::ScriptContext;
+use crate::script::parser::{Condition, MathOp, ScriptOp, StringOp};
 use serde_json::Value;
-use std::collections::HashMap;
 
 /// Script execution engine
 pub struct ScriptEngine {
@@ -27,7 +26,11 @@ impl ScriptEngine {
     }
 
     /// Execute a single operation
-    fn execute_operation(&self, operation: &ScriptOp, context: &mut ScriptContext) -> Result<(), String> {
+    fn execute_operation(
+        &self,
+        operation: &ScriptOp,
+        context: &mut ScriptContext,
+    ) -> Result<(), String> {
         match operation {
             ScriptOp::SetField { path, value } => {
                 context.set_field(path, value.clone())?;
@@ -40,7 +43,11 @@ impl ScriptEngine {
                     context.set_field(path, value.clone())?;
                 }
             }
-            ScriptOp::If { condition, then_ops, else_ops } => {
+            ScriptOp::If {
+                condition,
+                then_ops,
+                else_ops,
+            } => {
                 if self.evaluate_condition(condition, context)? {
                     for op in then_ops {
                         self.execute_operation(op, context)?;
@@ -51,52 +58,64 @@ impl ScriptEngine {
                     }
                 }
             }
-            ScriptOp::ForEach { array_path, var_name, ops } => {
+            ScriptOp::ForEach {
+                array_path,
+                var_name,
+                ops,
+            } => {
                 self.execute_for_each(array_path, var_name, ops, context)?;
             }
-            ScriptOp::Math { operation, target, value } => {
-                self.execute_math(operation, target, value, context)?;
+            ScriptOp::Math {
+                operation,
+                target,
+                value,
+            } => {
+                Self::execute_math(operation, target, value, context)?;
             }
-            ScriptOp::StringOp { operation, target, value } => {
-                self.execute_string_op(operation, target, value, context)?;
+            ScriptOp::StringOp {
+                operation,
+                target,
+                value,
+            } => {
+                Self::execute_string_op(operation, target, value, context)?;
             }
         }
         Ok(())
     }
 
     /// Evaluate a condition
-    fn evaluate_condition(&self, condition: &Condition, context: &ScriptContext) -> Result<bool, String> {
+    fn evaluate_condition(
+        &self,
+        condition: &Condition,
+        context: &ScriptContext,
+    ) -> Result<bool, String> {
         match condition {
-            Condition::FieldExists { path } => {
-                Ok(context.get_field(path).is_some())
-            }
-            Condition::FieldEquals { path, value } => {
-                Ok(context.get_field(path) == Some(value))
-            }
+            Condition::FieldExists { path } => Ok(context.get_field(path).is_some()),
+            Condition::FieldEquals { path, value } => Ok(context.get_field(path) == Some(value)),
             Condition::FieldContains { path, value } => {
                 if let Some(field_value) = context.get_field(path) {
-                    self.value_contains(field_value, value)
+                    Ok(Self::value_contains(field_value, value))
                 } else {
                     Ok(false)
                 }
             }
             Condition::FieldMatches { path, pattern } => {
                 if let Some(field_value) = context.get_field(path) {
-                    self.value_matches(field_value, pattern)
+                    Self::value_matches(field_value, pattern)
                 } else {
                     Ok(false)
                 }
             }
             Condition::FieldGt { path, value } => {
                 if let Some(field_value) = context.get_field(path) {
-                    self.value_gt(field_value, value)
+                    Ok(Self::value_gt(field_value, value))
                 } else {
                     Ok(false)
                 }
             }
             Condition::FieldLt { path, value } => {
                 if let Some(field_value) = context.get_field(path) {
-                    self.value_lt(field_value, value)
+                    Ok(Self::value_lt(field_value, value))
                 } else {
                     Ok(false)
                 }
@@ -117,54 +136,64 @@ impl ScriptEngine {
                 }
                 Ok(false)
             }
-            Condition::Not { condition } => {
-                Ok(!self.evaluate_condition(condition, context)?)
-            }
+            Condition::Not { condition } => Ok(!self.evaluate_condition(condition, context)?),
         }
     }
 
     /// Execute for each operation
-    fn execute_for_each(&self, array_path: &str, var_name: &str, ops: &[ScriptOp], context: &mut ScriptContext) -> Result<(), String> {
-        if let Some(array_value) = context.get_field(array_path) {
-            if let Value::Array(array) = array_value {
-                let mut modified_items = Vec::new();
-                
-                for (index, item) in array.iter().enumerate() {
-                    // Create a temporary context for each iteration
-                    let mut temp_context = context.clone();
-                    
-                    // Set the loop variable
-                    temp_context.set_field(var_name, item.clone())?;
-                    temp_context.set_field(&format!("{}.index", var_name), Value::Number(serde_json::Number::from(index)))?;
-                    
-                    // Execute operations
-                    for op in ops {
-                        self.execute_operation(op, &mut temp_context)?;
-                    }
-                    
-                    // Store the modified item
-                    modified_items.push(temp_context.source);
+    fn execute_for_each(
+        &self,
+        array_path: &str,
+        var_name: &str,
+        ops: &[ScriptOp],
+        context: &mut ScriptContext,
+    ) -> Result<(), String> {
+        if let Some(Value::Array(array)) = context.get_field(array_path) {
+            let mut modified_items = Vec::new();
+
+            for (index, item) in array.iter().enumerate() {
+                // Create a temporary context for each iteration
+                let mut temp_context = context.clone();
+
+                // Set the loop variable
+                temp_context.set_field(var_name, item.clone())?;
+                temp_context.set_field(
+                    &format!("{var_name}.index"),
+                    Value::Number(serde_json::Number::from(index)),
+                )?;
+
+                // Execute operations
+                for op in ops {
+                    self.execute_operation(op, &mut temp_context)?;
                 }
-                
-                // Update the array with modified items
-                for (index, item) in modified_items.into_iter().enumerate() {
-                    context.set_field(&format!("{}.{}", array_path, index), item)?;
-                }
+
+                // Store the modified item
+                modified_items.push(temp_context.source);
+            }
+
+            // Update the array with modified items
+            for (index, item) in modified_items.into_iter().enumerate() {
+                context.set_field(&format!("{array_path}.{index}"), item)?;
             }
         }
         Ok(())
     }
 
     /// Execute mathematical operation
-    fn execute_math(&self, operation: &MathOp, target: &str, value: &Value, context: &mut ScriptContext) -> Result<(), String> {
+    fn execute_math(
+        operation: &MathOp,
+        target: &str,
+        value: &Value,
+        context: &mut ScriptContext,
+    ) -> Result<(), String> {
         if let Some(current_value) = context.get_field(target) {
             let result = match operation {
-                MathOp::Add => self.math_add(&current_value, value)?,
-                MathOp::Subtract => self.math_subtract(&current_value, value)?,
-                MathOp::Multiply => self.math_multiply(&current_value, value)?,
-                MathOp::Divide => self.math_divide(&current_value, value)?,
-                MathOp::Modulo => self.math_modulo(&current_value, value)?,
-                MathOp::Power => self.math_power(&current_value, value)?,
+                MathOp::Add => Self::math_add(current_value, value)?,
+                MathOp::Subtract => Self::math_subtract(current_value, value)?,
+                MathOp::Multiply => Self::math_multiply(current_value, value)?,
+                MathOp::Divide => Self::math_divide(current_value, value)?,
+                MathOp::Modulo => Self::math_modulo(current_value, value)?,
+                MathOp::Power => Self::math_power(current_value, value)?,
             };
             context.set_field(target, result)?;
         }
@@ -172,7 +201,12 @@ impl ScriptEngine {
     }
 
     /// Execute string operation
-    fn execute_string_op(&self, operation: &StringOp, target: &str, value: &Option<String>, context: &mut ScriptContext) -> Result<(), String> {
+    fn execute_string_op(
+        operation: &StringOp,
+        target: &str,
+        _value: &Option<String>,
+        context: &mut ScriptContext,
+    ) -> Result<(), String> {
         if let Some(current_value) = context.get_field(target) {
             let result = match operation {
                 StringOp::ToLowerCase => {
@@ -205,7 +239,7 @@ impl ScriptEngine {
                 }
                 StringOp::Concat { value } => {
                     if let Value::String(s) = &current_value {
-                        Value::String(format!("{}{}", s, value))
+                        Value::String(format!("{s}{value}"))
                     } else {
                         current_value.clone()
                     }
@@ -225,27 +259,27 @@ impl ScriptEngine {
     }
 
     /// Check if value contains another value
-    fn value_contains(&self, haystack: &Value, needle: &Value) -> Result<bool, String> {
+    fn value_contains(haystack: &Value, needle: &Value) -> bool {
         match (haystack, needle) {
-            (Value::String(s), Value::String(n)) => Ok(s.contains(n)),
+            (Value::String(s), Value::String(n)) => s.contains(n),
             (Value::Array(arr), v) => {
                 for item in arr {
                     if item == v {
-                        return Ok(true);
+                        return true;
                     }
                 }
-                Ok(false)
+                false
             }
-            _ => Ok(false),
+            _ => false,
         }
     }
 
     /// Check if value matches regex pattern
-    fn value_matches(&self, value: &Value, pattern: &str) -> Result<bool, String> {
+    fn value_matches(value: &Value, pattern: &str) -> Result<bool, String> {
         match value {
             Value::String(s) => {
                 let regex = regex::Regex::new(pattern)
-                    .map_err(|e| format!("Invalid regex pattern: {}", e))?;
+                    .map_err(|e| format!("Invalid regex pattern: {e}"))?;
                 Ok(regex.is_match(s))
             }
             _ => Ok(false),
@@ -253,55 +287,59 @@ impl ScriptEngine {
     }
 
     /// Check if value is greater than another
-    fn value_gt(&self, a: &Value, b: &Value) -> Result<bool, String> {
+    fn value_gt(a: &Value, b: &Value) -> bool {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
-                    Ok(v1 > v2)
+                    v1 > v2
                 } else {
-                    Ok(false)
+                    false
                 }
             }
-            (Value::String(s1), Value::String(s2)) => Ok(s1 > s2),
-            _ => Ok(false),
+            (Value::String(s1), Value::String(s2)) => s1 > s2,
+            _ => false,
         }
     }
 
     /// Check if value is less than another
-    fn value_lt(&self, a: &Value, b: &Value) -> Result<bool, String> {
+    fn value_lt(a: &Value, b: &Value) -> bool {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
-                    Ok(v1 < v2)
+                    v1 < v2
                 } else {
-                    Ok(false)
+                    false
                 }
             }
-            (Value::String(s1), Value::String(s2)) => Ok(s1 < s2),
-            _ => Ok(false),
+            (Value::String(s1), Value::String(s2)) => s1 < s2,
+            _ => false,
         }
     }
 
     /// Mathematical operations
-    fn math_add(&self, a: &Value, b: &Value) -> Result<Value, String> {
+    fn math_add(a: &Value, b: &Value) -> Result<Value, String> {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
-                    Ok(Value::Number(serde_json::Number::from_f64(v1 + v2).unwrap()))
+                    Ok(Value::Number(
+                        serde_json::Number::from_f64(v1 + v2).unwrap(),
+                    ))
                 } else {
                     Err("Cannot add non-numeric values".to_string())
                 }
             }
-            (Value::String(s1), Value::String(s2)) => Ok(Value::String(format!("{}{}", s1, s2))),
+            (Value::String(s1), Value::String(s2)) => Ok(Value::String(format!("{s1}{s2}"))),
             _ => Err("Cannot add incompatible types".to_string()),
         }
     }
 
-    fn math_subtract(&self, a: &Value, b: &Value) -> Result<Value, String> {
+    fn math_subtract(a: &Value, b: &Value) -> Result<Value, String> {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
-                    Ok(Value::Number(serde_json::Number::from_f64(v1 - v2).unwrap()))
+                    Ok(Value::Number(
+                        serde_json::Number::from_f64(v1 - v2).unwrap(),
+                    ))
                 } else {
                     Err("Cannot subtract non-numeric values".to_string())
                 }
@@ -310,11 +348,13 @@ impl ScriptEngine {
         }
     }
 
-    fn math_multiply(&self, a: &Value, b: &Value) -> Result<Value, String> {
+    fn math_multiply(a: &Value, b: &Value) -> Result<Value, String> {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
-                    Ok(Value::Number(serde_json::Number::from_f64(v1 * v2).unwrap()))
+                    Ok(Value::Number(
+                        serde_json::Number::from_f64(v1 * v2).unwrap(),
+                    ))
                 } else {
                     Err("Cannot multiply non-numeric values".to_string())
                 }
@@ -323,14 +363,16 @@ impl ScriptEngine {
         }
     }
 
-    fn math_divide(&self, a: &Value, b: &Value) -> Result<Value, String> {
+    fn math_divide(a: &Value, b: &Value) -> Result<Value, String> {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
                     if v2 == 0.0 {
                         Err("Division by zero".to_string())
                     } else {
-                        Ok(Value::Number(serde_json::Number::from_f64(v1 / v2).unwrap()))
+                        Ok(Value::Number(
+                            serde_json::Number::from_f64(v1 / v2).unwrap(),
+                        ))
                     }
                 } else {
                     Err("Cannot divide non-numeric values".to_string())
@@ -340,14 +382,16 @@ impl ScriptEngine {
         }
     }
 
-    fn math_modulo(&self, a: &Value, b: &Value) -> Result<Value, String> {
+    fn math_modulo(a: &Value, b: &Value) -> Result<Value, String> {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
                     if v2 == 0.0 {
                         Err("Modulo by zero".to_string())
                     } else {
-                        Ok(Value::Number(serde_json::Number::from_f64(v1 % v2).unwrap()))
+                        Ok(Value::Number(
+                            serde_json::Number::from_f64(v1 % v2).unwrap(),
+                        ))
                     }
                 } else {
                     Err("Cannot modulo non-numeric values".to_string())
@@ -357,11 +401,13 @@ impl ScriptEngine {
         }
     }
 
-    fn math_power(&self, a: &Value, b: &Value) -> Result<Value, String> {
+    fn math_power(a: &Value, b: &Value) -> Result<Value, String> {
         match (a, b) {
             (Value::Number(n1), Value::Number(n2)) => {
                 if let (Some(v1), Some(v2)) = (n1.as_f64(), n2.as_f64()) {
-                    Ok(Value::Number(serde_json::Number::from_f64(v1.powf(v2)).unwrap()))
+                    Ok(Value::Number(
+                        serde_json::Number::from_f64(v1.powf(v2)).unwrap(),
+                    ))
                 } else {
                     Err("Cannot power non-numeric values".to_string())
                 }
@@ -374,7 +420,9 @@ impl ScriptEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::script::context::DocumentMetadata;
     use serde_json::json;
+    use std::collections::HashMap;
 
     #[test]
     fn test_execute_set_field() {
@@ -395,12 +443,10 @@ mod tests {
             },
         );
 
-        let operations = vec![
-            ScriptOp::SetField {
-                path: "title".to_string(),
-                value: json!("New Title"),
-            },
-        ];
+        let operations = vec![ScriptOp::SetField {
+            path: "title".to_string(),
+            value: json!("New Title"),
+        }];
 
         let engine = ScriptEngine::new(operations);
         engine.execute(&mut context).unwrap();
@@ -427,21 +473,17 @@ mod tests {
             },
         );
 
-        let operations = vec![
-            ScriptOp::If {
-                condition: Condition::FieldEquals {
-                    path: "status".to_string(),
-                    value: json!("active"),
-                },
-                then_ops: vec![
-                    ScriptOp::SetField {
-                        path: "priority".to_string(),
-                        value: json!(1),
-                    },
-                ],
-                else_ops: None,
+        let operations = vec![ScriptOp::If {
+            condition: Condition::FieldEquals {
+                path: "status".to_string(),
+                value: json!("active"),
             },
-        ];
+            then_ops: vec![ScriptOp::SetField {
+                path: "priority".to_string(),
+                value: json!(1),
+            }],
+            else_ops: None,
+        }];
 
         let engine = ScriptEngine::new(operations);
         engine.execute(&mut context).unwrap();
@@ -467,13 +509,11 @@ mod tests {
             },
         );
 
-        let operations = vec![
-            ScriptOp::Math {
-                operation: MathOp::Add,
-                target: "count".to_string(),
-                value: json!(3),
-            },
-        ];
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Add,
+            target: "count".to_string(),
+            value: json!(3),
+        }];
 
         let engine = ScriptEngine::new(operations);
         engine.execute(&mut context).unwrap();

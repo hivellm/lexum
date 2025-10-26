@@ -3,7 +3,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use lexum_cli::{commands, repl::ReplSession, client::LexumClient};
+use lexum_cli::{client::LexumClient, commands, repl::ReplSession};
 
 /// Lexum CLI - Search engine command-line interface
 #[derive(Parser)]
@@ -550,7 +550,8 @@ async fn main() -> Result<()> {
                     status,
                     limit,
                 } => {
-                    commands::progress::list_progress(&client, operation_type, status, limit).await?;
+                    commands::progress::list_progress(&client, operation_type, status, limit)
+                        .await?;
                 }
                 ProgressAction::Get { progress_id } => {
                     commands::progress::get_progress(&client, &progress_id).await?;
@@ -559,7 +560,8 @@ async fn main() -> Result<()> {
                     progress_id,
                     interval,
                 } => {
-                    commands::progress::monitor_progress(&client, &progress_id, Some(interval)).await?;
+                    commands::progress::monitor_progress(&client, &progress_id, Some(interval))
+                        .await?;
                 }
                 ProgressAction::Cancel { progress_id } => {
                     commands::progress::cancel_progress(&client, &progress_id).await?;

@@ -3,7 +3,7 @@
 use crate::handlers::index::AppState;
 use crate::router::build_router;
 use lexum_core::{
-    IndexManager, SnapshotManager, TemplateManager, ProgressTracker,
+    IndexManager, ProgressTracker, SnapshotManager, TemplateManager,
     config::{Config, ConfigManager},
 };
 use std::net::SocketAddr;

@@ -2,11 +2,11 @@
 
 use crate::error::{ApiError, ApiResult};
 use crate::handlers::index::AppState;
-use axum::extract::{Path, Query, State};
 use axum::Json;
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use lexum_core::progress::{
-    ProgressFilter, ProgressId, ProgressInfo, ProgressStatus, OperationType, ProgressStats,
+    OperationType, ProgressFilter, ProgressId, ProgressInfo, ProgressStats, ProgressStatus,
 };
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -26,7 +26,7 @@ pub async fn get_progress(
     Path(progress_id): Path<String>,
 ) -> ApiResult<Json<ProgressInfo>> {
     let progress_id = ProgressId::from(progress_id);
-    
+
     match state.progress_tracker.get_progress(&progress_id).await? {
         Some(progress) => Ok(Json(progress)),
         None => Err(ApiError::IndexNotFound("Progress not found".to_string())),
@@ -68,9 +68,7 @@ pub async fn list_progress(
     ),
     tag = "Progress"
 )]
-pub async fn get_progress_stats(
-    State(state): State<AppState>,
-) -> ApiResult<Json<ProgressStats>> {
+pub async fn get_progress_stats(State(state): State<AppState>) -> ApiResult<Json<ProgressStats>> {
     let stats = state.progress_tracker.get_stats().await?;
     Ok(Json(stats))
 }
@@ -90,8 +88,11 @@ pub async fn cancel_progress(
     Path(progress_id): Path<String>,
 ) -> ApiResult<StatusCode> {
     let progress_id = ProgressId::from(progress_id);
-    
-    state.progress_tracker.cancel_operation(&progress_id).await?;
+
+    state
+        .progress_tracker
+        .cancel_operation(&progress_id)
+        .await?;
     Ok(StatusCode::OK)
 }
 
@@ -110,7 +111,7 @@ pub async fn pause_progress(
     Path(progress_id): Path<String>,
 ) -> ApiResult<StatusCode> {
     let progress_id = ProgressId::from(progress_id);
-    
+
     state.progress_tracker.pause_operation(&progress_id).await?;
     Ok(StatusCode::OK)
 }
@@ -130,8 +131,11 @@ pub async fn resume_progress(
     Path(progress_id): Path<String>,
 ) -> ApiResult<StatusCode> {
     let progress_id = ProgressId::from(progress_id);
-    
-    state.progress_tracker.resume_operation(&progress_id).await?;
+
+    state
+        .progress_tracker
+        .resume_operation(&progress_id)
+        .await?;
     Ok(StatusCode::OK)
 }
 
@@ -150,7 +154,7 @@ pub async fn delete_progress(
     Path(progress_id): Path<String>,
 ) -> ApiResult<StatusCode> {
     let progress_id = ProgressId::from(progress_id);
-    
+
     state.progress_tracker.delete_progress(&progress_id).await?;
     Ok(StatusCode::OK)
 }

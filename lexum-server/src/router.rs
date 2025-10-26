@@ -2,7 +2,8 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{
-    admin, alias, document, health, index, progress, progress_bulk, reindex, rollover, search, snapshot, template,
+    admin, alias, document, health, index, progress, progress_bulk, reindex, rollover, search,
+    snapshot, template,
 };
 use axum::Router;
 use axum::routing::{delete, get, post, put};
@@ -46,8 +47,14 @@ pub fn build_router(state: AppState) -> Router {
         )
         // Bulk operations
         .route("/api/v1/bulk", post(document::bulk_operations))
-        .route("/api/v1/bulk/progress", post(progress_bulk::bulk_operations_with_progress))
-        .route("/api/v1/bulk/progress/{progress_id}", get(progress_bulk::get_bulk_progress))
+        .route(
+            "/api/v1/bulk/progress",
+            post(progress_bulk::bulk_operations_with_progress),
+        )
+        .route(
+            "/api/v1/bulk/progress/{progress_id}",
+            get(progress_bulk::get_bulk_progress),
+        )
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
         .route("/api/v1/indices/{index}/search", get(search::search_get))
@@ -125,11 +132,26 @@ pub fn build_router(state: AppState) -> Router {
         // Progress tracking
         .route("/api/v1/progress", get(progress::list_progress))
         .route("/api/v1/progress/stats", get(progress::get_progress_stats))
-        .route("/api/v1/progress/{progress_id}", get(progress::get_progress))
-        .route("/api/v1/progress/{progress_id}", delete(progress::delete_progress))
-        .route("/api/v1/progress/{progress_id}/cancel", post(progress::cancel_progress))
-        .route("/api/v1/progress/{progress_id}/pause", post(progress::pause_progress))
-        .route("/api/v1/progress/{progress_id}/resume", post(progress::resume_progress))
+        .route(
+            "/api/v1/progress/{progress_id}",
+            get(progress::get_progress),
+        )
+        .route(
+            "/api/v1/progress/{progress_id}",
+            delete(progress::delete_progress),
+        )
+        .route(
+            "/api/v1/progress/{progress_id}/cancel",
+            post(progress::cancel_progress),
+        )
+        .route(
+            "/api/v1/progress/{progress_id}/pause",
+            post(progress::pause_progress),
+        )
+        .route(
+            "/api/v1/progress/{progress_id}/resume",
+            post(progress::resume_progress),
+        )
         .route("/api/v1/progress/cleanup", post(progress::cleanup_progress))
         // OpenAPI documentation (temporarily disabled due to version conflicts)
         // .merge(create_swagger_ui())

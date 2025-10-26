@@ -3,9 +3,7 @@
 //! Parses simple transformation scripts with Painless-like syntax
 //! for document transformation operations.
 
-use crate::script::context::ScriptContext;
 use serde_json::Value;
-use std::collections::HashMap;
 
 /// Script operation types
 #[derive(Debug, Clone, PartialEq)]
@@ -17,13 +15,29 @@ pub enum ScriptOp {
     /// Add a field with a value
     AddField { path: String, value: Value },
     /// Conditional operation
-    If { condition: Condition, then_ops: Vec<ScriptOp>, else_ops: Option<Vec<ScriptOp>> },
+    If {
+        condition: Condition,
+        then_ops: Vec<ScriptOp>,
+        else_ops: Option<Vec<ScriptOp>>,
+    },
     /// For each operation
-    ForEach { array_path: String, var_name: String, ops: Vec<ScriptOp> },
+    ForEach {
+        array_path: String,
+        var_name: String,
+        ops: Vec<ScriptOp>,
+    },
     /// Mathematical operations
-    Math { operation: MathOp, target: String, value: Value },
+    Math {
+        operation: MathOp,
+        target: String,
+        value: Value,
+    },
     /// String operations
-    StringOp { operation: StringOp, target: String, value: Option<String> },
+    StringOp {
+        operation: StringOp,
+        target: String,
+        value: Option<String>,
+    },
 }
 
 /// Condition types for conditional operations
@@ -80,13 +94,16 @@ pub struct ScriptParser {
 impl ScriptParser {
     /// Create a new script parser
     pub fn new(source: String) -> Self {
-        Self { source, position: 0 }
+        Self {
+            source,
+            position: 0,
+        }
     }
 
     /// Parse the script into operations
     pub fn parse(&mut self) -> Result<Vec<ScriptOp>, String> {
         let mut operations = Vec::new();
-        
+
         while self.position < self.source.len() {
             self.skip_whitespace();
             if self.position >= self.source.len() {
@@ -95,7 +112,7 @@ impl ScriptParser {
 
             let op = self.parse_operation()?;
             operations.push(op);
-            
+
             self.skip_whitespace();
             if self.position < self.source.len() && self.peek() == ';' {
                 self.advance(); // Skip semicolon
@@ -108,7 +125,7 @@ impl ScriptParser {
     /// Parse a single operation
     fn parse_operation(&mut self) -> Result<ScriptOp, String> {
         self.skip_whitespace();
-        
+
         if self.starts_with("if") {
             self.parse_if()
         } else if self.starts_with("for") {
@@ -127,15 +144,15 @@ impl ScriptParser {
         self.expect("if")?;
         self.skip_whitespace();
         self.expect("(")?;
-        
+
         let condition = self.parse_condition()?;
         self.expect(")")?;
         self.skip_whitespace();
         self.expect("{")?;
-        
+
         let then_ops = self.parse_operation_block()?;
         self.expect("}")?;
-        
+
         let else_ops = if self.starts_with("else") {
             self.expect("else")?;
             self.skip_whitespace();
@@ -159,17 +176,17 @@ impl ScriptParser {
         self.expect("for")?;
         self.skip_whitespace();
         self.expect("(")?;
-        
+
         let var_name = self.parse_identifier()?;
         self.skip_whitespace();
         self.expect(":")?;
         self.skip_whitespace();
-        
+
         let array_path = self.parse_field_path()?;
         self.expect(")")?;
         self.skip_whitespace();
         self.expect("{")?;
-        
+
         let ops = self.parse_operation_block()?;
         self.expect("}")?;
 
@@ -183,14 +200,14 @@ impl ScriptParser {
     /// Parse ctx._source operations
     fn parse_ctx_operation(&mut self) -> Result<ScriptOp, String> {
         self.expect("ctx._source")?;
-        
+
         if self.peek() == '[' {
             // Array access
             self.advance(); // Skip '['
             let path = self.parse_quoted_string()?;
             self.expect("]")?;
             self.skip_whitespace();
-            
+
             if self.peek() == '=' {
                 self.advance(); // Skip '='
                 self.skip_whitespace();
@@ -211,7 +228,7 @@ impl ScriptParser {
     fn parse_field_operation(&mut self) -> Result<ScriptOp, String> {
         let path = self.parse_field_path()?;
         self.skip_whitespace();
-        
+
         if self.peek() == '=' {
             self.advance(); // Skip '='
             self.skip_whitespace();
@@ -233,12 +250,12 @@ impl ScriptParser {
     /// Parse condition
     fn parse_condition(&mut self) -> Result<Condition, String> {
         self.skip_whitespace();
-        
+
         if self.starts_with("ctx._source.") {
             self.expect("ctx._source.")?;
             let path = self.parse_field_path()?;
             self.skip_whitespace();
-            
+
             if self.starts_with("==") {
                 self.expect("==")?;
                 self.skip_whitespace();
@@ -248,8 +265,8 @@ impl ScriptParser {
                 self.expect("!=")?;
                 self.skip_whitespace();
                 let value = self.parse_value()?;
-                Ok(Condition::Not { 
-                    condition: Box::new(Condition::FieldEquals { path, value })
+                Ok(Condition::Not {
+                    condition: Box::new(Condition::FieldEquals { path, value }),
                 })
             } else if self.starts_with(">") {
                 self.advance();
@@ -277,7 +294,9 @@ impl ScriptParser {
         } else if self.starts_with("!") {
             self.advance();
             let condition = self.parse_condition()?;
-            Ok(Condition::Not { condition: Box::new(condition) })
+            Ok(Condition::Not {
+                condition: Box::new(condition),
+            })
         } else if self.starts_with("(") {
             self.advance();
             let condition = self.parse_condition()?;
@@ -291,29 +310,29 @@ impl ScriptParser {
     /// Parse operation block
     fn parse_operation_block(&mut self) -> Result<Vec<ScriptOp>, String> {
         let mut operations = Vec::new();
-        
+
         while self.position < self.source.len() {
             self.skip_whitespace();
             if self.peek() == '}' {
                 break;
             }
-            
+
             let op = self.parse_operation()?;
             operations.push(op);
-            
+
             self.skip_whitespace();
             if self.peek() == ';' {
                 self.advance();
             }
         }
-        
+
         Ok(operations)
     }
 
     /// Parse field path
     fn parse_field_path(&mut self) -> Result<String, String> {
         let mut path = String::new();
-        
+
         while self.position < self.source.len() {
             let ch = self.peek();
             if ch.is_alphanumeric() || ch == '_' || ch == '.' {
@@ -322,7 +341,7 @@ impl ScriptParser {
                 break;
             }
         }
-        
+
         if path.is_empty() {
             Err("Expected field path".to_string())
         } else {
@@ -333,7 +352,7 @@ impl ScriptParser {
     /// Parse identifier
     fn parse_identifier(&mut self) -> Result<String, String> {
         let mut ident = String::new();
-        
+
         while self.position < self.source.len() {
             let ch = self.peek();
             if ch.is_alphanumeric() || ch == '_' {
@@ -342,7 +361,7 @@ impl ScriptParser {
                 break;
             }
         }
-        
+
         if ident.is_empty() {
             Err("Expected identifier".to_string())
         } else {
@@ -354,7 +373,7 @@ impl ScriptParser {
     fn parse_quoted_string(&mut self) -> Result<String, String> {
         self.expect("\"")?;
         let mut string = String::new();
-        
+
         while self.position < self.source.len() && self.peek() != '"' {
             if self.peek() == '\\' {
                 self.advance();
@@ -365,7 +384,7 @@ impl ScriptParser {
                 string.push(self.advance());
             }
         }
-        
+
         self.expect("\"")?;
         Ok(string)
     }
@@ -373,7 +392,7 @@ impl ScriptParser {
     /// Parse value (string, number, boolean, null)
     fn parse_value(&mut self) -> Result<Value, String> {
         self.skip_whitespace();
-        
+
         if self.starts_with("\"") {
             let string = self.parse_quoted_string()?;
             Ok(Value::String(string))
@@ -397,11 +416,11 @@ impl ScriptParser {
     fn parse_number(&mut self) -> Result<Value, String> {
         let mut number = String::new();
         let mut is_float = false;
-        
+
         if self.peek() == '-' {
             number.push(self.advance());
         }
-        
+
         while self.position < self.source.len() {
             let ch = self.peek();
             if ch.is_ascii_digit() {
@@ -413,13 +432,15 @@ impl ScriptParser {
                 break;
             }
         }
-        
+
         if is_float {
-            number.parse::<f64>()
+            number
+                .parse::<f64>()
                 .map(|n| Value::Number(serde_json::Number::from_f64(n).unwrap()))
                 .map_err(|_| "Invalid float".to_string())
         } else {
-            number.parse::<i64>()
+            number
+                .parse::<i64>()
                 .map(|n| Value::Number(serde_json::Number::from(n)))
                 .map_err(|_| "Invalid integer".to_string())
         }
@@ -436,7 +457,7 @@ impl ScriptParser {
             self.position += s.len();
             Ok(())
         } else {
-            Err(format!("Expected '{}'", s))
+            Err(format!("Expected '{s}'"))
         }
     }
 
@@ -473,12 +494,15 @@ mod tests {
         let source = "ctx._source.title = \"New Title\"".to_string();
         let mut parser = ScriptParser::new(source);
         let ops = parser.parse().unwrap();
-        
+
         assert_eq!(ops.len(), 1);
-        assert_eq!(ops[0], ScriptOp::SetField {
-            path: "title".to_string(),
-            value: Value::String("New Title".to_string())
-        });
+        assert_eq!(
+            ops[0],
+            ScriptOp::SetField {
+                path: "title".to_string(),
+                value: Value::String("New Title".to_string())
+            }
+        );
     }
 
     #[test]
@@ -486,26 +510,37 @@ mod tests {
         let source = "ctx._source.old_field.remove()".to_string();
         let mut parser = ScriptParser::new(source);
         let ops = parser.parse().unwrap();
-        
+
         assert_eq!(ops.len(), 1);
-        assert_eq!(ops[0], ScriptOp::RemoveField {
-            path: "old_field".to_string()
-        });
+        assert_eq!(
+            ops[0],
+            ScriptOp::RemoveField {
+                path: "old_field".to_string()
+            }
+        );
     }
 
     #[test]
     fn test_parse_if_statement() {
-        let source = "if (ctx._source.status == \"active\") { ctx._source.priority = 1 }".to_string();
+        let source =
+            "if (ctx._source.status == \"active\") { ctx._source.priority = 1 }".to_string();
         let mut parser = ScriptParser::new(source);
         let ops = parser.parse().unwrap();
-        
+
         assert_eq!(ops.len(), 1);
         match &ops[0] {
-            ScriptOp::If { condition, then_ops, else_ops } => {
-                assert_eq!(*condition, Condition::FieldEquals {
-                    path: "status".to_string(),
-                    value: Value::String("active".to_string())
-                });
+            ScriptOp::If {
+                condition,
+                then_ops,
+                else_ops,
+            } => {
+                assert_eq!(
+                    *condition,
+                    Condition::FieldEquals {
+                        path: "status".to_string(),
+                        value: Value::String("active".to_string())
+                    }
+                );
                 assert_eq!(then_ops.len(), 1);
                 assert!(else_ops.is_none());
             }
@@ -518,11 +553,14 @@ mod tests {
         let source = "ctx._source.user.name = \"John\"".to_string();
         let mut parser = ScriptParser::new(source);
         let ops = parser.parse().unwrap();
-        
+
         assert_eq!(ops.len(), 1);
-        assert_eq!(ops[0], ScriptOp::SetField {
-            path: "user.name".to_string(),
-            value: Value::String("John".to_string())
-        });
+        assert_eq!(
+            ops[0],
+            ScriptOp::SetField {
+                path: "user.name".to_string(),
+                value: Value::String("John".to_string())
+            }
+        );
     }
 }

@@ -4,12 +4,12 @@
 //! during reindexing operations. It supports a Painless-like syntax for
 //! common document transformation operations.
 
+pub mod context;
 pub mod engine;
 pub mod parser;
-pub mod context;
 
 #[cfg(test)]
 mod tests;
 
-pub use engine::ScriptEngine;
 pub use context::ScriptContext;
+pub use engine::ScriptEngine;

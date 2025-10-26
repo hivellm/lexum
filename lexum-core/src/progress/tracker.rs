@@ -70,12 +70,12 @@ impl ProgressTracker {
         // Store the session
         {
             let mut sessions = self.sessions.write().await;
-            
+
             // Clean up old sessions if we exceed the limit
             if sessions.len() >= self.config.max_sessions {
                 self.cleanup_old_sessions_internal(&mut sessions).await;
             }
-            
+
             sessions.insert(id.clone(), progress_info);
         }
 
@@ -102,7 +102,7 @@ impl ProgressTracker {
         custom_metrics: Option<HashMap<String, f64>>,
     ) -> Result<()> {
         let mut sessions = self.sessions.write().await;
-        
+
         if let Some(progress) = sessions.get_mut(id) {
             // Update metrics
             if let Some(completed) = completed {
@@ -141,7 +141,7 @@ impl ProgressTracker {
                 "Updated progress"
             );
         } else {
-            return Err(Error::NotFound(format!("Progress session {} not found", id)));
+            return Err(Error::NotFound(format!("Progress session {id} not found")));
         }
 
         self.update_stats().await;
@@ -156,18 +156,18 @@ impl ProgressTracker {
     /// Mark an operation as completed
     pub async fn mark_completed(&self, id: &ProgressId) -> Result<()> {
         let mut sessions = self.sessions.write().await;
-        
+
         if let Some(progress) = sessions.get_mut(id) {
             progress.status = ProgressStatus::Completed;
             progress.end_time = Some(Utc::now());
-            
+
             tracing::info!(
                 progress_id = %id,
                 duration_seconds = Utc::now().signed_duration_since(progress.start_time).num_seconds(),
                 "Operation completed"
             );
         } else {
-            return Err(Error::NotFound(format!("Progress session {} not found", id)));
+            return Err(Error::NotFound(format!("Progress session {id} not found")));
         }
 
         self.update_stats().await;
@@ -177,19 +177,19 @@ impl ProgressTracker {
     /// Mark an operation as failed
     pub async fn mark_failed(&self, id: &ProgressId, error: String) -> Result<()> {
         let mut sessions = self.sessions.write().await;
-        
+
         if let Some(progress) = sessions.get_mut(id) {
             progress.status = ProgressStatus::Failed;
             progress.end_time = Some(Utc::now());
             progress.error = Some(error.clone());
-            
+
             tracing::error!(
                 progress_id = %id,
                 error = %error,
                 "Operation failed"
             );
         } else {
-            return Err(Error::NotFound(format!("Progress session {} not found", id)));
+            return Err(Error::NotFound(format!("Progress session {id} not found")));
         }
 
         self.update_stats().await;
@@ -294,7 +294,7 @@ impl ProgressTracker {
     pub async fn cleanup_old_sessions(&self, max_age_hours: u64) -> Result<usize> {
         let cutoff = Utc::now() - chrono::Duration::hours(max_age_hours as i64);
         let mut sessions = self.sessions.write().await;
-        
+
         let initial_count = sessions.len();
         sessions.retain(|_, progress| {
             match progress.status {
@@ -308,11 +308,14 @@ impl ProgressTracker {
                 _ => true, // Keep active sessions
             }
         });
-        
+
         let cleaned = initial_count - sessions.len();
         self.update_stats().await;
-        
-        tracing::info!(cleaned_sessions = cleaned, "Cleaned up old progress sessions");
+
+        tracing::info!(
+            cleaned_sessions = cleaned,
+            "Cleaned up old progress sessions"
+        );
         Ok(cleaned)
     }
 
@@ -320,38 +323,51 @@ impl ProgressTracker {
     async fn update_stats(&self) {
         let sessions = self.sessions.read().await;
         let mut stats = self.stats.write().await;
-        
+
         stats.total_sessions = sessions.len() as u64;
-        stats.active_sessions = sessions.values()
-            .filter(|p| matches!(p.status, ProgressStatus::Running | ProgressStatus::Pending | ProgressStatus::Paused))
+        stats.active_sessions = sessions
+            .values()
+            .filter(|p| {
+                matches!(
+                    p.status,
+                    ProgressStatus::Running | ProgressStatus::Pending | ProgressStatus::Paused
+                )
+            })
             .count() as u64;
-        stats.completed_sessions = sessions.values()
+        stats.completed_sessions = sessions
+            .values()
             .filter(|p| p.status == ProgressStatus::Completed)
             .count() as u64;
-        stats.failed_sessions = sessions.values()
+        stats.failed_sessions = sessions
+            .values()
             .filter(|p| p.status == ProgressStatus::Failed)
             .count() as u64;
 
         // Calculate average completion time
-        let completed_times: Vec<i64> = sessions.values()
+        let completed_times: Vec<i64> = sessions
+            .values()
             .filter(|p| p.status == ProgressStatus::Completed && p.end_time.is_some())
             .map(|p| {
-                p.end_time.unwrap().signed_duration_since(p.start_time).num_seconds()
+                p.end_time
+                    .unwrap()
+                    .signed_duration_since(p.start_time)
+                    .num_seconds()
             })
             .collect();
 
         if !completed_times.is_empty() {
-            stats.avg_completion_time = Some(
-                completed_times.iter().sum::<i64>() as f64 / completed_times.len() as f64
-            );
+            stats.avg_completion_time =
+                Some(completed_times.iter().sum::<i64>() as f64 / completed_times.len() as f64);
         }
 
         // Find most common operation type
         let mut operation_counts: HashMap<OperationType, usize> = HashMap::new();
         for progress in sessions.values() {
-            *operation_counts.entry(progress.operation_type.clone()).or_insert(0) += 1;
+            *operation_counts
+                .entry(progress.operation_type.clone())
+                .or_insert(0) += 1;
         }
-        
+
         stats.most_common_operation = operation_counts
             .into_iter()
             .max_by_key(|(_, count)| *count)
@@ -361,21 +377,24 @@ impl ProgressTracker {
     /// Update status of an operation
     async fn update_status(&self, id: &ProgressId, status: ProgressStatus) -> Result<()> {
         let mut sessions = self.sessions.write().await;
-        
+
         if let Some(progress) = sessions.get_mut(id) {
             progress.status = status.clone();
-            
-            if matches!(status, ProgressStatus::Completed | ProgressStatus::Failed | ProgressStatus::Cancelled) {
+
+            if matches!(
+                status,
+                ProgressStatus::Completed | ProgressStatus::Failed | ProgressStatus::Cancelled
+            ) {
                 progress.end_time = Some(Utc::now());
             }
-            
+
             tracing::debug!(
                 progress_id = %id,
                 status = ?status,
                 "Updated operation status"
             );
         } else {
-            return Err(Error::NotFound(format!("Progress session {} not found", id)));
+            return Err(Error::NotFound(format!("Progress session {id} not found")));
         }
 
         self.update_stats().await;
@@ -383,18 +402,24 @@ impl ProgressTracker {
     }
 
     /// Clean up old sessions when we exceed the limit
-    async fn cleanup_old_sessions_internal(&self, sessions: &mut HashMap<ProgressId, ProgressInfo>) {
+    async fn cleanup_old_sessions_internal(
+        &self,
+        sessions: &mut HashMap<ProgressId, ProgressInfo>,
+    ) {
         // Remove oldest completed/failed sessions first
         let mut to_remove: Vec<(ProgressId, chrono::DateTime<chrono::Utc>)> = sessions
             .iter()
             .filter(|(_, progress)| {
-                matches!(progress.status, ProgressStatus::Completed | ProgressStatus::Failed | ProgressStatus::Cancelled)
+                matches!(
+                    progress.status,
+                    ProgressStatus::Completed | ProgressStatus::Failed | ProgressStatus::Cancelled
+                )
             })
             .map(|(id, progress)| (id.clone(), progress.start_time))
             .collect();
 
         to_remove.sort_by(|a, b| a.1.cmp(&b.1));
-        
+
         let to_remove_count = sessions.len().saturating_sub(self.config.max_sessions);
         for (id, _) in to_remove.into_iter().take(to_remove_count) {
             sessions.remove(&id);
@@ -416,18 +441,24 @@ mod tests {
     #[tokio::test]
     async fn test_progress_tracking() {
         let tracker = ProgressTracker::new();
-        
+
         // Start an operation
-        let id = tracker.start_operation(
-            OperationType::BulkOperation,
-            "Test operation".to_string(),
-            100,
-            None,
-        ).await.unwrap();
+        let id = tracker
+            .start_operation(
+                OperationType::BulkOperation,
+                "Test operation".to_string(),
+                100,
+                None,
+            )
+            .await
+            .unwrap();
 
         // Update progress
-        tracker.update_progress(&id, Some(50), None, None, None, None).await.unwrap();
-        
+        tracker
+            .update_progress(&id, Some(50), None, None, None, None)
+            .await
+            .unwrap();
+
         // Get progress
         let progress = tracker.get_progress(&id).await.unwrap().unwrap();
         assert_eq!(progress.metrics.completed, 50);
@@ -436,7 +467,7 @@ mod tests {
 
         // Mark as completed
         tracker.mark_completed(&id).await.unwrap();
-        
+
         let progress = tracker.get_progress(&id).await.unwrap().unwrap();
         assert_eq!(progress.status, ProgressStatus::Completed);
         assert!(progress.end_time.is_some());
@@ -445,21 +476,22 @@ mod tests {
     #[tokio::test]
     async fn test_progress_filtering() {
         let tracker = ProgressTracker::new();
-        
+
         // Create multiple operations
-        let id1 = tracker.start_operation(
-            OperationType::BulkOperation,
-            "Bulk op 1".to_string(),
-            100,
-            None,
-        ).await.unwrap();
-        
-        let id2 = tracker.start_operation(
-            OperationType::Reindex,
-            "Reindex op".to_string(),
-            200,
-            None,
-        ).await.unwrap();
+        let id1 = tracker
+            .start_operation(
+                OperationType::BulkOperation,
+                "Bulk op 1".to_string(),
+                100,
+                None,
+            )
+            .await
+            .unwrap();
+
+        let id2 = tracker
+            .start_operation(OperationType::Reindex, "Reindex op".to_string(), 200, None)
+            .await
+            .unwrap();
 
         // Filter by operation type
         let filter = ProgressFilter {

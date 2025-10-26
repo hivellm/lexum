@@ -1,7 +1,7 @@
 //! Document operations module
 
-pub mod store;
 pub mod progress_store;
+pub mod store;
 
-pub use store::DocumentStore;
 pub use progress_store::ProgressDocumentStore;
+pub use store::DocumentStore;

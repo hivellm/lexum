@@ -1,8 +1,8 @@
 //! Progress tracking commands
 
+use crate::client::LexumClient;
 use anyhow::{Context, Result};
 use colored::Colorize;
-use crate::client::LexumClient;
 use serde_json::Value;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -115,8 +115,13 @@ pub async fn monitor_progress(
     refresh_interval: Option<u64>,
 ) -> Result<()> {
     let interval = Duration::from_millis(refresh_interval.unwrap_or(1000));
-    
-    println!("{}", "Monitoring progress (Press Ctrl+C to stop)".bright_cyan().bold());
+
+    println!(
+        "{}",
+        "Monitoring progress (Press Ctrl+C to stop)"
+            .bright_cyan()
+            .bold()
+    );
     println!("Progress ID: {}", progress_id.bright_yellow());
     println!();
 
@@ -125,11 +130,11 @@ pub async fn monitor_progress(
         match client.get::<Value>(&url).await {
             Ok(session) => {
                 let status = session["status"].as_str().unwrap_or("Unknown");
-                
+
                 // Clear screen and move cursor to top
                 print!("\x1B[2J\x1B[1;1H");
                 print_progress_details(&session);
-                
+
                 // Check if operation is complete
                 if matches!(status, "Completed" | "Failed" | "Cancelled") {
                     println!();
@@ -142,7 +147,7 @@ pub async fn monitor_progress(
                 break;
             }
         }
-        
+
         sleep(interval).await;
     }
 
@@ -200,15 +205,27 @@ pub async fn get_stats(client: &LexumClient) -> Result<()> {
 
     println!("{}", "Progress Statistics".bright_cyan().bold());
     println!("{}", "=".repeat(40).bright_cyan());
-    println!("Total Sessions: {}", stats["total_sessions"].as_u64().unwrap_or(0));
-    println!("Active Sessions: {}", stats["active_sessions"].as_u64().unwrap_or(0));
-    println!("Completed Sessions: {}", stats["completed_sessions"].as_u64().unwrap_or(0));
-    println!("Failed Sessions: {}", stats["failed_sessions"].as_u64().unwrap_or(0));
-    
+    println!(
+        "Total Sessions: {}",
+        stats["total_sessions"].as_u64().unwrap_or(0)
+    );
+    println!(
+        "Active Sessions: {}",
+        stats["active_sessions"].as_u64().unwrap_or(0)
+    );
+    println!(
+        "Completed Sessions: {}",
+        stats["completed_sessions"].as_u64().unwrap_or(0)
+    );
+    println!(
+        "Failed Sessions: {}",
+        stats["failed_sessions"].as_u64().unwrap_or(0)
+    );
+
     if let Some(avg_time) = stats["avg_completion_time"].as_f64() {
         println!("Average Completion Time: {:.2}s", avg_time);
     }
-    
+
     if let Some(common_op) = stats["most_common_operation"].as_str() {
         println!("Most Common Operation: {}", common_op);
     }
@@ -217,10 +234,7 @@ pub async fn get_stats(client: &LexumClient) -> Result<()> {
 }
 
 /// Clean up old progress sessions
-pub async fn cleanup_progress(
-    client: &LexumClient,
-    max_age_hours: Option<u64>,
-) -> Result<()> {
+pub async fn cleanup_progress(client: &LexumClient, max_age_hours: Option<u64>) -> Result<()> {
     let url = if let Some(age) = max_age_hours {
         format!("/api/v1/progress/cleanup?max_age_hours={}", age)
     } else {
@@ -228,9 +242,12 @@ pub async fn cleanup_progress(
     };
 
     let result: Value = client.post(&url, &Value::Null).await?;
-    
+
     let cleaned = result["cleaned_sessions"].as_u64().unwrap_or(0);
-    println!("{}", format!("Cleaned up {} old progress sessions", cleaned).bright_green());
+    println!(
+        "{}",
+        format!("Cleaned up {} old progress sessions", cleaned).bright_green()
+    );
 
     Ok(())
 }
@@ -243,7 +260,7 @@ fn print_progress_details(session: &Value) {
     let description = session["description"].as_str().unwrap_or("N/A");
     let start_time = session["start_time"].as_str().unwrap_or("N/A");
     let end_time = session["end_time"].as_str().unwrap_or("N/A");
-    
+
     let metrics = &session["metrics"];
     let total = metrics["total"].as_u64().unwrap_or(0);
     let completed = metrics["completed"].as_u64().unwrap_or(0);
@@ -274,18 +291,23 @@ fn print_progress_details(session: &Value) {
         println!("Ended: {}", end_time.bright_white());
     }
     println!();
-    
+
     // Progress bar
     let bar_width = 40;
     let filled = (percentage / 100.0 * bar_width as f64) as usize;
     let bar = "█".repeat(filled) + &"░".repeat(bar_width - filled);
-    println!("Progress: [{}{}] {:.1}%", 
+    println!(
+        "Progress: [{}{}] {:.1}%",
         bar[..filled].bright_green(),
         bar[filled..].bright_black(),
         percentage
     );
-    
-    println!("Completed: {}/{}", completed.to_string().bright_green(), total);
+
+    println!(
+        "Completed: {}/{}",
+        completed.to_string().bright_green(),
+        total
+    );
     if failed > 0 {
         println!("Failed: {}", failed.to_string().bright_red());
     }
@@ -293,18 +315,18 @@ fn print_progress_details(session: &Value) {
         println!("Skipped: {}", skipped.to_string().bright_yellow());
     }
     println!("Rate: {:.1} ops/sec", rate.to_string().bright_cyan());
-    
+
     if let Some(remaining) = estimated_remaining {
         let hours = remaining / 3600;
         let minutes = (remaining % 3600) / 60;
         let seconds = remaining % 60;
         println!("ETA: {}h {}m {}s", hours, minutes, seconds);
     }
-    
+
     if let Some(phase) = current_phase {
         println!("Current Phase: {}", phase.bright_magenta());
     }
-    
+
     if let Some(error) = session["error"].as_str() {
         println!("Error: {}", error.bright_red());
     }

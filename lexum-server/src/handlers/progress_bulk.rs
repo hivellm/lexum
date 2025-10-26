@@ -2,10 +2,10 @@
 
 use crate::error::{ApiError, ApiResult};
 use crate::handlers::index::AppState;
-use axum::{extract::State, Json};
+use axum::{Json, extract::State};
 use lexum_core::{
-    document::store::{BulkOperation, BulkOperationResult},
     document::ProgressDocumentStore,
+    document::store::{BulkOperation, BulkOperationResult},
     progress::{OperationType, ProgressId},
 };
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,10 @@ pub async fn bulk_operations_with_progress(
             BulkOperation::Update { index, .. } => index.clone(),
             BulkOperation::Delete { index, .. } => index.clone(),
         };
-        operations_by_index.entry(index_name).or_default().push(operation);
+        operations_by_index
+            .entry(index_name)
+            .or_default()
+            .push(operation);
     }
 
     let mut all_results = Vec::new();
@@ -97,9 +100,9 @@ pub async fn bulk_operations_with_progress(
 
     // Start progress tracking if enabled
     if request.track_progress {
-        let description = request.progress_description.unwrap_or_else(|| {
-            format!("Bulk operations on {} indices", operations_by_index.len())
-        });
+        let description = request
+            .progress_description
+            .unwrap_or_else(|| format!("Bulk operations on {} indices", operations_by_index.len()));
 
         progress_id = Some(
             state
@@ -134,8 +137,9 @@ pub async fn bulk_operations_with_progress(
     for (index_name, operations) in operations_by_index {
         match state.index_manager.get_index(&index_name) {
             Ok(index) => {
-                let store = ProgressDocumentStore::new(Arc::new(index), state.progress_tracker.clone());
-                
+                let store =
+                    ProgressDocumentStore::new(Arc::new(index), state.progress_tracker.clone());
+
                 let index_results = store
                     .bulk_operations_with_progress(operations, progress_id.clone())
                     .await?;
@@ -219,7 +223,7 @@ pub async fn get_bulk_progress(
     axum::extract::Path(progress_id): axum::extract::Path<String>,
 ) -> ApiResult<Json<ProgressStats>> {
     let progress_id = ProgressId::from(progress_id);
-    
+
     match state.progress_tracker.get_progress(&progress_id).await? {
         Some(progress) => {
             let stats = ProgressStats {

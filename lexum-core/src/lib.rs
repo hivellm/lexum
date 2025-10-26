@@ -85,12 +85,14 @@ pub use index::{
     AliasOperationsResponse, Index, IndexAlias, IndexManager, IndexPattern, IndexSettings,
     IndexStats, IndexTemplate, TemplateManager, TemplateMappings, TemplateName, TemplateSettings,
 };
+pub use progress::{
+    OperationType, ProgressId, ProgressInfo, ProgressMetrics, ProgressStatus, ProgressTracker,
+};
 pub use query::{
     BoolQuery, FuzzyQuery, MatchQuery, PhraseQuery, Query, QueryBuilder, RangeQuery, TermQuery,
 };
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};
-pub use progress::{ProgressTracker, ProgressId, ProgressInfo, ProgressStatus, OperationType, ProgressMetrics};
 pub use snapshot::{
     CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo, SnapshotManager,
     SnapshotRepository, SnapshotStats,

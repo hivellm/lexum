@@ -124,7 +124,7 @@ impl ProgressMetrics {
     pub fn update_rate(&mut self, elapsed_seconds: f64) {
         if elapsed_seconds > 0.0 {
             self.rate = self.completed as f64 / elapsed_seconds;
-            
+
             // Calculate estimated remaining time
             if self.rate > 0.0 && self.completed < self.total {
                 let remaining = self.total - self.completed;

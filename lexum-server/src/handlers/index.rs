@@ -5,8 +5,8 @@ use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use lexum_core::{
-    FieldConfig, FieldType, IndexManager, IndexSettings, SchemaBuilder, SnapshotManager,
-    TemplateManager, ProgressTracker,
+    FieldConfig, FieldType, IndexManager, IndexSettings, ProgressTracker, SchemaBuilder,
+    SnapshotManager, TemplateManager,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

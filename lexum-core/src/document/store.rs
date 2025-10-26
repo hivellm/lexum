@@ -14,9 +14,17 @@ use uuid::Uuid;
 #[allow(missing_docs)]
 pub enum BulkOperation {
     /// Index a document (create or update)
-    Index { index: String, id: DocumentId, document: JsonValue },
+    Index {
+        index: String,
+        id: DocumentId,
+        document: JsonValue,
+    },
     /// Update a document
-    Update { index: String, id: DocumentId, document: JsonValue },
+    Update {
+        index: String,
+        id: DocumentId,
+        document: JsonValue,
+    },
     /// Delete a document
     Delete { index: String, id: DocumentId },
 }
@@ -233,34 +241,23 @@ impl DocumentStore {
 
             for (i, operation) in operations.into_iter().enumerate() {
                 match operation {
-                    BulkOperation::Index { index, id, document } => {
-                        match Self::json_to_tantivy_doc(&schema, &document) {
-                            Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
-                                Ok(_) => {
-                                    results.push(BulkOperationResult::Index {
-                                        index: index.clone(),
-                                        id: id.clone(),
-                                        success: true,
-                                        error: None,
-                                    });
-                                    tracing::debug!(doc_id = %id, "Bulk indexed document");
-                                }
-                                Err(e) => {
-                                    let error_msg = format!("Failed to add document: {e}");
-                                    errors.push(BulkError {
-                                        operation_index: i,
-                                        error: error_msg.clone(),
-                                    });
-                                    results.push(BulkOperationResult::Index {
-                                        index: index.clone(),
-                                        id: id.clone(),
-                                        success: false,
-                                        error: Some(error_msg),
-                                    });
-                                }
-                            },
+                    BulkOperation::Index {
+                        index,
+                        id,
+                        document,
+                    } => match Self::json_to_tantivy_doc(&schema, &document) {
+                        Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
+                            Ok(_) => {
+                                results.push(BulkOperationResult::Index {
+                                    index: index.clone(),
+                                    id: id.clone(),
+                                    success: true,
+                                    error: None,
+                                });
+                                tracing::debug!(doc_id = %id, "Bulk indexed document");
+                            }
                             Err(e) => {
-                                let error_msg = format!("Failed to parse document: {e}");
+                                let error_msg = format!("Failed to add document: {e}");
                                 errors.push(BulkError {
                                     operation_index: i,
                                     error: error_msg.clone(),
@@ -272,9 +269,26 @@ impl DocumentStore {
                                     error: Some(error_msg),
                                 });
                             }
+                        },
+                        Err(e) => {
+                            let error_msg = format!("Failed to parse document: {e}");
+                            errors.push(BulkError {
+                                operation_index: i,
+                                error: error_msg.clone(),
+                            });
+                            results.push(BulkOperationResult::Index {
+                                index: index.clone(),
+                                id: id.clone(),
+                                success: false,
+                                error: Some(error_msg),
+                            });
                         }
-                    }
-                    BulkOperation::Update { index, id, document } => {
+                    },
+                    BulkOperation::Update {
+                        index,
+                        id,
+                        document,
+                    } => {
                         // For now, update is delete + add
                         match Self::json_to_tantivy_doc(&schema, &document) {
                             Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
@@ -859,7 +873,11 @@ mod tests {
             document: document.clone(),
         };
         match index_op {
-            BulkOperation::Index { index, id, document } => {
+            BulkOperation::Index {
+                index,
+                id,
+                document,
+            } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert_eq!(document["title"], "Test");
@@ -874,7 +892,11 @@ mod tests {
             document: document.clone(),
         };
         match update_op {
-            BulkOperation::Update { index, id, document } => {
+            BulkOperation::Update {
+                index,
+                id,
+                document,
+            } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert_eq!(document["title"], "Test");
@@ -883,9 +905,9 @@ mod tests {
         }
 
         // Test Delete variant
-        let delete_op = BulkOperation::Delete { 
+        let delete_op = BulkOperation::Delete {
             index: "test_index".to_string(),
-            id: doc_id 
+            id: doc_id,
         };
         match delete_op {
             BulkOperation::Delete { index, id } => {
@@ -908,7 +930,12 @@ mod tests {
             error: None,
         };
         match index_result {
-            BulkOperationResult::Index { index, id, success, error } => {
+            BulkOperationResult::Index {
+                index,
+                id,
+                success,
+                error,
+            } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert!(success);
@@ -925,7 +952,12 @@ mod tests {
             error: Some("Test error".to_string()),
         };
         match update_result {
-            BulkOperationResult::Update { index, id, success, error } => {
+            BulkOperationResult::Update {
+                index,
+                id,
+                success,
+                error,
+            } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert!(!success);
@@ -942,7 +974,12 @@ mod tests {
             error: Some("Not implemented".to_string()),
         };
         match delete_result {
-            BulkOperationResult::Delete { index, id, success, error } => {
+            BulkOperationResult::Delete {
+                index,
+                id,
+                success,
+                error,
+            } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, DocumentId::new("test_doc"));
                 assert!(!success);

@@ -12,11 +12,11 @@ use uuid::Uuid;
 use crate::error::{ApiError, ApiResult};
 use crate::handlers::index::AppState;
 use lexum_core::{
-    document::store::DocumentStore, 
-    query::Query, 
-    search::SearchExecutor,
-    script::{ScriptEngine, ScriptContext, context::DocumentMetadata},
+    document::store::DocumentStore,
+    query::Query,
     script::parser::ScriptParser,
+    script::{ScriptContext, ScriptEngine, context::DocumentMetadata},
+    search::SearchExecutor,
 };
 
 /// Reindex request
@@ -285,11 +285,14 @@ fn execute_script_transformation(
 ) -> Result<serde_json::Value, String> {
     // Parse the script
     let mut parser = ScriptParser::new(script.source.clone());
-    let operations = parser.parse()
+    let operations = parser
+        .parse()
         .map_err(|e| format!("Failed to parse script: {}", e))?;
 
     // Create script context
-    let params = script.params.clone()
+    let params = script
+        .params
+        .clone()
         .map(|p| {
             if let serde_json::Value::Object(map) = p {
                 map.into_iter().collect()
@@ -311,7 +314,8 @@ fn execute_script_transformation(
 
     // Execute the script
     let engine = ScriptEngine::new(operations);
-    engine.execute(&mut context)
+    engine
+        .execute(&mut context)
         .map_err(|e| format!("Script execution failed: {}", e))?;
 
     Ok(context.source)

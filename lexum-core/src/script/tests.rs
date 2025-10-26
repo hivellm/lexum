@@ -1,8 +1,8 @@
 //! Comprehensive tests for script engine functionality
 
 use super::*;
-use crate::script::parser::ScriptParser;
 use crate::script::context::DocumentMetadata;
+use crate::script::parser::ScriptParser;
 use serde_json::json;
 use std::collections::HashMap;
 
@@ -151,8 +151,14 @@ mod integration_tests {
 
         assert_eq!(context.get_field("user.name"), Some(&json!("Jane")));
         assert_eq!(context.get_field("user.role"), Some(&json!("admin")));
-        assert_eq!(context.get_field("user.email"), Some(&json!("john@example.com")));
-        assert_eq!(context.get_field("metadata.updated_at"), Some(&json!("2023-01-03")));
+        assert_eq!(
+            context.get_field("user.email"),
+            Some(&json!("john@example.com"))
+        );
+        assert_eq!(
+            context.get_field("metadata.updated_at"),
+            Some(&json!("2023-01-03"))
+        );
     }
 
     #[test]
@@ -222,7 +228,10 @@ mod integration_tests {
         engine.execute(&mut context).unwrap();
 
         assert_eq!(context.get_field("title"), Some(&json!("hello world")));
-        assert_eq!(context.get_field("description"), Some(&json!("final description")));
+        assert_eq!(
+            context.get_field("description"),
+            Some(&json!("final description"))
+        );
     }
 
     #[test]
@@ -259,7 +268,10 @@ mod integration_tests {
         let engine = ScriptEngine::new(operations);
         engine.execute(&mut context).unwrap();
 
-        assert_eq!(context.get_field("title"), Some(&json!("Parameterized Title")));
+        assert_eq!(
+            context.get_field("title"),
+            Some(&json!("Parameterized Title"))
+        );
         assert_eq!(context.get_field("status"), Some(&json!("published")));
     }
 
@@ -390,7 +402,8 @@ mod integration_tests {
             ctx._source.status = "published";
             ctx._source.old_field.remove();
             ctx._source.new_field = "added";
-        "#.to_string();
+        "#
+        .to_string();
 
         let mut parser = ScriptParser::new(script_source);
         let operations = parser.parse().unwrap();
@@ -414,7 +427,10 @@ mod integration_tests {
         let result = engine.execute(&mut context);
         assert!(result.is_ok());
 
-        assert_eq!(context.get_field("title"), Some(&json!("Transformed Title")));
+        assert_eq!(
+            context.get_field("title"),
+            Some(&json!("Transformed Title"))
+        );
         assert_eq!(context.get_field("status"), Some(&json!("published")));
         assert_eq!(context.get_field("new_field"), Some(&json!("added")));
         assert!(context.get_field("old_field").is_none());
