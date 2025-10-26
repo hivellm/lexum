@@ -11,7 +11,13 @@ use uuid::Uuid;
 
 use crate::error::{ApiError, ApiResult};
 use crate::handlers::index::AppState;
-use lexum_core::{document::store::DocumentStore, query::Query, search::SearchExecutor};
+use lexum_core::{
+    document::store::DocumentStore, 
+    query::Query, 
+    search::SearchExecutor,
+    script::{ScriptEngine, ScriptContext, context::DocumentMetadata},
+    script::parser::ScriptParser,
+};
 
 /// Reindex request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -271,6 +277,46 @@ pub struct TaskStatus {
     pub throttled_until_nanos: Option<u64>,
 }
 
+/// Execute script transformation on a document
+fn execute_script_transformation(
+    script: &ReindexScript,
+    document: &mut serde_json::Value,
+    doc_id: &str,
+) -> Result<serde_json::Value, String> {
+    // Parse the script
+    let mut parser = ScriptParser::new(script.source.clone());
+    let operations = parser.parse()
+        .map_err(|e| format!("Failed to parse script: {}", e))?;
+
+    // Create script context
+    let params = script.params.clone()
+        .map(|p| {
+            if let serde_json::Value::Object(map) = p {
+                map.into_iter().collect()
+            } else {
+                std::collections::HashMap::new()
+            }
+        })
+        .unwrap_or_default();
+
+    let metadata = DocumentMetadata {
+        id: doc_id.to_string(),
+        index: "unknown".to_string(), // Will be set by caller if needed
+        doc_type: None,
+        version: None,
+        routing: None,
+    };
+
+    let mut context = ScriptContext::new(document.clone(), params, metadata);
+
+    // Execute the script
+    let engine = ScriptEngine::new(operations);
+    engine.execute(&mut context)
+        .map_err(|e| format!("Script execution failed: {}", e))?;
+
+    Ok(context.source)
+}
+
 /// Perform the actual reindex operation
 async fn perform_reindex(
     state: AppState,
@@ -373,12 +419,16 @@ async fn perform_reindex(
 
             // Apply script transformation if provided
             if let Some(script) = &request.script {
-                // For now, we'll skip script execution as it requires a script engine
-                // In a real implementation, this would execute the script
-                tracing::warn!(
-                    "Script transformation not yet implemented, skipping script: {}",
-                    script.source
-                );
+                match execute_script_transformation(&script, &mut document, &hit.id.to_string()) {
+                    Ok(transformed_doc) => {
+                        document = transformed_doc;
+                        tracing::debug!("Script transformation applied successfully");
+                    }
+                    Err(e) => {
+                        tracing::error!("Script transformation failed: {}", e);
+                        // Continue with original document if script fails
+                    }
+                }
             }
 
             // Add document to destination index

@@ -40,6 +40,7 @@ async fn create_test_state() -> AppState {
         snapshot_manager,
         template_manager,
         task_manager,
+        progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
     }
 }
 

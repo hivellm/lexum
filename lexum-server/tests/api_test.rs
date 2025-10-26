@@ -45,6 +45,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
         snapshot_manager,
         template_manager: Arc::new(TemplateManager::new()),
         task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
+        progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
     };
     (state, temp_dir)
 }

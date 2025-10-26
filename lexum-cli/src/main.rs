@@ -3,7 +3,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use colored::Colorize;
-use lexum_cli::{commands, repl::ReplSession};
+use lexum_cli::{commands, repl::ReplSession, client::LexumClient};
 
 /// Lexum CLI - Search engine command-line interface
 #[derive(Parser)]
@@ -102,6 +102,12 @@ enum Commands {
     Alias {
         #[command(subcommand)]
         action: AliasAction,
+    },
+
+    /// Progress tracking commands
+    Progress {
+        #[command(subcommand)]
+        action: ProgressAction,
     },
 }
 
@@ -265,6 +271,58 @@ enum AliasAction {
         /// Operations file (JSON)
         #[arg(short, long)]
         file: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ProgressAction {
+    /// List all progress sessions
+    List {
+        /// Filter by operation type
+        #[arg(long)]
+        operation_type: Option<String>,
+        /// Filter by status
+        #[arg(long)]
+        status: Option<String>,
+        /// Limit number of results
+        #[arg(short, long)]
+        limit: Option<usize>,
+    },
+    /// Get detailed progress information
+    Get {
+        /// Progress ID
+        progress_id: String,
+    },
+    /// Monitor progress in real-time
+    Monitor {
+        /// Progress ID
+        progress_id: String,
+        /// Refresh interval in milliseconds
+        #[arg(short, long, default_value = "1000")]
+        interval: u64,
+    },
+    /// Cancel a progress operation
+    Cancel {
+        /// Progress ID
+        progress_id: String,
+    },
+    /// Pause a progress operation
+    Pause {
+        /// Progress ID
+        progress_id: String,
+    },
+    /// Resume a paused progress operation
+    Resume {
+        /// Progress ID
+        progress_id: String,
+    },
+    /// Get progress statistics
+    Stats,
+    /// Clean up old progress sessions
+    Cleanup {
+        /// Maximum age in hours
+        #[arg(short, long, default_value = "24")]
+        max_age_hours: u64,
     },
 }
 
@@ -484,6 +542,42 @@ async fn main() -> Result<()> {
                 commands::alias::atomic_operations(&cli.url, operations).await?;
             }
         },
+        Some(Commands::Progress { action }) => {
+            let client = LexumClient::new(cli.url.clone());
+            match action {
+                ProgressAction::List {
+                    operation_type,
+                    status,
+                    limit,
+                } => {
+                    commands::progress::list_progress(&client, operation_type, status, limit).await?;
+                }
+                ProgressAction::Get { progress_id } => {
+                    commands::progress::get_progress(&client, &progress_id).await?;
+                }
+                ProgressAction::Monitor {
+                    progress_id,
+                    interval,
+                } => {
+                    commands::progress::monitor_progress(&client, &progress_id, Some(interval)).await?;
+                }
+                ProgressAction::Cancel { progress_id } => {
+                    commands::progress::cancel_progress(&client, &progress_id).await?;
+                }
+                ProgressAction::Pause { progress_id } => {
+                    commands::progress::pause_progress(&client, &progress_id).await?;
+                }
+                ProgressAction::Resume { progress_id } => {
+                    commands::progress::resume_progress(&client, &progress_id).await?;
+                }
+                ProgressAction::Stats => {
+                    commands::progress::get_stats(&client).await?;
+                }
+                ProgressAction::Cleanup { max_age_hours } => {
+                    commands::progress::cleanup_progress(&client, Some(max_age_hours)).await?;
+                }
+            }
+        }
         None => {
             // No command provided, start REPL by default
             println!("{}", "Lexum Interactive Shell".bright_cyan().bold());

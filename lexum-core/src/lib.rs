@@ -55,6 +55,9 @@ pub mod logging;
 /// Performance monitoring and regression detection
 pub mod performance;
 
+/// Progress tracking for long-running operations
+pub mod progress;
+
 /// Query types and builders
 pub mod query;
 
@@ -67,12 +70,15 @@ pub mod search;
 /// Snapshot and restore functionality
 pub mod snapshot;
 
+/// Script engine for document transformation
+pub mod script;
+
 /// Common types
 pub mod types;
 
 // Re-export commonly used items
 pub use config::Config;
-pub use document::DocumentStore;
+pub use document::{DocumentStore, ProgressDocumentStore};
 pub use error::{Error, Result};
 pub use index::{
     AliasAction, AliasConfig, AliasManager, AliasName, AliasOperationsRequest,
@@ -84,6 +90,7 @@ pub use query::{
 };
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};
+pub use progress::{ProgressTracker, ProgressId, ProgressInfo, ProgressStatus, OperationType, ProgressMetrics};
 pub use snapshot::{
     CreateSnapshotRequest, RestoreSnapshotRequest, SnapshotInfo, SnapshotManager,
     SnapshotRepository, SnapshotStats,

@@ -6,7 +6,7 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use lexum_core::{
     FieldConfig, FieldType, IndexManager, IndexSettings, SchemaBuilder, SnapshotManager,
-    TemplateManager,
+    TemplateManager, ProgressTracker,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -26,6 +26,8 @@ pub struct AppState {
     pub template_manager: Arc<TemplateManager>,
     /// Task manager for reindex operations
     pub task_manager: Arc<TaskManager>,
+    /// Progress tracker for long-running operations
+    pub progress_tracker: Arc<ProgressTracker>,
 }
 
 impl Default for AppState {
@@ -58,6 +60,7 @@ impl Default for AppState {
             snapshot_manager,
             template_manager: Arc::new(TemplateManager::new()),
             task_manager: Arc::new(TaskManager::new()),
+            progress_tracker: Arc::new(ProgressTracker::new()),
         }
     }
 }
@@ -380,6 +383,7 @@ mod tests {
             snapshot_manager,
             template_manager: Arc::new(TemplateManager::new()),
             task_manager: Arc::new(TaskManager::new()),
+            progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
         }
     }
 

@@ -96,6 +96,7 @@ impl E2ETestRunner {
             snapshot_manager,
             template_manager: Arc::new(lexum_core::TemplateManager::new()),
             task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
+            progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
         };
 
         Ok(Self {

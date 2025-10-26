@@ -46,6 +46,10 @@ pub enum Error {
     /// Compression error
     #[error("Compression error: {0}")]
     Compression(String),
+
+    /// Tantivy error
+    #[error("Tantivy error: {0}")]
+    Tantivy(String),
 }
 
 impl From<serde_yaml::Error> for Error {
@@ -69,6 +73,12 @@ impl From<notify::Error> for Error {
 impl From<tokio::task::JoinError> for Error {
     fn from(err: tokio::task::JoinError) -> Self {
         Error::Io(std::io::Error::other(err))
+    }
+}
+
+impl From<tantivy::TantivyError> for Error {
+    fn from(err: tantivy::TantivyError) -> Self {
+        Error::Tantivy(err.to_string())
     }
 }
 

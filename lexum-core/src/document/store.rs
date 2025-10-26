@@ -10,35 +10,38 @@ use tantivy::schema::*;
 use uuid::Uuid;
 
 /// Bulk operation types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[allow(missing_docs)]
 pub enum BulkOperation {
     /// Index a document (create or update)
-    Index { id: DocumentId, document: JsonValue },
+    Index { index: String, id: DocumentId, document: JsonValue },
     /// Update a document
-    Update { id: DocumentId, document: JsonValue },
+    Update { index: String, id: DocumentId, document: JsonValue },
     /// Delete a document
-    Delete { id: DocumentId },
+    Delete { index: String, id: DocumentId },
 }
 
 /// Result of a bulk operation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 #[allow(missing_docs)]
 pub enum BulkOperationResult {
     /// Index operation result
     Index {
+        index: String,
         id: DocumentId,
         success: bool,
         error: Option<String>,
     },
     /// Update operation result
     Update {
+        index: String,
         id: DocumentId,
         success: bool,
         error: Option<String>,
     },
     /// Delete operation result
     Delete {
+        index: String,
         id: DocumentId,
         success: bool,
         error: Option<String>,
@@ -230,11 +233,12 @@ impl DocumentStore {
 
             for (i, operation) in operations.into_iter().enumerate() {
                 match operation {
-                    BulkOperation::Index { id, document } => {
+                    BulkOperation::Index { index, id, document } => {
                         match Self::json_to_tantivy_doc(&schema, &document) {
                             Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
                                 Ok(_) => {
                                     results.push(BulkOperationResult::Index {
+                                        index: index.clone(),
                                         id: id.clone(),
                                         success: true,
                                         error: None,
@@ -248,6 +252,7 @@ impl DocumentStore {
                                         error: error_msg.clone(),
                                     });
                                     results.push(BulkOperationResult::Index {
+                                        index: index.clone(),
                                         id: id.clone(),
                                         success: false,
                                         error: Some(error_msg),
@@ -261,6 +266,7 @@ impl DocumentStore {
                                     error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Index {
+                                    index: index.clone(),
                                     id: id.clone(),
                                     success: false,
                                     error: Some(error_msg),
@@ -268,12 +274,13 @@ impl DocumentStore {
                             }
                         }
                     }
-                    BulkOperation::Update { id, document } => {
+                    BulkOperation::Update { index, id, document } => {
                         // For now, update is delete + add
                         match Self::json_to_tantivy_doc(&schema, &document) {
                             Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
                                 Ok(_) => {
                                     results.push(BulkOperationResult::Update {
+                                        index: index.clone(),
                                         id: id.clone(),
                                         success: true,
                                         error: None,
@@ -287,6 +294,7 @@ impl DocumentStore {
                                         error: error_msg.clone(),
                                     });
                                     results.push(BulkOperationResult::Update {
+                                        index: index.clone(),
                                         id: id.clone(),
                                         success: false,
                                         error: Some(error_msg),
@@ -300,6 +308,7 @@ impl DocumentStore {
                                     error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Update {
+                                    index: index.clone(),
                                     id: id.clone(),
                                     success: false,
                                     error: Some(error_msg),
@@ -307,7 +316,7 @@ impl DocumentStore {
                             }
                         }
                     }
-                    BulkOperation::Delete { id } => {
+                    BulkOperation::Delete { index, id } => {
                         // For now, delete is not implemented
                         let error_msg = "Delete operation not yet implemented".to_string();
                         errors.push(BulkError {
@@ -315,6 +324,7 @@ impl DocumentStore {
                             error: error_msg.clone(),
                         });
                         results.push(BulkOperationResult::Delete {
+                            index: index.clone(),
                             id: id.clone(),
                             success: false,
                             error: Some(error_msg),
@@ -586,6 +596,7 @@ mod tests {
 
         let operations = vec![
             BulkOperation::Index {
+                index: "test_index".to_string(),
                 id: DocumentId::new("doc1"),
                 document: serde_json::json!({
                     "title": "Document 1",
@@ -593,6 +604,7 @@ mod tests {
                 }),
             },
             BulkOperation::Index {
+                index: "test_index".to_string(),
                 id: DocumentId::new("doc2"),
                 document: serde_json::json!({
                     "title": "Document 2",
@@ -634,6 +646,7 @@ mod tests {
         let store = DocumentStore::new(Arc::new(index));
 
         let operations = vec![BulkOperation::Update {
+            index: "test_index".to_string(),
             id: DocumentId::new("doc1"),
             document: serde_json::json!({
                 "title": "Updated Document 1"
@@ -669,6 +682,7 @@ mod tests {
         let store = DocumentStore::new(Arc::new(index));
 
         let operations = vec![BulkOperation::Delete {
+            index: "test_index".to_string(),
             id: DocumentId::new("doc1"),
         }];
 
@@ -707,18 +721,21 @@ mod tests {
 
         let operations = vec![
             BulkOperation::Index {
+                index: "test_index".to_string(),
                 id: DocumentId::new("doc1"),
                 document: serde_json::json!({
                     "title": "Document 1"
                 }),
             },
             BulkOperation::Update {
+                index: "test_index".to_string(),
                 id: DocumentId::new("doc2"),
                 document: serde_json::json!({
                     "title": "Updated Document 2"
                 }),
             },
             BulkOperation::Delete {
+                index: "test_index".to_string(),
                 id: DocumentId::new("doc3"),
             },
         ];
@@ -755,6 +772,7 @@ mod tests {
         });
 
         let operations = vec![BulkOperation::Index {
+            index: "test_index".to_string(),
             id: DocumentId::new("doc1"),
             document: invalid_doc,
         }];
@@ -836,11 +854,13 @@ mod tests {
 
         // Test Index variant
         let index_op = BulkOperation::Index {
+            index: "test_index".to_string(),
             id: doc_id.clone(),
             document: document.clone(),
         };
         match index_op {
-            BulkOperation::Index { id, document } => {
+            BulkOperation::Index { index, id, document } => {
+                assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert_eq!(document["title"], "Test");
             }
@@ -849,11 +869,13 @@ mod tests {
 
         // Test Update variant
         let update_op = BulkOperation::Update {
+            index: "test_index".to_string(),
             id: doc_id.clone(),
             document: document.clone(),
         };
         match update_op {
-            BulkOperation::Update { id, document } => {
+            BulkOperation::Update { index, id, document } => {
+                assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert_eq!(document["title"], "Test");
             }
@@ -861,9 +883,13 @@ mod tests {
         }
 
         // Test Delete variant
-        let delete_op = BulkOperation::Delete { id: doc_id };
+        let delete_op = BulkOperation::Delete { 
+            index: "test_index".to_string(),
+            id: doc_id 
+        };
         match delete_op {
-            BulkOperation::Delete { id } => {
+            BulkOperation::Delete { index, id } => {
+                assert_eq!(index, "test_index");
                 assert_eq!(id, DocumentId::new("test_doc"));
             }
             _ => panic!("Expected Delete operation"),
@@ -876,12 +902,14 @@ mod tests {
 
         // Test Index result
         let index_result = BulkOperationResult::Index {
+            index: "test_index".to_string(),
             id: doc_id.clone(),
             success: true,
             error: None,
         };
         match index_result {
-            BulkOperationResult::Index { id, success, error } => {
+            BulkOperationResult::Index { index, id, success, error } => {
+                assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert!(success);
                 assert!(error.is_none());
@@ -891,12 +919,14 @@ mod tests {
 
         // Test Update result
         let update_result = BulkOperationResult::Update {
+            index: "test_index".to_string(),
             id: doc_id.clone(),
             success: false,
             error: Some("Test error".to_string()),
         };
         match update_result {
-            BulkOperationResult::Update { id, success, error } => {
+            BulkOperationResult::Update { index, id, success, error } => {
+                assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert!(!success);
                 assert_eq!(error, Some("Test error".to_string()));
@@ -906,12 +936,14 @@ mod tests {
 
         // Test Delete result
         let delete_result = BulkOperationResult::Delete {
+            index: "test_index".to_string(),
             id: doc_id,
             success: false,
             error: Some("Not implemented".to_string()),
         };
         match delete_result {
-            BulkOperationResult::Delete { id, success, error } => {
+            BulkOperationResult::Delete { index, id, success, error } => {
+                assert_eq!(index, "test_index");
                 assert_eq!(id, DocumentId::new("test_doc"));
                 assert!(!success);
                 assert_eq!(error, Some("Not implemented".to_string()));
@@ -934,6 +966,7 @@ mod tests {
     #[test]
     fn test_bulk_result() {
         let items = vec![BulkOperationResult::Index {
+            index: "test_index".to_string(),
             id: DocumentId::new("doc1"),
             success: true,
             error: None,

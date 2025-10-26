@@ -141,35 +141,33 @@ impl IndexManager {
                 })?;
                 let _ = std::fs::remove_file(&test_file);
 
-                // Try to create the index
-                TantivyIndex::create_in_dir(&index_path, schema).or_else(|e| {
-                    // If it fails, try to create the directory again and retry
-                    let _ = std::fs::create_dir_all(&index_path);
-                    TantivyIndex::create_in_dir(&index_path, schema_clone.clone()).or_else(|e2| {
-                        eprintln!("First attempt failed: {e}");
-                        eprintln!("Second attempt failed: {e2}");
-
-                        // For testing environments, try to create an in-memory index as fallback
-                        // This helps with WSL and other environments where filesystem operations may fail
-                        if cfg!(test) || std::env::var("LEXUM_TEST_MODE").is_ok() {
-                            eprintln!("Attempting in-memory index fallback for testing");
-                            use tantivy::directory::RamDirectory;
-                            let ram_dir = RamDirectory::create();
-                            let schema_for_ram = schema_clone.clone();
-                            TantivyIndex::create(
-                                ram_dir,
-                                schema_for_ram,
-                                tantivy::IndexSettings::default(),
-                            )
-                            .map_err(|e3| {
-                                eprintln!("In-memory fallback also failed: {e3}");
-                                e2 // Return the original filesystem error
-                            })
-                        } else {
-                            Err(e2)
-                        }
+                // For testing environments, try in-memory index first to avoid filesystem issues
+                // This helps with WSL and other environments where filesystem operations may fail
+                if cfg!(test) || std::env::var("LEXUM_TEST_MODE").is_ok() {
+                    use tantivy::directory::RamDirectory;
+                    let ram_dir = RamDirectory::create();
+                    let schema_for_ram = schema_clone.clone();
+                    TantivyIndex::create(
+                        ram_dir,
+                        schema_for_ram,
+                        tantivy::IndexSettings::default(),
+                    )
+                    .map_err(|e| {
+                        eprintln!("In-memory index creation failed: {e}");
+                        e
                     })
-                })
+                } else {
+                    // Try to create the index on filesystem
+                    TantivyIndex::create_in_dir(&index_path, schema).or_else(|e| {
+                        // If it fails, try to create the directory again and retry
+                        let _ = std::fs::create_dir_all(&index_path);
+                        TantivyIndex::create_in_dir(&index_path, schema_clone.clone()).map_err(|e2| {
+                            eprintln!("First attempt failed: {e}");
+                            eprintln!("Second attempt failed: {e2}");
+                            e2
+                        })
+                    })
+                }
             }
         })
         .await

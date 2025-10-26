@@ -35,6 +35,7 @@ async fn test_full_workflow() -> Result<()> {
         snapshot_manager,
         template_manager: Arc::new(TemplateManager::new()),
         task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
+        progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
     };
 
     // Test 1: Create an index
@@ -74,6 +75,7 @@ async fn test_server_integration() -> Result<()> {
         snapshot_manager,
         template_manager: Arc::new(TemplateManager::new()),
         task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
+        progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
     };
 
     // Test that we can create the app state

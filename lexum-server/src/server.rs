@@ -3,7 +3,7 @@
 use crate::handlers::index::AppState;
 use crate::router::build_router;
 use lexum_core::{
-    IndexManager, SnapshotManager, TemplateManager,
+    IndexManager, SnapshotManager, TemplateManager, ProgressTracker,
     config::{Config, ConfigManager},
 };
 use std::net::SocketAddr;
@@ -95,6 +95,7 @@ impl Server {
             snapshot_manager: self.snapshot_manager,
             template_manager: Arc::new(TemplateManager::new()),
             task_manager: Arc::new(crate::handlers::reindex::TaskManager::new()),
+            progress_tracker: Arc::new(ProgressTracker::new()),
         };
 
         let app = build_router(state);
