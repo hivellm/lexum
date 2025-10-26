@@ -200,7 +200,9 @@ fn parse_advanced_query(query: &str) -> Result<Query> {
 
     // Handle special case: "*" should not be parsed as advanced query
     if query == "*" {
-        return Err(anyhow::anyhow!("MatchAll queries should be handled by parse_query"));
+        return Err(anyhow::anyhow!(
+            "MatchAll queries should be handled by parse_query"
+        ));
     }
 
     // Match queries: field:value

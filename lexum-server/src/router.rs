@@ -95,6 +95,10 @@ pub fn build_router(state: AppState) -> Router {
         // Alias management
         .route("/_aliases", get(alias::get_aliases))
         .route("/_aliases", post(alias::perform_alias_operations))
+        .route(
+            "/_aliases/atomic",
+            post(alias::perform_atomic_alias_operations),
+        )
         .route("/{index}/_alias", get(alias::get_index_aliases))
         .route("/{index}/_alias/{alias}", put(alias::add_alias))
         .route("/{index}/_alias/{alias}", delete(alias::remove_alias))

@@ -70,6 +70,10 @@ pub struct AliasOperationsResponse {
     pub acknowledged: bool,
     /// Error message if any operation failed
     pub error: Option<String>,
+    /// Number of operations executed
+    pub executed_operations: Option<usize>,
+    /// Whether the operation was atomic (all succeeded or all failed)
+    pub atomic: Option<bool>,
 }
 
 impl From<CoreIndexAlias> for IndexAlias {
@@ -131,6 +135,8 @@ impl From<CoreAliasOperationsResponse> for AliasOperationsResponse {
         Self {
             acknowledged: core_response.acknowledged,
             error: None, // Core response doesn't have error field
+            executed_operations: Some(core_response.executed_operations),
+            atomic: Some(core_response.atomic),
         }
     }
 }
@@ -221,6 +227,50 @@ pub async fn perform_alias_operations(
             Ok(Json(AliasOperationsResponse {
                 acknowledged: false,
                 error: Some(e.to_string()),
+                executed_operations: None,
+                atomic: None,
+            }))
+        }
+    }
+}
+
+/// Perform atomic alias operations with transaction support
+#[utoipa::path(
+    post,
+    path = "/_aliases/atomic",
+    request_body = AliasOperationsRequest,
+    responses(
+        (status = 200, description = "Atomic alias operations completed successfully", body = AliasOperationsResponse),
+        (status = 400, description = "Invalid request"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "Aliases"
+)]
+pub async fn perform_atomic_alias_operations(
+    State(state): State<AppState>,
+    Json(request): Json<AliasOperationsRequest>,
+) -> Result<Json<AliasOperationsResponse>, StatusCode> {
+    tracing::info!("Performing atomic alias operations: {:?}", request.actions);
+
+    // Convert API request to core request
+    let core_request: CoreAliasOperationsRequest = request.into();
+
+    // Execute atomic operations using the core alias manager
+    match state
+        .index_manager
+        .execute_atomic_alias_operations(core_request)
+    {
+        Ok(response) => {
+            tracing::info!("Atomic alias operations completed successfully");
+            Ok(Json(AliasOperationsResponse::from(response)))
+        }
+        Err(e) => {
+            tracing::error!("Failed to execute atomic alias operations: {}", e);
+            Ok(Json(AliasOperationsResponse {
+                acknowledged: false,
+                error: Some(e.to_string()),
+                executed_operations: None,
+                atomic: Some(false),
             }))
         }
     }
@@ -344,6 +394,10 @@ mod tests {
             .route("/_aliases", axum::routing::get(get_aliases))
             .route("/{index}/_alias", axum::routing::get(get_index_aliases))
             .route("/_aliases", axum::routing::post(perform_alias_operations))
+            .route(
+                "/_aliases/atomic",
+                axum::routing::post(perform_atomic_alias_operations),
+            )
             .route("/{index}/_alias/{alias}", axum::routing::put(add_alias))
             .route(
                 "/{index}/_alias/{alias}",
@@ -426,5 +480,87 @@ mod tests {
         let response = app.oneshot(request).await.unwrap();
         // Expect 404 because the alias doesn't exist
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_perform_atomic_alias_operations() {
+        let app = create_test_app();
+        let request_body = AliasOperationsRequest {
+            actions: vec![
+                AliasAction {
+                    action: "add".to_string(),
+                    index: "test_index1".to_string(),
+                    alias: "test_alias1".to_string(),
+                    filter: None,
+                    routing: None,
+                    search_routing: None,
+                    index_routing: None,
+                    is_write_index: None,
+                },
+                AliasAction {
+                    action: "add".to_string(),
+                    index: "test_index2".to_string(),
+                    alias: "test_alias2".to_string(),
+                    filter: None,
+                    routing: None,
+                    search_routing: None,
+                    index_routing: None,
+                    is_write_index: None,
+                },
+            ],
+        };
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_perform_atomic_alias_operations_failure() {
+        let app = create_test_app();
+        let request_body = AliasOperationsRequest {
+            actions: vec![
+                AliasAction {
+                    action: "add".to_string(),
+                    index: "test_index1".to_string(),
+                    alias: "test_alias1".to_string(),
+                    filter: None,
+                    routing: None,
+                    search_routing: None,
+                    index_routing: None,
+                    is_write_index: None,
+                },
+                AliasAction {
+                    action: "add".to_string(),
+                    index: "".to_string(), // Empty index should cause failure
+                    alias: "test_alias2".to_string(),
+                    filter: None,
+                    routing: None,
+                    search_routing: None,
+                    index_routing: None,
+                    is_write_index: None,
+                },
+            ],
+        };
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Parse response to check it failed
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let response: AliasOperationsResponse = serde_json::from_slice(&body).unwrap();
+        assert!(!response.acknowledged);
+        assert!(response.error.is_some());
     }
 }

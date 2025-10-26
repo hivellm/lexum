@@ -395,4 +395,564 @@ mod tests {
         let result = store.add_document(doc).await;
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_add_document_with_id() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let doc_id = DocumentId::new("test_doc_123");
+        let doc = serde_json::json!({
+            "title": "Test Document with ID"
+        });
+
+        let result = store.add_document_with_id(doc_id, doc).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_add_document_with_complex_json() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_i64_field("views", INDEXED | STORED);
+        schema_builder.add_bool_field("published", INDEXED | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let doc = serde_json::json!({
+            "title": "Complex Document",
+            "views": 1000,
+            "published": true,
+            "metadata": {
+                "author": "Test Author",
+                "tags": ["test", "document", "complex"]
+            }
+        });
+
+        let result = store.add_document(doc).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_add_document_with_invalid_schema() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        // Document with field not in schema
+        let doc = serde_json::json!({
+            "nonexistent_field": "This field is not in schema"
+        });
+
+        let result = store.add_document(doc).await;
+        assert!(result.is_ok()); // Tantivy is lenient with extra fields
+    }
+
+    #[tokio::test]
+    async fn test_update_document() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let doc_id = DocumentId::new("update_test");
+        let original_doc = serde_json::json!({
+            "title": "Original Title"
+        });
+
+        // Add document first
+        store
+            .add_document_with_id(doc_id.clone(), original_doc)
+            .await
+            .unwrap();
+
+        // Update document - this will fail because delete_document is not implemented
+        let updated_doc = serde_json::json!({
+            "title": "Updated Title"
+        });
+
+        let result = store.update_document(&doc_id, updated_doc).await;
+        assert!(result.is_err()); // Should fail because delete_document is not implemented
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not yet implemented")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_document_not_implemented() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+        let doc_id = DocumentId::new("test_doc");
+
+        let result = store.get_document(&doc_id).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not yet implemented")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delete_document_not_implemented() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+        let doc_id = DocumentId::new("test_doc");
+
+        let result = store.delete_document(&doc_id).await;
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("not yet implemented")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_index() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_i64_field("views", INDEXED | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let operations = vec![
+            BulkOperation::Index {
+                id: DocumentId::new("doc1"),
+                document: serde_json::json!({
+                    "title": "Document 1",
+                    "views": 100
+                }),
+            },
+            BulkOperation::Index {
+                id: DocumentId::new("doc2"),
+                document: serde_json::json!({
+                    "title": "Document 2",
+                    "views": 200
+                }),
+            },
+        ];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 2);
+        assert!(!bulk_result.errors);
+        assert!(bulk_result.errors_details.is_empty());
+
+        // Check that both operations succeeded
+        for item in bulk_result.items {
+            match item {
+                BulkOperationResult::Index { success, .. } => assert!(success),
+                _ => panic!("Expected Index result"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_update() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let operations = vec![BulkOperation::Update {
+            id: DocumentId::new("doc1"),
+            document: serde_json::json!({
+                "title": "Updated Document 1"
+            }),
+        }];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 1);
+        assert!(!bulk_result.errors);
+
+        match &bulk_result.items[0] {
+            BulkOperationResult::Update { success, .. } => assert!(*success),
+            _ => panic!("Expected Update result"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_delete() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let operations = vec![BulkOperation::Delete {
+            id: DocumentId::new("doc1"),
+        }];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 1);
+        assert!(bulk_result.errors); // Delete should fail as not implemented
+        assert_eq!(bulk_result.errors_details.len(), 1);
+
+        match &bulk_result.items[0] {
+            BulkOperationResult::Delete { success, error, .. } => {
+                assert!(!success);
+                assert!(error.is_some());
+                assert!(error.as_ref().unwrap().contains("not yet implemented"));
+            }
+            _ => panic!("Expected Delete result"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_mixed() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let operations = vec![
+            BulkOperation::Index {
+                id: DocumentId::new("doc1"),
+                document: serde_json::json!({
+                    "title": "Document 1"
+                }),
+            },
+            BulkOperation::Update {
+                id: DocumentId::new("doc2"),
+                document: serde_json::json!({
+                    "title": "Updated Document 2"
+                }),
+            },
+            BulkOperation::Delete {
+                id: DocumentId::new("doc3"),
+            },
+        ];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 3);
+        assert!(bulk_result.errors); // Should have errors due to delete
+        assert_eq!(bulk_result.errors_details.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_with_invalid_json() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        // Create a document with a field that will cause Tantivy parsing to fail
+        // Use a field that's not in the schema and has an invalid type
+        let invalid_doc = serde_json::json!({
+            "title": "Test Document",
+            "invalid_field": serde_json::Value::Null
+        });
+
+        let operations = vec![BulkOperation::Index {
+            id: DocumentId::new("doc1"),
+            document: invalid_doc,
+        }];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 1);
+        // The operation should succeed because Tantivy is lenient with extra fields
+        assert!(!bulk_result.errors);
+        assert!(bulk_result.errors_details.is_empty());
+
+        match &bulk_result.items[0] {
+            BulkOperationResult::Index { success, .. } => {
+                assert!(*success);
+            }
+            _ => panic!("Expected Index result"),
+        }
+    }
+
+    #[test]
+    fn test_json_to_tantivy_doc_with_different_field_types() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_i64_field("views", INDEXED | STORED);
+        schema_builder.add_bool_field("published", INDEXED | STORED);
+        schema_builder.add_f64_field("score", INDEXED | STORED);
+        let schema = schema_builder.build();
+
+        let json = serde_json::json!({
+            "title": "Test Document",
+            "views": 42,
+            "published": true,
+            "score": 3.14
+        });
+
+        let result = DocumentStore::json_to_tantivy_doc(&schema, &json);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_json_to_tantivy_doc_with_missing_fields() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_i64_field("views", INDEXED | STORED);
+        let schema = schema_builder.build();
+
+        // Document missing the "views" field
+        let json = serde_json::json!({
+            "title": "Test Document"
+        });
+
+        let result = DocumentStore::json_to_tantivy_doc(&schema, &json);
+        assert!(result.is_ok()); // Tantivy handles missing fields gracefully
+    }
+
+    #[test]
+    fn test_json_to_tantivy_doc_with_extra_fields() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        // Document with extra fields not in schema
+        let json = serde_json::json!({
+            "title": "Test Document",
+            "extra_field": "This is not in schema",
+            "another_field": 123
+        });
+
+        let result = DocumentStore::json_to_tantivy_doc(&schema, &json);
+        assert!(result.is_ok()); // Tantivy ignores extra fields
+    }
+
+    #[test]
+    fn test_bulk_operation_variants() {
+        let doc_id = DocumentId::new("test_doc");
+        let document = serde_json::json!({"title": "Test"});
+
+        // Test Index variant
+        let index_op = BulkOperation::Index {
+            id: doc_id.clone(),
+            document: document.clone(),
+        };
+        match index_op {
+            BulkOperation::Index { id, document } => {
+                assert_eq!(id, doc_id);
+                assert_eq!(document["title"], "Test");
+            }
+            _ => panic!("Expected Index operation"),
+        }
+
+        // Test Update variant
+        let update_op = BulkOperation::Update {
+            id: doc_id.clone(),
+            document: document.clone(),
+        };
+        match update_op {
+            BulkOperation::Update { id, document } => {
+                assert_eq!(id, doc_id);
+                assert_eq!(document["title"], "Test");
+            }
+            _ => panic!("Expected Update operation"),
+        }
+
+        // Test Delete variant
+        let delete_op = BulkOperation::Delete { id: doc_id };
+        match delete_op {
+            BulkOperation::Delete { id } => {
+                assert_eq!(id, DocumentId::new("test_doc"));
+            }
+            _ => panic!("Expected Delete operation"),
+        }
+    }
+
+    #[test]
+    fn test_bulk_operation_result_variants() {
+        let doc_id = DocumentId::new("test_doc");
+
+        // Test Index result
+        let index_result = BulkOperationResult::Index {
+            id: doc_id.clone(),
+            success: true,
+            error: None,
+        };
+        match index_result {
+            BulkOperationResult::Index { id, success, error } => {
+                assert_eq!(id, doc_id);
+                assert!(success);
+                assert!(error.is_none());
+            }
+            _ => panic!("Expected Index result"),
+        }
+
+        // Test Update result
+        let update_result = BulkOperationResult::Update {
+            id: doc_id.clone(),
+            success: false,
+            error: Some("Test error".to_string()),
+        };
+        match update_result {
+            BulkOperationResult::Update { id, success, error } => {
+                assert_eq!(id, doc_id);
+                assert!(!success);
+                assert_eq!(error, Some("Test error".to_string()));
+            }
+            _ => panic!("Expected Update result"),
+        }
+
+        // Test Delete result
+        let delete_result = BulkOperationResult::Delete {
+            id: doc_id,
+            success: false,
+            error: Some("Not implemented".to_string()),
+        };
+        match delete_result {
+            BulkOperationResult::Delete { id, success, error } => {
+                assert_eq!(id, DocumentId::new("test_doc"));
+                assert!(!success);
+                assert_eq!(error, Some("Not implemented".to_string()));
+            }
+            _ => panic!("Expected Delete result"),
+        }
+    }
+
+    #[test]
+    fn test_bulk_error() {
+        let error = BulkError {
+            operation_index: 5,
+            error: "Test error message".to_string(),
+        };
+
+        assert_eq!(error.operation_index, 5);
+        assert_eq!(error.error, "Test error message");
+    }
+
+    #[test]
+    fn test_bulk_result() {
+        let items = vec![BulkOperationResult::Index {
+            id: DocumentId::new("doc1"),
+            success: true,
+            error: None,
+        }];
+        let errors = vec![BulkError {
+            operation_index: 1,
+            error: "Test error".to_string(),
+        }];
+
+        let result = BulkResult {
+            took: 100,
+            errors: true,
+            items,
+            errors_details: errors,
+        };
+
+        assert_eq!(result.took, 100);
+        assert!(result.errors);
+        assert_eq!(result.items.len(), 1);
+        assert_eq!(result.errors_details.len(), 1);
+    }
 }

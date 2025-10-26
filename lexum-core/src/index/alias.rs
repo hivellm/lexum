@@ -175,6 +175,34 @@ pub struct AliasOperationsResponse {
     pub acknowledged: bool,
     /// List of aliases after operations
     pub aliases: Vec<IndexAlias>,
+    /// Number of operations executed
+    pub executed_operations: usize,
+    /// Whether the operation was atomic (all succeeded or all failed)
+    pub atomic: bool,
+}
+
+/// Alias transaction for atomic operations
+#[derive(Debug, Clone)]
+pub struct AliasTransaction {
+    /// Snapshot of aliases before operations
+    aliases_snapshot: HashMap<String, IndexAlias>,
+    /// Operations to execute
+    operations: Vec<AliasAction>,
+}
+
+impl AliasTransaction {
+    /// Create a new alias transaction
+    pub fn new(operations: Vec<AliasAction>) -> Self {
+        Self {
+            aliases_snapshot: HashMap::new(),
+            operations,
+        }
+    }
+
+    /// Get the number of operations in this transaction
+    pub fn operation_count(&self) -> usize {
+        self.operations.len()
+    }
 }
 
 /// Alias manager for handling index aliases
@@ -366,7 +394,149 @@ impl AliasManager {
         Ok(AliasOperationsResponse {
             acknowledged: true,
             aliases: updated_aliases,
+            executed_operations: actions_count,
+            atomic: true,
         })
+    }
+
+    /// Execute atomic alias operations with full transaction support
+    /// This method provides true atomicity with rollback capabilities
+    pub fn execute_atomic_operations(
+        &self,
+        request: AliasOperationsRequest,
+    ) -> Result<AliasOperationsResponse> {
+        // Create transaction
+        let mut transaction = AliasTransaction::new(request.actions);
+
+        // Take snapshot of current state
+        {
+            let aliases = self.aliases.read();
+            transaction.aliases_snapshot = aliases.clone();
+        }
+
+        // Execute operations with rollback on failure
+        let result = self.execute_operations_internal(&transaction);
+        
+        match result {
+            Ok(response) => {
+                tracing::info!(
+                    "Atomic alias operations completed successfully: {} operations",
+                    response.executed_operations
+                );
+                Ok(response)
+            }
+            Err(e) => {
+                // Rollback on failure
+                self.rollback_transaction(&transaction);
+                tracing::warn!("Atomic alias operations failed, rolled back: {}", e);
+                Err(e)
+            }
+        }
+    }
+
+    /// Execute operations within a transaction (internal method)
+    fn execute_operations_internal(
+        &self,
+        transaction: &AliasTransaction,
+    ) -> Result<AliasOperationsResponse> {
+        let mut aliases = self.aliases.write();
+        let mut updated_aliases = Vec::new();
+        let mut executed_count = 0;
+
+        for action in &transaction.operations {
+            match action {
+                AliasAction::Add {
+                    alias,
+                    indices,
+                    config,
+                } => {
+                    let alias_name = alias.as_str().to_string();
+
+                    // Validate that indices are not empty
+                    if indices.is_empty() {
+                        return Err(Error::Validation(
+                            "Alias must have at least one target index".to_string(),
+                        ));
+                    }
+
+                    // Check if alias already exists
+                    if aliases.contains_key(&alias_name) {
+                        return Err(Error::Validation(format!(
+                            "Alias '{alias_name}' already exists"
+                        )));
+                    }
+
+                    let alias_def = IndexAlias::new_with_config(
+                        alias.clone(),
+                        indices.clone(),
+                        config.clone().unwrap_or_default(),
+                    );
+
+                    aliases.insert(alias_name.clone(), alias_def.clone());
+                    updated_aliases.push(alias_def);
+                    executed_count += 1;
+                }
+                AliasAction::Remove { alias, indices } => {
+                    let alias_name = alias.as_str();
+
+                    if let Some(alias_def) = aliases.get_mut(alias_name) {
+                        for index in indices {
+                            alias_def.remove_index(index);
+                        }
+
+                        if alias_def.is_empty() {
+                            aliases.remove(alias_name);
+                        } else {
+                            updated_aliases.push(alias_def.clone());
+                        }
+                        executed_count += 1;
+                    } else {
+                        return Err(Error::NotFound(format!("Alias '{alias_name}' not found")));
+                    }
+                }
+                AliasAction::RemoveIndex { alias } => {
+                    let alias_name = alias.as_str();
+                    if aliases.remove(alias_name).is_some() {
+                        executed_count += 1;
+                    } else {
+                        return Err(Error::NotFound(format!("Alias '{alias_name}' not found")));
+                    }
+                }
+            }
+        }
+
+        Ok(AliasOperationsResponse {
+            acknowledged: true,
+            aliases: updated_aliases,
+            executed_operations: executed_count,
+            atomic: true,
+        })
+    }
+
+    /// Rollback a failed transaction
+    fn rollback_transaction(&self, transaction: &AliasTransaction) {
+        let mut aliases = self.aliases.write();
+        
+        // Restore the snapshot
+        *aliases = transaction.aliases_snapshot.clone();
+        
+        tracing::info!("Transaction rolled back successfully");
+    }
+
+    /// Create a new atomic alias transaction
+    pub fn create_transaction(&self, operations: Vec<AliasAction>) -> AliasTransaction {
+        AliasTransaction::new(operations)
+    }
+
+    /// Execute a prepared transaction atomically
+    pub fn execute_transaction(
+        &self,
+        transaction: AliasTransaction,
+    ) -> Result<AliasOperationsResponse> {
+        let request = AliasOperationsRequest {
+            actions: transaction.operations,
+        };
+        self.execute_atomic_operations(request)
     }
 
     /// Resolve an alias to its target indices

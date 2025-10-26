@@ -329,6 +329,45 @@ impl IndexManager {
         self.alias_manager.execute_operations(request)
     }
 
+    /// Execute atomic alias operations with full transaction support
+    /// This provides true atomicity with rollback capabilities
+    pub fn execute_atomic_alias_operations(
+        &self,
+        request: AliasOperationsRequest,
+    ) -> Result<AliasOperationsResponse> {
+        // Validate that all target indices exist for add operations
+        for action in &request.actions {
+            if let super::alias::AliasAction::Add { indices, .. } = action {
+                for index_name in indices {
+                    if !self.index_exists(index_name.as_str()) {
+                        return Err(Error::Validation(format!(
+                            "Index '{}' does not exist",
+                            index_name.as_str()
+                        )));
+                    }
+                }
+            }
+        }
+
+        self.alias_manager.execute_atomic_operations(request)
+    }
+
+    /// Create a new atomic alias transaction
+    pub fn create_alias_transaction(
+        &self,
+        operations: Vec<super::alias::AliasAction>,
+    ) -> super::alias::AliasTransaction {
+        self.alias_manager.create_transaction(operations)
+    }
+
+    /// Execute a prepared alias transaction atomically
+    pub fn execute_alias_transaction(
+        &self,
+        transaction: super::alias::AliasTransaction,
+    ) -> Result<AliasOperationsResponse> {
+        self.alias_manager.execute_transaction(transaction)
+    }
+
     /// Resolve an alias to its target indices
     pub fn resolve_alias(&self, name: &str) -> Result<Vec<IndexName>> {
         self.alias_manager.resolve_alias(name)
