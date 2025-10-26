@@ -54,7 +54,7 @@ async fn test_cli_index_operations() -> Result<()> {
     // Skip index creation due to Tantivy compatibility issue
     // TODO: Fix Tantivy "Invalid argument" error in index creation
     println!("Skipping index creation test due to Tantivy compatibility issue");
-    
+
     // Test index listing (should work even without creating indexes)
     let output = Command::new("cargo")
         .args(["run", "--bin", "lexum-cli", "--", "index", "list"])
@@ -189,7 +189,7 @@ async fn test_cli_help_commands() -> Result<()> {
 async fn test_cli_advanced_search_options() -> Result<()> {
     // Test advanced search options without requiring a running server
     // These tests verify that the CLI accepts the new parameters correctly
-    
+
     // Test search with offset parameter
     let output = Command::new("cargo")
         .args([
@@ -207,7 +207,10 @@ async fn test_cli_advanced_search_options() -> Result<()> {
         .output()?;
 
     // This will fail due to no server, but should parse arguments correctly
-    assert!(!output.status.success(), "Search should fail without server");
+    assert!(
+        !output.status.success(),
+        "Search should fail without server"
+    );
 
     // Test search with highlight parameter
     let output = Command::new("cargo")
@@ -224,7 +227,10 @@ async fn test_cli_advanced_search_options() -> Result<()> {
         .current_dir(".")
         .output()?;
 
-    assert!(!output.status.success(), "Search should fail without server");
+    assert!(
+        !output.status.success(),
+        "Search should fail without server"
+    );
 
     // Test search with explain parameter
     let output = Command::new("cargo")
@@ -241,7 +247,10 @@ async fn test_cli_advanced_search_options() -> Result<()> {
         .current_dir(".")
         .output()?;
 
-    assert!(!output.status.success(), "Search should fail without server");
+    assert!(
+        !output.status.success(),
+        "Search should fail without server"
+    );
 
     // Test search with min-score parameter
     let output = Command::new("cargo")
@@ -259,7 +268,10 @@ async fn test_cli_advanced_search_options() -> Result<()> {
         .current_dir(".")
         .output()?;
 
-    assert!(!output.status.success(), "Search should fail without server");
+    assert!(
+        !output.status.success(),
+        "Search should fail without server"
+    );
 
     // Test search with all advanced options
     let output = Command::new("cargo")
@@ -287,14 +299,16 @@ async fn test_cli_advanced_search_options() -> Result<()> {
         .current_dir(".")
         .output()?;
 
-    assert!(!output.status.success(), "Search should fail without server");
+    assert!(
+        !output.status.success(),
+        "Search should fail without server"
+    );
 
     Ok(())
 }
 
 #[tokio::test]
 async fn test_cli_file_based_queries() -> Result<()> {
-    use std::fs;
     use tempfile::NamedTempFile;
 
     // Create a temporary query file
@@ -321,13 +335,16 @@ async fn test_cli_file_based_queries() -> Result<()> {
             "--",
             "search",
             "test_index",
-            &format!("@{}", file_path),
+            &format!("@{file_path}"),
         ])
         .current_dir(".")
         .output()?;
 
     // This will fail due to no server, but should parse file correctly
-    assert!(!output.status.success(), "Search should fail without server");
+    assert!(
+        !output.status.success(),
+        "Search should fail without server"
+    );
 
     Ok(())
 }
@@ -344,7 +361,7 @@ async fn test_cli_repl_command_suggestions() -> Result<()> {
         .spawn()?;
 
     // The REPL should start successfully
-    assert!(output.id > 0, "REPL should start");
+    assert!(output.id() > 0, "REPL should start");
 
     Ok(())
 }
@@ -358,14 +375,26 @@ async fn test_cli_help_enhancements() -> Result<()> {
         .output()?;
 
     assert!(output.status.success(), "Search help should work");
-    
+
     let help_output = String::from_utf8_lossy(&output.stdout);
-    
+
     // Check that new options are mentioned in help
-    assert!(help_output.contains("--offset"), "Help should mention --offset");
-    assert!(help_output.contains("--highlight"), "Help should mention --highlight");
-    assert!(help_output.contains("--explain"), "Help should mention --explain");
-    assert!(help_output.contains("--min-score"), "Help should mention --min-score");
+    assert!(
+        help_output.contains("--offset"),
+        "Help should mention --offset"
+    );
+    assert!(
+        help_output.contains("--highlight"),
+        "Help should mention --highlight"
+    );
+    assert!(
+        help_output.contains("--explain"),
+        "Help should mention --explain"
+    );
+    assert!(
+        help_output.contains("--min-score"),
+        "Help should mention --min-score"
+    );
 
     Ok(())
 }
@@ -380,8 +409,8 @@ async fn test_cli_error_handling_enhancements() -> Result<()> {
 
     // This should fail but provide suggestions
     assert!(!output.status.success(), "Invalid command should fail");
-    
-    let error_output = String::from_utf8_lossy(&output.stderr);
+
+    let _error_output = String::from_utf8_lossy(&output.stderr);
     // The error should contain suggestion information
     // Note: This might not work in test mode, but the structure should be there
 

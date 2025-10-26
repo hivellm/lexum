@@ -21,18 +21,13 @@ pub enum SnapshotState {
 }
 
 /// Snapshot type
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema, Default)]
 pub enum SnapshotType {
     /// Full snapshot containing all data
+    #[default]
     Full,
     /// Incremental snapshot containing only changes since last snapshot
     Incremental,
-}
-
-impl Default for SnapshotType {
-    fn default() -> Self {
-        Self::Full
-    }
 }
 
 /// Snapshot information

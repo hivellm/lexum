@@ -302,15 +302,9 @@ async fn main() -> Result<()> {
             if let Some(file_path) = query.strip_prefix('@') {
                 // Query from file
                 commands::search::search_from_file_advanced(
-                    &cli.url,
-                    &index,
-                    file_path,
-                    limit,
-                    offset,
-                    highlight,
-                    explain,
-                    min_score,
-                ).await?;
+                    &cli.url, &index, file_path, limit, offset, highlight, explain, min_score,
+                )
+                .await?;
             } else {
                 // Parse sort options
                 let sort_options = sort.map(|sort_fields| {
@@ -697,6 +691,10 @@ mod tests {
                 limit,
                 sort,
                 fields,
+                offset: _,
+                highlight: _,
+                explain: _,
+                min_score: _,
             }) => {
                 assert_eq!(index, "test_index");
                 assert_eq!(query, "test query");

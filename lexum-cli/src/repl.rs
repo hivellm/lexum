@@ -286,6 +286,7 @@ impl Helper for LexumHelper {}
 pub struct ReplSession {
     url: String,
     editor: Editor<LexumHelper, rustyline::history::DefaultHistory>,
+    #[allow(dead_code)]
     client: Option<crate::client::LexumClient>,
 }
 
@@ -308,14 +309,15 @@ impl ReplSession {
         let mut editor = Editor::with_config(config).expect("Failed to create editor");
         editor.set_helper(Some(helper));
 
-        Self { 
-            url, 
+        Self {
+            url,
             editor,
             client: None,
         }
     }
 
     /// Get or create HTTP client
+    #[allow(dead_code)]
     fn get_client(&mut self) -> &crate::client::LexumClient {
         if self.client.is_none() {
             self.client = Some(crate::client::LexumClient::new(self.url.clone()));
@@ -970,22 +972,22 @@ impl ReplSession {
         matrix[s1_len][s2_len]
     }
 
-
     /// Get command suggestions based on the input
+    #[allow(dead_code)]
     fn get_command_suggestions(&self, input: &str) -> Vec<String> {
         let all_commands = vec![
-            "help", "exit", "quit", "index", "doc", "search", "server", "snapshot", "lql"
+            "help", "exit", "quit", "index", "doc", "search", "server", "snapshot", "lql",
         ];
-        
+
         let mut suggestions = Vec::new();
-        
+
         // Find commands that are similar to the input
         for cmd in all_commands {
             if self.is_similar(input, cmd) {
                 suggestions.push(cmd.to_string());
             }
         }
-        
+
         // If no similar commands found, suggest the most common ones
         if suggestions.is_empty() {
             suggestions.extend(vec![
@@ -994,33 +996,32 @@ impl ReplSession {
                 "search <index> <query>".to_string(),
             ]);
         }
-        
+
         suggestions
     }
 
     /// Check if two strings are similar (simple Levenshtein distance)
+    #[allow(dead_code, clippy::unused_self)]
     fn is_similar(&self, a: &str, b: &str) -> bool {
         let a = a.to_lowercase();
         let b = b.to_lowercase();
-        
+
         // Exact match
         if a == b {
             return true;
         }
-        
+
         // One contains the other
         if a.contains(&b) || b.contains(&a) {
             return true;
         }
-        
+
         // Simple similarity check based on common characters
-        let common_chars = a.chars()
-            .filter(|c| b.contains(*c))
-            .count();
-        
+        let common_chars = a.chars().filter(|c| b.contains(*c)).count();
+
         let min_len = std::cmp::min(a.len(), b.len());
         let similarity = common_chars as f32 / min_len as f32;
-        
+
         similarity > 0.5
     }
 }

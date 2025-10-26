@@ -514,7 +514,11 @@ impl SnapshotRepository for FsSnapshotRepository {
             .filter(|s| s.snapshot_type == SnapshotType::Incremental)
             .count() as u32;
         let average_chain_depth = if !snapshots.is_empty() {
-            snapshots.iter().map(|s| s.chain_depth as f64).sum::<f64>() / snapshots.len() as f64
+            snapshots
+                .iter()
+                .map(|s| f64::from(s.chain_depth))
+                .sum::<f64>()
+                / snapshots.len() as f64
         } else {
             0.0
         };
@@ -539,27 +543,27 @@ impl SnapshotRepository for FsSnapshotRepository {
 
     async fn get_snapshot_chain(&self, snapshot_name: SnapshotName) -> Result<SnapshotChain> {
         let snapshot_info = self.get_snapshot(snapshot_name.clone()).await?;
-        
+
         // Find the root snapshot by traversing up the chain
         let mut current_snapshot = snapshot_info.clone();
         let mut chain_snapshots = vec![snapshot_name.clone()];
-        
+
         while let Some(parent) = &current_snapshot.parent_snapshot {
             let parent_info = self.get_snapshot(parent.clone()).await?;
             chain_snapshots.insert(0, parent.clone());
             current_snapshot = parent_info;
         }
-        
+
         let root_snapshot = chain_snapshots[0].clone();
         let incremental_snapshots = chain_snapshots[1..].to_vec();
-        
+
         // Calculate total size
         let mut total_size = 0u64;
         for snapshot_name in &chain_snapshots {
             let info = self.get_snapshot(snapshot_name.clone()).await?;
             total_size += info.size_bytes;
         }
-        
+
         Ok(SnapshotChain {
             root_snapshot,
             incremental_snapshots,
@@ -574,12 +578,12 @@ impl SnapshotRepository for FsSnapshotRepository {
         let snapshots = self.list_snapshots().await?;
         let mut chains = Vec::new();
         let mut processed = std::collections::HashSet::new();
-        
+
         for snapshot in snapshots {
             if processed.contains(&snapshot.name) {
                 continue;
             }
-            
+
             // Find root of this chain
             let mut current = snapshot.clone();
             while let Some(parent) = &current.parent_snapshot {
@@ -589,7 +593,7 @@ impl SnapshotRepository for FsSnapshotRepository {
                     break;
                 }
             }
-            
+
             // Get the full chain
             if let Ok(chain) = self.get_snapshot_chain(current.name.clone()).await {
                 for snapshot_name in &chain.incremental_snapshots {
@@ -599,42 +603,53 @@ impl SnapshotRepository for FsSnapshotRepository {
                 chains.push(chain);
             }
         }
-        
+
         Ok(chains)
     }
 
     async fn get_snapshot_deltas(&self, snapshot_name: SnapshotName) -> Result<Vec<SnapshotDelta>> {
         let snapshot_info = self.get_snapshot(snapshot_name.clone()).await?;
-        
+
         if snapshot_info.snapshot_type != SnapshotType::Incremental {
             return Ok(vec![]);
         }
-        
+
         let snapshot_path = self.get_snapshot_path(&snapshot_name);
         let mut deltas = Vec::new();
-        
+
         for index_name in &snapshot_info.indices {
             let index_path = format!("{}/{}", snapshot_path, index_name.as_str());
-            let delta_path = format!("{}/delta", index_path);
-            
+            let delta_path = format!("{index_path}/delta");
+
             if fs::metadata(&delta_path).await.is_ok() {
-                let delta_file = format!("{}/delta.json", delta_path);
+                let delta_file = format!("{delta_path}/delta.json");
                 if let Ok(content) = fs::read_to_string(&delta_file).await {
                     if let Ok(delta_data) = serde_json::from_str::<serde_json::Value>(&content) {
                         let delta = SnapshotDelta {
                             delta_id: delta_data["delta_id"].as_str().unwrap_or("").to_string(),
                             parent_snapshot: SnapshotName::new(
-                                delta_data["parent_snapshot"].as_str().unwrap_or("").to_string()
+                                delta_data["parent_snapshot"]
+                                    .as_str()
+                                    .unwrap_or("")
+                                    .to_string(),
                             ),
                             index_name: index_name.clone(),
                             change_type: DeltaChangeType::Mixed, // Simplified
-                            added_files: vec![], // Would parse from delta_data
+                            added_files: vec![],                 // Would parse from delta_data
                             modified_files: vec![],
                             deleted_files: vec![],
-                            documents_added: delta_data["statistics"]["documents_added"].as_u64().unwrap_or(0),
-                            documents_modified: delta_data["statistics"]["documents_modified"].as_u64().unwrap_or(0),
-                            documents_deleted: delta_data["statistics"]["documents_deleted"].as_u64().unwrap_or(0),
-                            size_bytes: delta_data["statistics"]["size_bytes"].as_u64().unwrap_or(0),
+                            documents_added: delta_data["statistics"]["documents_added"]
+                                .as_u64()
+                                .unwrap_or(0),
+                            documents_modified: delta_data["statistics"]["documents_modified"]
+                                .as_u64()
+                                .unwrap_or(0),
+                            documents_deleted: delta_data["statistics"]["documents_deleted"]
+                                .as_u64()
+                                .unwrap_or(0),
+                            size_bytes: delta_data["statistics"]["size_bytes"]
+                                .as_u64()
+                                .unwrap_or(0),
                             created_at: Utc::now(), // Would parse from delta_data
                         };
                         deltas.push(delta);
@@ -642,7 +657,7 @@ impl SnapshotRepository for FsSnapshotRepository {
                 }
             }
         }
-        
+
         Ok(deltas)
     }
 
@@ -651,22 +666,22 @@ impl SnapshotRepository for FsSnapshotRepository {
         indices: &[IndexName],
     ) -> Result<Option<SnapshotName>> {
         let snapshots = self.list_snapshots().await?;
-        
+
         // Find the most recent successful snapshot that contains all requested indices
         let mut best_snapshot = None;
         let mut best_time = None;
-        
+
         for snapshot in snapshots {
             if snapshot.state != SnapshotState::Success {
                 continue;
             }
-            
+
             // Check if this snapshot contains all requested indices
             let has_all_indices = indices.iter().all(|idx| snapshot.indices.contains(idx));
             if !has_all_indices {
                 continue;
             }
-            
+
             // Check if this is the most recent
             if let Some(end_time) = snapshot.end_time {
                 if best_time.is_none() || end_time > best_time.unwrap() {
@@ -675,7 +690,7 @@ impl SnapshotRepository for FsSnapshotRepository {
                 }
             }
         }
-        
+
         Ok(best_snapshot)
     }
 }
@@ -1293,7 +1308,11 @@ impl FsSnapshotRepository {
                     if let Some(parent_name) = &parent {
                         // Get parent snapshot info to determine chain depth
                         let parent_info = self.get_snapshot(parent_name.clone()).await?;
-                        return Ok((SnapshotType::Incremental, parent, parent_info.chain_depth + 1));
+                        return Ok((
+                            SnapshotType::Incremental,
+                            parent,
+                            parent_info.chain_depth + 1,
+                        ));
                     } else {
                         // No parent found, fall back to full snapshot
                         return Ok((SnapshotType::Full, None, 0));
@@ -1305,7 +1324,11 @@ impl FsSnapshotRepository {
         // Auto-determine: try to find a suitable parent for incremental snapshot
         if let Some(parent) = self.find_best_parent_snapshot(indices).await? {
             let parent_info = self.get_snapshot(parent.clone()).await?;
-            Ok((SnapshotType::Incremental, Some(parent), parent_info.chain_depth + 1))
+            Ok((
+                SnapshotType::Incremental,
+                Some(parent),
+                parent_info.chain_depth + 1,
+            ))
         } else {
             Ok((SnapshotType::Full, None, 0))
         }
@@ -1362,14 +1385,23 @@ impl FsSnapshotRepository {
         let parent_index_path = format!("{}/{}", parent_snapshot_path, index_name.as_str());
 
         // Check if parent index snapshot exists
-        if !fs::metadata(&parent_index_path).await.is_ok() {
+        if fs::metadata(&parent_index_path).await.is_err() {
             // Parent doesn't have this index, create full snapshot
-            return self.create_index_snapshot(index_name, snapshot_path, start_time).await
+            return self
+                .create_index_snapshot(index_name, snapshot_path, start_time)
+                .await
                 .map(|_| (1024000, 1000));
         }
 
         // Create delta information
-        let delta = self.calculate_index_delta(index_name, &parent_index_path, snapshot_path, parent_snapshot).await?;
+        let delta = self
+            .calculate_index_delta(
+                index_name,
+                &parent_index_path,
+                snapshot_path,
+                parent_snapshot,
+            )
+            .await?;
 
         // Create incremental snapshot metadata
         let incremental_metadata = serde_json::json!({
@@ -1400,11 +1432,14 @@ impl FsSnapshotRepository {
         .await?;
 
         // Create delta files
-        self.create_delta_files(index_name, snapshot_path, &parent_index_path, &delta).await?;
+        self.create_delta_files(index_name, snapshot_path, &parent_index_path, &delta)
+            .await?;
 
         // Create manifest for incremental snapshot
         let manifest_file = format!("{snapshot_path}/manifest.json");
-        let manifest_content = self.create_incremental_manifest_data(index_name, start_time, &delta).await?;
+        let manifest_content = self
+            .create_incremental_manifest_data(index_name, start_time, &delta)
+            .await?;
         fs::write(&manifest_file, manifest_content).await?;
 
         // Create checksum
@@ -1412,7 +1447,10 @@ impl FsSnapshotRepository {
         let checksum_content = self.create_checksum_data(snapshot_path).await?;
         fs::write(&checksum_file, checksum_content).await?;
 
-        Ok((delta.size_bytes, delta.documents_added + delta.documents_modified))
+        Ok((
+            delta.size_bytes,
+            delta.documents_added + delta.documents_modified,
+        ))
     }
 
     /// Calculate delta between parent and current index state
@@ -1426,9 +1464,12 @@ impl FsSnapshotRepository {
         // This is a simplified implementation
         // In a real implementation, this would compare file timestamps, checksums, etc.
         let delta_id = uuid::Uuid::new_v4().to_string();
-        
+
         // Simulate some changes
-        let added_files = vec!["new_segment.fst".to_string(), "new_documents.bin".to_string()];
+        let added_files = vec![
+            "new_segment.fst".to_string(),
+            "new_documents.bin".to_string(),
+        ];
         let modified_files = vec!["schema.json".to_string()];
         let deleted_files = vec!["old_segment.fst".to_string()];
 
@@ -1492,13 +1533,13 @@ impl FsSnapshotRepository {
 
         // Create placeholder files for added/modified files
         for file in &delta.added_files {
-            let file_path = format!("{delta_path}/added/{}", file);
+            let file_path = format!("{delta_path}/added/{file}");
             fs::create_dir_all(format!("{delta_path}/added")).await?;
             fs::write(&file_path, b"placeholder content").await?;
         }
 
         for file in &delta.modified_files {
-            let file_path = format!("{delta_path}/modified/{}", file);
+            let file_path = format!("{delta_path}/modified/{file}");
             fs::create_dir_all(format!("{delta_path}/modified")).await?;
             fs::write(&file_path, b"modified content").await?;
         }
@@ -1590,27 +1631,29 @@ impl FsSnapshotRepository {
 
         // Get the full snapshot chain for this index
         let chain = self.get_snapshot_chain(snapshot_info.name.clone()).await?;
-        
+
         // First, restore the root snapshot
         let root_snapshot_path = self.get_snapshot_path(&chain.root_snapshot);
         let root_index_path = format!("{}/{}", root_snapshot_path, index_name.as_str());
-        
+
         if fs::metadata(&root_index_path).await.is_ok() {
             // Restore from root snapshot first
-            self.restore_index_from_snapshot(index_name, &root_index_path, request).await?;
+            self.restore_index_from_snapshot(index_name, &root_index_path, request)
+                .await?;
         }
 
         // Then apply all incremental snapshots in order
         for incremental_snapshot in &chain.incremental_snapshots {
             let incremental_path = self.get_snapshot_path(incremental_snapshot);
             let incremental_index_path = format!("{}/{}", incremental_path, index_name.as_str());
-            
+
             if fs::metadata(&incremental_index_path).await.is_ok() {
                 self.apply_incremental_delta(
                     &target_index_name,
                     &incremental_index_path,
                     index_name,
-                ).await?;
+                )
+                .await?;
             }
         }
 
@@ -1631,12 +1674,12 @@ impl FsSnapshotRepository {
         incremental_index_path: &str,
         source_index_name: &crate::types::IndexName,
     ) -> Result<()> {
-        let target_index_path = format!("./data/{}", target_index_name);
-        
+        let target_index_path = format!("./data/{target_index_name}");
+
         // Read delta information
-        let delta_path = format!("{}/delta", incremental_index_path);
-        let delta_file = format!("{}/delta.json", delta_path);
-        
+        let delta_path = format!("{incremental_index_path}/delta");
+        let delta_file = format!("{delta_path}/delta.json");
+
         if fs::metadata(&delta_file).await.is_err() {
             return Err(Error::NotFound("Delta file not found".to_string()));
         }
@@ -1646,23 +1689,25 @@ impl FsSnapshotRepository {
             .map_err(|e| Error::Validation(format!("Invalid delta format: {e}")))?;
 
         // Apply added files
-        let added_files_path = format!("{}/added", delta_path);
+        let added_files_path = format!("{delta_path}/added");
         if fs::metadata(&added_files_path).await.is_ok() {
-            self.copy_directory_contents(&added_files_path, &target_index_path).await?;
+            self.copy_directory_contents(&added_files_path, &target_index_path)
+                .await?;
         }
 
         // Apply modified files
-        let modified_files_path = format!("{}/modified", delta_path);
+        let modified_files_path = format!("{delta_path}/modified");
         if fs::metadata(&modified_files_path).await.is_ok() {
-            self.copy_directory_contents(&modified_files_path, &target_index_path).await?;
+            self.copy_directory_contents(&modified_files_path, &target_index_path)
+                .await?;
         }
 
         // Apply deleted files
-        let deleted_files_list = format!("{}/deleted_files.txt", delta_path);
+        let deleted_files_list = format!("{delta_path}/deleted_files.txt");
         if fs::metadata(&deleted_files_list).await.is_ok() {
             let deleted_content = fs::read_to_string(&deleted_files_list).await?;
             for file_name in deleted_content.lines() {
-                let file_path = format!("{}/{}", target_index_path, file_name);
+                let file_path = format!("{target_index_path}/{file_name}");
                 let _ = fs::remove_file(&file_path).await; // Ignore errors if file doesn't exist
             }
         }
@@ -1677,24 +1722,20 @@ impl FsSnapshotRepository {
     }
 
     /// Copy directory contents recursively
-    async fn copy_directory_contents(
-        &self,
-        source_dir: &str,
-        target_dir: &str,
-    ) -> Result<()> {
+    async fn copy_directory_contents(&self, source_dir: &str, target_dir: &str) -> Result<()> {
         use std::collections::VecDeque;
-        
+
         let mut queue = VecDeque::new();
         queue.push_back((source_dir.to_string(), target_dir.to_string()));
-        
+
         while let Some((src, dst)) = queue.pop_front() {
             let mut entries = fs::read_dir(&src).await?;
-            
+
             while let Some(entry) = entries.next_entry().await? {
                 let entry_path = entry.path();
                 let file_name = entry_path.file_name().unwrap().to_string_lossy();
-                let target_path = format!("{}/{}", dst, file_name);
-                
+                let target_path = format!("{dst}/{file_name}");
+
                 if entry_path.is_dir() {
                     fs::create_dir_all(&target_path).await?;
                     queue.push_back((entry_path.to_string_lossy().to_string(), target_path));
@@ -1704,7 +1745,7 @@ impl FsSnapshotRepository {
                 }
             }
         }
-        
+
         Ok(())
     }
 }

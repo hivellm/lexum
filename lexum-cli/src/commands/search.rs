@@ -95,7 +95,6 @@ enum Query {
     MatchAll,
 }
 
-
 /// Search documents
 pub async fn search(url: &str, index: &str, query: &str, limit: usize) -> Result<()> {
     let search_query = parse_query(query);
@@ -368,6 +367,7 @@ async fn execute_search(
 }
 
 /// Search documents from file with advanced options
+#[allow(clippy::too_many_arguments)]
 pub async fn search_from_file_advanced(
     url: &str,
     index: &str,
@@ -391,10 +391,12 @@ pub async fn search_from_file_advanced(
         Some(highlight),
         Some(explain),
         min_score,
-    ).await
+    )
+    .await
 }
 
 /// Search documents with all advanced options
+#[allow(clippy::too_many_arguments)]
 pub async fn search_advanced_with_options(
     url: &str,
     index: &str,
@@ -424,10 +426,12 @@ pub async fn search_advanced_with_options(
         Some(highlight),
         Some(explain),
         min_score,
-    ).await
+    )
+    .await
 }
 
 /// Execute search with all options
+#[allow(clippy::too_many_arguments)]
 async fn execute_search_with_options(
     url: &str,
     index: &str,
@@ -462,20 +466,20 @@ async fn execute_search_with_options(
     }
 
     // Display results with enhanced formatting
-    display_search_results(&response, highlight.unwrap_or(false), explain.unwrap_or(false))?;
+    display_search_results(
+        &response,
+        highlight.unwrap_or(false),
+        explain.unwrap_or(false),
+    );
 
     Ok(())
 }
 
 /// Display search results with enhanced formatting
-fn display_search_results(
-    response: &SearchResponse,
-    highlight: bool,
-    explain: bool,
-) -> Result<()> {
+fn display_search_results(response: &SearchResponse, highlight: bool, explain: bool) {
     let mut table = Table::new();
     table.load_preset(UTF8_FULL);
-    
+
     if highlight {
         table.set_header(vec!["ID", "Score", "Document", "Highlights"]);
     } else {
@@ -487,9 +491,9 @@ fn display_search_results(
         let doc_str = if hit.source.is_object() {
             // Try to extract key fields first for better performance
             if let Some(title) = hit.source.get("title").and_then(|v| v.as_str()) {
-                format!("title: {}", title)
+                format!("title: {title}")
             } else if let Some(name) = hit.source.get("name").and_then(|v| v.as_str()) {
-                format!("name: {}", name)
+                format!("name: {name}")
             } else {
                 // Fallback to full JSON serialization
                 serde_json::to_string(&hit.source).unwrap_or_else(|_| "{}".to_string())
@@ -497,7 +501,7 @@ fn display_search_results(
         } else {
             serde_json::to_string(&hit.source).unwrap_or_else(|_| "{}".to_string())
         };
-        
+
         let truncated = if doc_str.len() > 60 {
             format!("{}...", &doc_str[..60])
         } else {
@@ -507,22 +511,29 @@ fn display_search_results(
         if highlight {
             // Add highlight information (simplified for now)
             let highlights = "**highlighted terms**".to_string();
-            table.add_row(vec![hit.id.clone(), format!("{:.4}", hit.score), truncated, highlights]);
+            table.add_row(vec![
+                hit.id.clone(),
+                format!("{:.4}", hit.score),
+                truncated,
+                highlights,
+            ]);
         } else {
             table.add_row(vec![hit.id.clone(), format!("{:.4}", hit.score), truncated]);
         }
     }
 
-    println!("{}", table);
+    println!("{table}");
 
     if explain {
         println!("\n{}", "Query Explanation:".bright_cyan().bold());
-        println!("  {}: {}", "Total hits".bright_yellow(), response.total_hits);
+        println!(
+            "  {}: {}",
+            "Total hits".bright_yellow(),
+            response.total_hits
+        );
         println!("  {}: {:.2}ms", "Took".bright_yellow(), response.took_ms);
         if let Some(max_score) = response.max_score {
             println!("  {}: {:.4}", "Max score".bright_yellow(), max_score);
         }
     }
-
-    Ok(())
 }

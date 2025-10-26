@@ -24,10 +24,7 @@ impl LexumClient {
             .build()
             .expect("Failed to create HTTP client");
 
-        Self {
-            base_url,
-            client,
-        }
+        Self { base_url, client }
     }
 
     /// GET request with retry logic
@@ -38,7 +35,7 @@ impl LexumClient {
     /// GET request with retry logic
     async fn get_with_retries<T: DeserializeOwned>(&self, path: &str, retries: u32) -> Result<T> {
         let url = format!("{}{}", self.base_url, path);
-        
+
         for attempt in 0..=retries {
             match self.client.get(&url).send().await {
                 Ok(response) => {
@@ -46,32 +43,37 @@ impl LexumClient {
                         return Ok(response.json().await?);
                     } else {
                         let status = response.status();
-                        let text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                        
+                        let text = response
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| "Unknown error".to_string());
+
                         // Don't retry on client errors (4xx)
                         if status.is_client_error() {
                             anyhow::bail!("HTTP {status} - {text}");
                         }
-                        
+
                         // Retry on server errors (5xx) or network issues
                         if attempt < retries {
-                            tokio::time::sleep(Duration::from_millis(100 * (attempt + 1) as u64)).await;
+                            tokio::time::sleep(Duration::from_millis(100 * u64::from(attempt + 1)))
+                                .await;
                             continue;
                         }
-                        
+
                         anyhow::bail!("HTTP {status} - {text}");
                     }
                 }
                 Err(e) => {
                     if attempt < retries {
-                        tokio::time::sleep(Duration::from_millis(100 * (attempt + 1) as u64)).await;
+                        tokio::time::sleep(Duration::from_millis(100 * u64::from(attempt + 1)))
+                            .await;
                         continue;
                     }
                     return Err(e.into());
                 }
             }
         }
-        
+
         unreachable!()
     }
 
@@ -81,9 +83,14 @@ impl LexumClient {
     }
 
     /// POST request with retry logic
-    async fn post_with_retries<T: Serialize, R: DeserializeOwned>(&self, path: &str, body: &T, retries: u32) -> Result<R> {
+    async fn post_with_retries<T: Serialize, R: DeserializeOwned>(
+        &self,
+        path: &str,
+        body: &T,
+        retries: u32,
+    ) -> Result<R> {
         let url = format!("{}{}", self.base_url, path);
-        
+
         for attempt in 0..=retries {
             match self.client.post(&url).json(body).send().await {
                 Ok(response) => {
@@ -91,32 +98,37 @@ impl LexumClient {
                         return Ok(response.json().await?);
                     } else {
                         let status = response.status();
-                        let text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                        
+                        let text = response
+                            .text()
+                            .await
+                            .unwrap_or_else(|_| "Unknown error".to_string());
+
                         // Don't retry on client errors (4xx)
                         if status.is_client_error() {
                             anyhow::bail!("HTTP {status} - {text}");
                         }
-                        
+
                         // Retry on server errors (5xx) or network issues
                         if attempt < retries {
-                            tokio::time::sleep(Duration::from_millis(100 * (attempt + 1) as u64)).await;
+                            tokio::time::sleep(Duration::from_millis(100 * u64::from(attempt + 1)))
+                                .await;
                             continue;
                         }
-                        
+
                         anyhow::bail!("HTTP {status} - {text}");
                     }
                 }
                 Err(e) => {
                     if attempt < retries {
-                        tokio::time::sleep(Duration::from_millis(100 * (attempt + 1) as u64)).await;
+                        tokio::time::sleep(Duration::from_millis(100 * u64::from(attempt + 1)))
+                            .await;
                         continue;
                     }
                     return Err(e.into());
                 }
             }
         }
-        
+
         unreachable!()
     }
 

@@ -11,20 +11,21 @@ pub struct LqlParser;
 
 /// Simple query cache for parsed LQL queries
 use std::sync::LazyLock;
-static QUERY_CACHE: LazyLock<Mutex<HashMap<String, Query>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+static QUERY_CACHE: LazyLock<Mutex<HashMap<String, Query>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 impl LqlParser {
     /// Parse an LQL string into a Lexum Query with caching
     pub fn parse(lql: &str) -> Result<Query> {
         let lql = lql.trim();
-        
+
         // Check cache first
         if let Ok(cache) = QUERY_CACHE.lock() {
             if let Some(cached_query) = cache.get(lql) {
                 return Ok(cached_query.clone());
             }
         }
-        
+
         // Parse the query
         let query = if lql.starts_with("FROM") {
             Self::parse_from_query(lql)
@@ -36,14 +37,15 @@ impl LqlParser {
             // Try to parse as a simple search query
             Self::parse_simple_query(lql)
         }?;
-        
+
         // Cache the result (limit cache size to prevent memory issues)
         if let Ok(mut cache) = QUERY_CACHE.lock() {
-            if cache.len() < 1000 { // Limit cache size
+            if cache.len() < 1000 {
+                // Limit cache size
                 cache.insert(lql.to_string(), query.clone());
             }
         }
-        
+
         Ok(query)
     }
 
