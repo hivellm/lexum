@@ -789,7 +789,7 @@ mod tests {
             "title": "Test Document",
             "views": 42,
             "published": true,
-            "score": 3.14
+            "score": std::f64::consts::PI
         });
 
         let result = DocumentStore::json_to_tantivy_doc(&schema, &json);

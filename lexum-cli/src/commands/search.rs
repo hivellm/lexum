@@ -975,7 +975,7 @@ mod tests {
     #[test]
     fn test_parse_query_match_all() {
         let query = parse_query("*");
-        println!("Query for '*': {:?}", query);
+        println!("Query for '*': {query:?}");
         assert!(matches!(query, Query::MatchAll));
     }
 
@@ -1003,7 +1003,7 @@ mod tests {
                     );
                 }
             }
-            _ => panic!("Expected Bool query, got: {:?}", query),
+            _ => panic!("Expected Bool query, got: {query:?}"),
         }
     }
 
@@ -1083,7 +1083,7 @@ mod tests {
                 assert_eq!(field, "+status");
                 assert_eq!(value, "active -deleted:true");
             }
-            _ => panic!("Expected Term query, got: {:?}", query),
+            _ => panic!("Expected Term query, got: {query:?}"),
         }
     }
 
@@ -1107,7 +1107,7 @@ mod tests {
                 assert_eq!(field, "age");
                 assert_eq!(value, "[18]");
             }
-            _ => panic!("Expected Term query, got: {:?}", query),
+            _ => panic!("Expected Term query, got: {query:?}"),
         }
     }
 

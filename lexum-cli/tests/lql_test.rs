@@ -4,7 +4,6 @@ use lexum_cli::commands::lql;
 use lexum_cli::commands::search::SortOrder;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_lql_from_file_success() {
@@ -116,7 +115,6 @@ fn test_show_lql_help() {
     lql::show_lql_help();
 
     // If we get here without panic, the test passes
-    assert!(true);
 }
 
 #[test]
@@ -126,7 +124,6 @@ fn test_lql_help_content_structure() {
     lql::show_lql_help();
 
     // If we get here without panic, the test passes
-    assert!(true);
 }
 
 #[tokio::test]
@@ -200,7 +197,6 @@ fn test_lql_help_contains_expected_sections() {
     lql::show_lql_help();
 
     // If we get here without panic, the test passes
-    assert!(true);
 }
 
 #[tokio::test]

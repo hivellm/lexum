@@ -235,7 +235,7 @@ mod tests {
     #[tokio::test]
     async fn test_cache_key_generation() {
         let index_manager = Arc::new(IndexManager::new("./test_data"));
-        let executor = MultiIndexSearchExecutor::new(index_manager);
+        let _executor = MultiIndexSearchExecutor::new(index_manager);
 
         let indices = vec![IndexName::new("index1"), IndexName::new("index2")];
         let query = Query::Match(MatchQuery::new("field", "value"));

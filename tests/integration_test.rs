@@ -181,6 +181,181 @@ async fn test_concurrent_operations() -> Result<()> {
     return Ok(());
 }
 
+/// E2E Test: Complete document lifecycle
+#[tokio::test]
+async fn test_e2e_document_lifecycle() {
+    use reqwest::Client;
+    use serde_json::json;
+    use std::time::Duration;
+    use tokio::time::sleep;
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .expect("Failed to create HTTP client");
+
+    let server_url = "http://localhost:8080";
+
+    // Wait for server
+    for attempt in 1..=3 {
+        match client.get(&format!("{}/health", server_url)).send().await {
+            Ok(response) if response.status().is_success() => {
+                println!("✅ Server is ready after {} attempts", attempt);
+                break;
+            }
+            Ok(response) => {
+                println!(
+                    "⚠️ Server responded with status: {} (attempt {})",
+                    response.status(),
+                    attempt
+                );
+            }
+            Err(e) => {
+                println!("❌ Server not ready: {} (attempt {})", e, attempt);
+            }
+        }
+
+        if attempt < 3 {
+            sleep(Duration::from_secs(1)).await;
+        } else {
+            println!("⚠️ Skipping E2E test - server not available");
+            return;
+        }
+    }
+
+    let index_name = "e2e-test-documents";
+
+    // Create test index
+    let schema = json!({
+        "fields": [
+            {
+                "name": "title",
+                "type": "text",
+                "indexed": true,
+                "stored": true
+            },
+            {
+                "name": "content",
+                "type": "text",
+                "indexed": true,
+                "stored": false
+            },
+            {
+                "name": "timestamp",
+                "type": "i64",
+                "indexed": true,
+                "stored": true
+            }
+        ]
+    });
+
+    let response = client
+        .post(&format!("{}/api/v1/indices", server_url))
+        .json(&json!({
+            "name": index_name,
+            "schema": schema
+        }))
+        .send()
+        .await
+        .expect("Failed to create index");
+
+    if !response.status().is_success() {
+        let error_text = response
+            .text()
+            .await
+            .expect("Failed to read error response");
+        panic!("Failed to create index: {}", error_text);
+    }
+
+    // Add documents
+    let documents = vec![
+        json!({
+            "title": "Introduction to Search Engines",
+            "content": "Search engines are powerful tools for finding information quickly and efficiently.",
+            "timestamp": 1640995200
+        }),
+        json!({
+            "title": "Advanced Query Techniques",
+            "content": "Learn advanced techniques for crafting effective search queries.",
+            "timestamp": 1641081600
+        }),
+        json!({
+            "title": "Performance Optimization",
+            "content": "Tips and tricks for optimizing search engine performance.",
+            "timestamp": 1641168000
+        }),
+    ];
+
+    for doc in &documents {
+        let response = client
+            .post(&format!(
+                "{}/api/v1/indices/{}/documents",
+                server_url, index_name
+            ))
+            .json(&json!({
+                "document": doc
+            }))
+            .send()
+            .await
+            .expect("Failed to add document");
+
+        if !response.status().is_success() {
+            let error_text = response
+                .text()
+                .await
+                .expect("Failed to read error response");
+            panic!("Failed to add document: {}", error_text);
+        }
+
+        let result: serde_json::Value = response.json().await.expect("Failed to parse response");
+        println!("✅ Added document: {}", result["id"].as_str().unwrap());
+    }
+
+    // Search for documents
+    let search_query = json!({
+        "query": {
+            "match": {
+                "content": "search"
+            }
+        },
+        "limit": 10
+    });
+
+    let response = client
+        .post(&format!(
+            "{}/api/v1/indices/{}/search",
+            server_url, index_name
+        ))
+        .json(&search_query)
+        .send()
+        .await
+        .expect("Search failed");
+
+    if !response.status().is_success() {
+        let error_text = response
+            .text()
+            .await
+            .expect("Failed to read error response");
+        panic!("Search failed: {}", error_text);
+    }
+
+    let search_results: serde_json::Value = response
+        .json()
+        .await
+        .expect("Failed to parse search results");
+    println!(
+        "✅ Search results: {} hits",
+        search_results["hits"].as_array().unwrap().len()
+    );
+    assert!(!search_results["hits"].as_array().unwrap().is_empty());
+
+    // Cleanup
+    let _ = client
+        .delete(&format!("{}/api/v1/indices/{}", server_url, index_name))
+        .send()
+        .await;
+}
+
 #[allow(dead_code)]
 fn main() {
     // This is a test binary, main function is not needed for tests

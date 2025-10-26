@@ -75,15 +75,15 @@ fn bench_lql_optimization(c: &mut Criterion) {
             "range_query",
             Query::Range(lexum_core::query::types::RangeQuery {
                 field: "score".to_string(),
-                min: Some("8.0".to_string()),
-                max: Some("10.0".to_string()),
-                min_inclusive: true,
-                max_inclusive: true,
+                gte: Some(serde_json::json!("8.0")),
+                lte: Some(serde_json::json!("10.0")),
+                gt: None,
+                lt: None,
             }),
         ),
         (
             "boolean_query",
-            Query::Boolean(lexum_core::query::types::BooleanQuery {
+            Query::Bool(lexum_core::query::types::BoolQuery {
                 must: vec![
                     Query::Term(lexum_core::query::types::TermQuery {
                         field: "status".to_string(),

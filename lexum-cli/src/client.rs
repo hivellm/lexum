@@ -190,7 +190,7 @@ mod tests {
         // For now, we'll test the URL construction logic
         let client = LexumClient::new("http://localhost:9200".to_string());
         let path = "/api/test";
-        let body = json!({"test": "data"});
+        let _body = json!({"test": "data"});
         let expected_url = format!("{}{}", client.base_url, path);
         assert_eq!(expected_url, "http://localhost:9200/api/test");
     }
@@ -201,7 +201,7 @@ mod tests {
         // For now, we'll test the URL construction logic
         let client = LexumClient::new("http://localhost:9200".to_string());
         let path = "/api/test";
-        let body = json!({"test": "data"});
+        let _body = json!({"test": "data"});
         let expected_url = format!("{}{}", client.base_url, path);
         assert_eq!(expected_url, "http://localhost:9200/api/test");
     }
@@ -239,12 +239,12 @@ mod tests {
 
         // Test client error detection (4xx status codes)
         let client_error_status = 400;
-        let is_client_error = client_error_status >= 400 && client_error_status < 500;
+        let is_client_error = (400..500).contains(&client_error_status);
         assert!(is_client_error);
 
         // Test server error detection (5xx status codes)
         let server_error_status = 500;
-        let is_server_error = server_error_status >= 500 && server_error_status < 600;
+        let is_server_error = (500..600).contains(&server_error_status);
         assert!(is_server_error);
     }
 

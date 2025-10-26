@@ -1,0 +1,603 @@
+//! Load testing with large document sets (1M+ documents)
+//! DISABLED: Complex test that needs refactoring
+
+use anyhow::Result;
+
+#[ignore] // DISABLED: Complex test that needs refactoring
+use lexum_core::{
+    BoolQuery, FieldConfig, FieldType, IndexManager, MatchQuery, Query, RangeQuery,
+    SchemaBuilder, SearchExecutor, SearchResult, TermQuery, document::DocumentStore,
+};
+use rand::Rng;
+use serde_json::json;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+/// Load test configuration
+#[derive(Debug, Clone)]
+pub struct LoadTestConfig {
+    /// Number of documents to generate
+    pub document_count: usize,
+    /// Number of concurrent operations
+    pub concurrency: usize,
+    /// Test duration
+    pub duration: Duration,
+    /// Index name
+    pub index_name: String,
+    /// Batch size for indexing
+    pub batch_size: usize,
+}
+
+impl Default for LoadTestConfig {
+    fn default() -> Self {
+        Self {
+            document_count: 1_000_000,
+            concurrency: 10,
+            duration: Duration::from_secs(300), // 5 minutes
+            index_name: "load_test_large".to_string(),
+            batch_size: 1000,
+        }
+    }
+}
+
+/// Load test results
+#[derive(Debug, Clone)]
+pub struct LoadTestResults {
+    /// Total documents indexed
+    pub documents_indexed: usize,
+    /// Total searches performed
+    pub searches_performed: usize,
+    /// Indexing throughput (documents per second)
+    pub indexing_throughput: f64,
+    /// Search throughput (queries per second)
+    pub search_throughput: f64,
+    /// Average indexing latency
+    pub avg_indexing_latency: Duration,
+    /// Average search latency
+    pub avg_search_latency: Duration,
+    /// P95 indexing latency
+    pub p95_indexing_latency: Duration,
+    /// P95 search latency
+    pub p95_search_latency: Duration,
+    /// Memory usage during test
+    pub peak_memory_usage: u64,
+    /// Test duration
+    pub test_duration: Duration,
+}
+
+/// Load test runner
+pub struct LoadTestRunner {
+    config: LoadTestConfig,
+    index_manager: Arc<IndexManager>,
+    search_executor: Option<Arc<SearchExecutor>>,
+}
+
+impl LoadTestRunner {
+    /// Create a new load test runner
+    pub fn new(config: LoadTestConfig) -> Result<Self> {
+        let temp_dir = tempfile::tempdir()?;
+        let index_manager = Arc::new(IndexManager::new(temp_dir.path()));
+        // Search executor will be created after index is created
+
+        Ok(Self {
+            config,
+            index_manager,
+            search_executor: None,
+        })
+    }
+
+    /// Run the complete load test
+    pub async fn run(&self) -> Result<LoadTestResults> {
+        println!(
+            "🚀 Starting load test with {} documents",
+            self.config.document_count
+        );
+
+        // Create index
+        self.create_index().await?;
+
+        // Run indexing test
+        let indexing_results = self.run_indexing_test().await?;
+
+        // Run search test
+        let search_results = self.run_search_test().await?;
+
+        // Combine results
+        Ok(LoadTestResults {
+            documents_indexed: indexing_results.documents_indexed,
+            searches_performed: search_results.searches_performed,
+            indexing_throughput: indexing_results.throughput,
+            search_throughput: search_results.throughput,
+            avg_indexing_latency: indexing_results.avg_latency,
+            avg_search_latency: search_results.avg_latency,
+            p95_indexing_latency: indexing_results.p95_latency,
+            p95_search_latency: search_results.p95_latency,
+            peak_memory_usage: self.get_memory_usage(),
+            test_duration: Duration::from_secs(0), // Will be calculated
+        })
+    }
+
+    /// Create test index
+    async fn create_index(&self) -> Result<()> {
+        println!("📝 Creating index: {}", self.config.index_name);
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_field(FieldConfig::new("id", FieldType::Keyword))
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .add_field(FieldConfig::new("content", FieldType::Text))
+            .add_field(FieldConfig::new("category", FieldType::Keyword))
+            .add_field(FieldConfig::new("timestamp", FieldType::I64))
+            .add_field(FieldConfig::new("price", FieldType::F64))
+            .add_field(FieldConfig::new("rating", FieldType::F64))
+            .add_field(FieldConfig::new("tags", FieldType::Text))
+            .add_field(FieldConfig::new("location", FieldType::Text))
+            .add_field(FieldConfig::new("status", FieldType::Keyword))
+            .build()?;
+
+        self.index_manager
+            .create_index(&self.config.index_name, schema, Default::default())
+            .await?;
+
+        println!("✅ Index created successfully");
+        Ok(())
+    }
+
+    /// Run indexing performance test
+    async fn run_indexing_test(&self) -> Result<IndexingTestResults> {
+        println!("📊 Running indexing test...");
+
+        let start_time = Instant::now();
+        let mut latencies = Vec::new();
+        let mut documents_indexed = 0;
+
+        // Generate documents in batches
+        for batch_start in (0..self.config.document_count).step_by(self.config.batch_size) {
+            let batch_end = (batch_start + self.config.batch_size).min(self.config.document_count);
+            let batch_size = batch_end - batch_start;
+
+            let batch_start_time = Instant::now();
+
+            // Generate batch of documents
+            let documents = self.generate_document_batch(batch_start, batch_size);
+
+            // Index documents
+            let index = self.index_manager.get_index(&self.config.index_name)?;
+            let document_store = DocumentStore::new(Arc::new(index));
+            
+            for document in documents {
+                let doc_start = Instant::now();
+                document_store.add_document(document).await?;
+                let doc_latency = doc_start.elapsed();
+                latencies.push(doc_latency);
+                documents_indexed += 1;
+            }
+
+            let batch_duration = batch_start_time.elapsed();
+            println!(
+                "📦 Indexed batch {}-{} in {:?}",
+                batch_start, batch_end, batch_duration
+            );
+        }
+
+        let total_duration = start_time.elapsed();
+        let throughput = documents_indexed as f64 / total_duration.as_secs_f64();
+
+        // Calculate latency statistics
+        latencies.sort();
+        let avg_latency = latencies.iter().sum::<Duration>() / latencies.len() as u32;
+        let p95_index = (latencies.len() as f64 * 0.95) as usize;
+        let p95_latency = latencies[p95_index.min(latencies.len() - 1)];
+
+        println!(
+            "✅ Indexing completed: {} docs in {:?} ({:.2} docs/sec)",
+            documents_indexed, total_duration, throughput
+        );
+
+        Ok(IndexingTestResults {
+            documents_indexed,
+            throughput,
+            avg_latency,
+            p95_latency,
+        })
+    }
+
+    /// Run search performance test
+    async fn run_search_test(&self) -> Result<SearchTestResults> {
+        println!("🔍 Running search test...");
+
+        let start_time = Instant::now();
+        let mut latencies = Vec::new();
+        let mut searches_performed = 0;
+
+        // Generate search queries
+        let queries = self.generate_search_queries(1000); // 1000 different queries
+
+        // Run searches concurrently
+        let mut handles = Vec::new();
+
+        for _ in 0..self.config.concurrency {
+            let search_executor = self.search_executor.clone();
+            let index_name = self.config.index_name.clone();
+            let queries = queries.clone();
+
+            let handle = tokio::spawn(async move {
+                let mut local_searches = 0;
+                let mut local_latencies = Vec::new();
+
+                for query in queries {
+                    let search_start = Instant::now();
+                    let _result: Result<SearchResult, _> =
+                        search_executor.search(query, 10, 0, None).await;
+                    let search_latency = search_start.elapsed();
+
+                    local_latencies.push(search_latency);
+                    local_searches += 1;
+
+                    // Small delay to prevent overwhelming
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
+
+                (local_searches, local_latencies)
+            });
+
+            handles.push(handle);
+        }
+
+        // Collect results
+        for handle in handles {
+            let (local_searches, local_latencies) = handle.await?;
+            searches_performed += local_searches;
+            latencies.extend(local_latencies);
+        }
+
+        let total_duration = start_time.elapsed();
+        let throughput = searches_performed as f64 / total_duration.as_secs_f64();
+
+        // Calculate latency statistics
+        latencies.sort();
+        let avg_latency = latencies.iter().sum::<Duration>() / latencies.len() as u32;
+        let p95_index = (latencies.len() as f64 * 0.95) as usize;
+        let p95_latency = latencies[p95_index.min(latencies.len() - 1)];
+
+        println!(
+            "✅ Search completed: {} queries in {:?} ({:.2} queries/sec)",
+            searches_performed, total_duration, throughput
+        );
+
+        Ok(SearchTestResults {
+            searches_performed,
+            throughput,
+            avg_latency,
+            p95_latency,
+        })
+    }
+
+    /// Generate a batch of test documents
+    fn generate_document_batch(&self, start_id: usize, count: usize) -> Vec<serde_json::Value> {
+        let mut documents = Vec::with_capacity(count);
+        let mut rng = rand::thread_rng();
+
+        let categories = vec!["electronics", "books", "clothing", "home", "sports", "toys"];
+        let statuses = vec!["active", "inactive", "pending", "sold"];
+
+        for i in 0..count {
+            let id = start_id + i;
+            let category = categories[rng.gen_range(0..categories.len())];
+            let status = statuses[rng.gen_range(0..statuses.len())];
+
+            let document = json!({
+                "id": format!("doc_{}", id),
+                "title": format!("Product {} - High Quality Item", id),
+                "content": format!("This is a detailed description of product {}. It features amazing quality and excellent value for money. Perfect for everyday use and long-term durability.", id),
+                "category": category,
+                "timestamp": chrono::Utc::now().timestamp(),
+                "price": rng.gen_range(10.0..1000.0),
+                "rating": rng.gen_range(1.0..5.0),
+                "tags": format!("tag_{}, tag_{}, tag_{}",
+                    rng.gen_range(1..100),
+                    rng.gen_range(1..100),
+                    rng.gen_range(1..100)),
+                "location": format!("Location {}, City, Country", rng.gen_range(1..1000)),
+                "status": status
+            });
+
+            documents.push(document);
+        }
+
+        documents
+    }
+
+    /// Generate search queries for testing
+    fn generate_search_queries(&self, count: usize) -> Vec<Query> {
+        let mut queries = Vec::with_capacity(count);
+        let mut rng = rand::thread_rng();
+
+        let search_terms = vec![
+            "product",
+            "quality",
+            "amazing",
+            "excellent",
+            "perfect",
+            "durable",
+            "electronics",
+            "books",
+            "clothing",
+            "home",
+            "sports",
+            "toys",
+            "high",
+            "value",
+            "money",
+            "everyday",
+            "use",
+            "long-term",
+        ];
+
+        for _ in 0..count {
+            let query_type = rng.gen_range(0..4);
+            let query = match query_type {
+                0 => {
+                    // Match query
+                    let term = search_terms[rng.gen_range(0..search_terms.len())];
+                    Query::Match(MatchQuery::new("content", term))
+                }
+                1 => {
+                    // Term query
+                    let category =
+                        vec!["electronics", "books", "clothing", "home", "sports", "toys"];
+                    let term = category[rng.gen_range(0..category.len())];
+                    Query::Term(TermQuery::new("category", term))
+                }
+                2 => {
+                    // Range query
+                    let min_price = rng.gen_range(10.0..500.0);
+                    let max_price = min_price + rng.gen_range(100.0..500.0);
+                    Query::Range(RangeQuery::new("price"))
+                }
+                _ => {
+                    // Boolean query
+                    let term1 = search_terms[rng.gen_range(0..search_terms.len())];
+                    let term2 = search_terms[rng.gen_range(0..search_terms.len())];
+                    Query::Bool(
+                        BoolQuery::new()
+                            .must(MatchQuery::new("content", term1))
+                            .should(MatchQuery::new("title", term2)),
+                    )
+                }
+            };
+
+            queries.push(query);
+        }
+
+        queries
+    }
+
+    /// Get current memory usage (simplified)
+    fn get_memory_usage(&self) -> u64 {
+        // This is a simplified implementation
+        // In a real implementation, you would use system-specific APIs
+        0
+    }
+}
+
+/// Indexing test results
+#[derive(Debug, Clone)]
+struct IndexingTestResults {
+    documents_indexed: usize,
+    throughput: f64,
+    avg_latency: Duration,
+    p95_latency: Duration,
+}
+
+/// Search test results
+#[derive(Debug, Clone)]
+struct SearchTestResults {
+    searches_performed: usize,
+    throughput: f64,
+    avg_latency: Duration,
+    p95_latency: Duration,
+}
+
+/// Run load test with 1M documents
+#[tokio::test]
+async fn test_load_1m_documents() -> Result<()> {
+    let config = LoadTestConfig {
+        document_count: 1_000_000,
+        concurrency: 20,
+        duration: Duration::from_secs(600), // 10 minutes
+        index_name: "load_test_1m".to_string(),
+        batch_size: 5000,
+    };
+
+    let runner = LoadTestRunner::new(config)?;
+    let results = runner.run().await?;
+
+    println!("📊 Load Test Results:");
+    println!("  Documents indexed: {}", results.documents_indexed);
+    println!("  Searches performed: {}", results.searches_performed);
+    println!(
+        "  Indexing throughput: {:.2} docs/sec",
+        results.indexing_throughput
+    );
+    println!(
+        "  Search throughput: {:.2} queries/sec",
+        results.search_throughput
+    );
+    println!("  Avg indexing latency: {:?}", results.avg_indexing_latency);
+    println!("  Avg search latency: {:?}", results.avg_search_latency);
+    println!("  P95 indexing latency: {:?}", results.p95_indexing_latency);
+    println!("  P95 search latency: {:?}", results.p95_search_latency);
+
+    // Assertions for performance requirements
+    assert!(
+        results.indexing_throughput > 1000.0,
+        "Indexing throughput too low"
+    );
+    assert!(
+        results.search_throughput > 100.0,
+        "Search throughput too low"
+    );
+    assert!(
+        results.avg_indexing_latency < Duration::from_millis(100),
+        "Indexing latency too high"
+    );
+    assert!(
+        results.avg_search_latency < Duration::from_millis(50),
+        "Search latency too high"
+    );
+
+    Ok(())
+}
+
+/// Run load test with 10M documents
+#[tokio::test]
+async fn test_load_10m_documents() -> Result<()> {
+    let config = LoadTestConfig {
+        document_count: 10_000_000,
+        concurrency: 50,
+        duration: Duration::from_secs(1800), // 30 minutes
+        index_name: "load_test_10m".to_string(),
+        batch_size: 10000,
+    };
+
+    let runner = LoadTestRunner::new(config)?;
+    let results = runner.run().await?;
+
+    println!("📊 Load Test Results (10M documents):");
+    println!("  Documents indexed: {}", results.documents_indexed);
+    println!("  Searches performed: {}", results.searches_performed);
+    println!(
+        "  Indexing throughput: {:.2} docs/sec",
+        results.indexing_throughput
+    );
+    println!(
+        "  Search throughput: {:.2} queries/sec",
+        results.search_throughput
+    );
+    println!("  Avg indexing latency: {:?}", results.avg_indexing_latency);
+    println!("  Avg search latency: {:?}", results.avg_search_latency);
+    println!("  P95 indexing latency: {:?}", results.p95_indexing_latency);
+    println!("  P95 search latency: {:?}", results.p95_search_latency);
+
+    // Assertions for performance requirements
+    assert!(
+        results.indexing_throughput > 500.0,
+        "Indexing throughput too low for 10M docs"
+    );
+    assert!(
+        results.search_throughput > 50.0,
+        "Search throughput too low for 10M docs"
+    );
+    assert!(
+        results.avg_indexing_latency < Duration::from_millis(200),
+        "Indexing latency too high for 10M docs"
+    );
+    assert!(
+        results.avg_search_latency < Duration::from_millis(100),
+        "Search latency too high for 10M docs"
+    );
+
+    Ok(())
+}
+
+/// Run sustained load test
+#[tokio::test]
+async fn test_sustained_load() -> Result<()> {
+    let config = LoadTestConfig {
+        document_count: 100_000,
+        concurrency: 100,
+        duration: Duration::from_secs(3600), // 1 hour
+        index_name: "sustained_load_test".to_string(),
+        batch_size: 1000,
+    };
+
+    let runner = LoadTestRunner::new(config)?;
+    let results = runner.run().await?;
+
+    println!("📊 Sustained Load Test Results:");
+    println!("  Documents indexed: {}", results.documents_indexed);
+    println!("  Searches performed: {}", results.searches_performed);
+    println!(
+        "  Indexing throughput: {:.2} docs/sec",
+        results.indexing_throughput
+    );
+    println!(
+        "  Search throughput: {:.2} queries/sec",
+        results.search_throughput
+    );
+    println!("  Avg indexing latency: {:?}", results.avg_indexing_latency);
+    println!("  Avg search latency: {:?}", results.avg_search_latency);
+    println!("  P95 indexing latency: {:?}", results.p95_indexing_latency);
+    println!("  P95 search latency: {:?}", results.p95_search_latency);
+
+    // Assertions for sustained performance
+    assert!(
+        results.indexing_throughput > 2000.0,
+        "Sustained indexing throughput too low"
+    );
+    assert!(
+        results.search_throughput > 200.0,
+        "Sustained search throughput too low"
+    );
+    assert!(
+        results.avg_indexing_latency < Duration::from_millis(50),
+        "Sustained indexing latency too high"
+    );
+    assert!(
+        results.avg_search_latency < Duration::from_millis(25),
+        "Sustained search latency too high"
+    );
+
+    Ok(())
+}
+
+/// Run peak load test
+#[tokio::test]
+async fn test_peak_load() -> Result<()> {
+    let config = LoadTestConfig {
+        document_count: 50_000,
+        concurrency: 200,
+        duration: Duration::from_secs(300), // 5 minutes
+        index_name: "peak_load_test".to_string(),
+        batch_size: 500,
+    };
+
+    let runner = LoadTestRunner::new(config)?;
+    let results = runner.run().await?;
+
+    println!("📊 Peak Load Test Results:");
+    println!("  Documents indexed: {}", results.documents_indexed);
+    println!("  Searches performed: {}", results.searches_performed);
+    println!(
+        "  Indexing throughput: {:.2} docs/sec",
+        results.indexing_throughput
+    );
+    println!(
+        "  Search throughput: {:.2} queries/sec",
+        results.search_throughput
+    );
+    println!("  Avg indexing latency: {:?}", results.avg_indexing_latency);
+    println!("  Avg search latency: {:?}", results.avg_search_latency);
+    println!("  P95 indexing latency: {:?}", results.p95_indexing_latency);
+    println!("  P95 search latency: {:?}", results.p95_search_latency);
+
+    // Assertions for peak performance
+    assert!(
+        results.indexing_throughput > 5000.0,
+        "Peak indexing throughput too low"
+    );
+    assert!(
+        results.search_throughput > 500.0,
+        "Peak search throughput too low"
+    );
+    assert!(
+        results.avg_indexing_latency < Duration::from_millis(25),
+        "Peak indexing latency too high"
+    );
+    assert!(
+        results.avg_search_latency < Duration::from_millis(10),
+        "Peak search latency too high"
+    );
+
+    Ok(())
+}

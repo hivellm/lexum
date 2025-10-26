@@ -359,7 +359,7 @@ mod tests {
 
         for field_type in field_types {
             let field = FieldDef {
-                name: format!("field_{}", field_type),
+                name: format!("field_{field_type}"),
                 field_type: field_type.to_string(),
                 stored: true,
                 indexed: true,

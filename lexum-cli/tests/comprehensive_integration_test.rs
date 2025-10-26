@@ -212,7 +212,7 @@ async fn test_cli_advanced_search_options() -> Result<()> {
     let output = run_cli_command(&[
         "search",
         "test_index",
-        &format!("@{}", query_path),
+        &format!("@{query_path}"),
         "--limit",
         "10",
     ])?;
@@ -243,7 +243,7 @@ async fn test_cli_lql_operations() -> Result<()> {
     let output = run_cli_command(&[
         "lql",
         "test_index",
-        &format!("@{}", lql_path),
+        &format!("@{lql_path}"),
         "--limit",
         "10",
     ])?;
@@ -410,7 +410,7 @@ async fn test_cli_file_validation() -> Result<()> {
     let (_doc_path, query_path, lql_path) = create_test_files()?;
 
     // Test with valid JSON file
-    let output = run_cli_command(&["search", "test_index", &format!("@{}", query_path)])?;
+    let output = run_cli_command(&["search", "test_index", &format!("@{query_path}")])?;
 
     assert!(
         !output.status.success(),
@@ -418,7 +418,7 @@ async fn test_cli_file_validation() -> Result<()> {
     );
 
     // Test with valid LQL file
-    let output = run_cli_command(&["lql", "test_index", &format!("@{}", lql_path)])?;
+    let output = run_cli_command(&["lql", "test_index", &format!("@{lql_path}")])?;
 
     assert!(
         !output.status.success(),
@@ -447,8 +447,7 @@ async fn test_cli_output_formats() -> Result<()> {
         // This should fail due to no server, but should parse format correctly
         assert!(
             !output.status.success(),
-            "Format {} should fail without server",
-            format
+            "Format {format} should fail without server"
         );
     }
 

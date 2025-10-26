@@ -536,8 +536,8 @@ mod tests {
                 },
                 AliasAction {
                     action: "add".to_string(),
-                    index: "".to_string(), // Empty index should cause failure
-                    alias: "test_alias2".to_string(),
+                    index: "test_index2".to_string(),
+                    alias: "test_alias1".to_string(), // Duplicate alias name - should fail
                     filter: None,
                     routing: None,
                     search_routing: None,
@@ -553,14 +553,486 @@ mod tests {
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        // Should fail due to duplicate alias
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
 
-        // Parse response to check it failed
-        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
-            .await
+    // ============================================================================
+    // Enhanced Server-Side Alias API Tests
+    // ============================================================================
+
+    #[tokio::test]
+    async fn test_get_aliases_with_data() {
+        let app = create_test_app();
+        
+        // First create some aliases
+        let create_request = AliasOperationsRequest {
+            actions: vec![
+                AliasAction {
+                    action: "add".to_string(),
+                    index: "index1".to_string(),
+                    alias: "alias1".to_string(),
+                    filter: None,
+                    routing: None,
+                    search_routing: None,
+                    index_routing: None,
+                    is_write_index: None,
+                },
+                AliasAction {
+                    action: "add".to_string(),
+                    index: "index2".to_string(),
+                    alias: "alias2".to_string(),
+                    filter: None,
+                    routing: None,
+                    search_routing: None,
+                    index_routing: None,
+                    is_write_index: None,
+                },
+            ],
+        };
+        
+        let create_req = Request::builder()
+            .uri("/_aliases")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&create_request).unwrap()))
             .unwrap();
-        let response: AliasOperationsResponse = serde_json::from_slice(&body).unwrap();
-        assert!(!response.acknowledged);
-        assert!(response.error.is_some());
+        let _create_response = app.clone().oneshot(create_req).await.unwrap();
+
+        // Now test getting aliases
+        let request = Request::builder()
+            .uri("/_aliases")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_get_index_aliases_with_data() {
+        let app = create_test_app();
+        
+        // First create an alias for an index
+        let create_request = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "add".to_string(),
+                index: "test_index".to_string(),
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        
+        let create_req = Request::builder()
+            .uri("/_aliases")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&create_request).unwrap()))
+            .unwrap();
+        let _create_response = app.clone().oneshot(create_req).await.unwrap();
+
+        // Now test getting aliases for the index
+        let request = Request::builder()
+            .uri("/test_index/_alias")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_add_alias_with_config() {
+        let app = create_test_app();
+        let request_body = serde_json::json!({
+            "filter": {
+                "term": {
+                    "status": "active"
+                }
+            },
+            "routing": "user1",
+            "search_routing": "user1",
+            "index_routing": "user1",
+            "is_write_index": true
+        });
+        
+        let request = Request::builder()
+            .uri("/test_index/_alias/test_alias")
+            .method("PUT")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        // Expect 400 because the index doesn't exist
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_add_alias_invalid_json() {
+        let app = create_test_app();
+        let request = Request::builder()
+            .uri("/test_index/_alias/test_alias")
+            .method("PUT")
+            .header("content-type", "application/json")
+            .body(Body::from("invalid json"))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_remove_alias_success() {
+        let app = create_test_app();
+        
+        // First create an alias
+        let create_request = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "add".to_string(),
+                index: "test_index".to_string(),
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        
+        let create_req = Request::builder()
+            .uri("/_aliases")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&create_request).unwrap()))
+            .unwrap();
+        let _create_response = app.clone().oneshot(create_req).await.unwrap();
+
+        // Now test removing the alias
+        let request = Request::builder()
+            .uri("/test_index/_alias/test_alias")
+            .method("DELETE")
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_perform_alias_operations_invalid_json() {
+        let app = create_test_app();
+        let request = Request::builder()
+            .uri("/_aliases")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from("invalid json"))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_perform_alias_operations_empty_actions() {
+        let app = create_test_app();
+        let request_body = AliasOperationsRequest {
+            actions: vec![],
+        };
+        let request = Request::builder()
+            .uri("/_aliases")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_perform_alias_operations_invalid_action() {
+        let app = create_test_app();
+        let request_body = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "invalid_action".to_string(),
+                index: "test_index".to_string(),
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        let request = Request::builder()
+            .uri("/_aliases")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_perform_atomic_alias_operations_invalid_json() {
+        let app = create_test_app();
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from("invalid json"))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_perform_atomic_alias_operations_empty_actions() {
+        let app = create_test_app();
+        let request_body = AliasOperationsRequest {
+            actions: vec![],
+        };
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_perform_atomic_alias_operations_remove_action() {
+        let app = create_test_app();
+        
+        // First create an alias
+        let create_request = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "add".to_string(),
+                index: "test_index1".to_string(),
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        
+        let create_req = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&create_request).unwrap()))
+            .unwrap();
+        let _create_response = app.clone().oneshot(create_req).await.unwrap();
+
+        // Now test removing indices from the alias
+        let remove_request = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "remove".to_string(),
+                index: "test_index1".to_string(),
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&remove_request).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_perform_atomic_alias_operations_remove_index_action() {
+        let app = create_test_app();
+        
+        // First create an alias
+        let create_request = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "add".to_string(),
+                index: "test_index1".to_string(),
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        
+        let create_req = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&create_request).unwrap()))
+            .unwrap();
+        let _create_response = app.clone().oneshot(create_req).await.unwrap();
+
+        // Now test removing the entire alias
+        let remove_request = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "remove_index".to_string(),
+                index: "".to_string(), // Not used for remove_index
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&remove_request).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_alias_operations_with_complex_config() {
+        let app = create_test_app();
+        let request_body = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "add".to_string(),
+                index: "test_index".to_string(),
+                alias: "complex_alias".to_string(),
+                filter: Some(serde_json::json!({
+                    "bool": {
+                        "must": [
+                            {"term": {"status": "active"}},
+                            {"range": {"created_at": {"gte": "2023-01-01"}}}
+                        ]
+                    }
+                })),
+                routing: Some("user123".to_string()),
+                search_routing: Some("user123".to_string()),
+                index_routing: Some("user123".to_string()),
+                is_write_index: Some(true),
+            }],
+        };
+        
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        // Should succeed even though index doesn't exist (alias operations are independent)
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_alias_operations_missing_content_type() {
+        let app = create_test_app();
+        let request_body = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "add".to_string(),
+                index: "test_index".to_string(),
+                alias: "test_alias".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            }],
+        };
+        
+        let request = Request::builder()
+            .uri("/_aliases")
+            .method("POST")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        // Should still work without content-type header
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_alias_operations_large_request() {
+        let app = create_test_app();
+        
+        // Create a large request with many operations
+        let mut actions = Vec::new();
+        for i in 0..100 {
+            actions.push(AliasAction {
+                action: "add".to_string(),
+                index: format!("index_{}", i),
+                alias: format!("alias_{}", i),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: None,
+            });
+        }
+        
+        let request_body = AliasOperationsRequest { actions };
+        let request = Request::builder()
+            .uri("/_aliases/atomic")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_alias_operations_concurrent_requests() {
+        use std::sync::Arc;
+        use tokio::task;
+        
+        let app = Arc::new(create_test_app());
+        let mut handles = vec![];
+        
+        // Spawn multiple concurrent requests
+        for i in 0..10 {
+            let app_clone = app.clone();
+            let handle = task::spawn(async move {
+                let request_body = AliasOperationsRequest {
+                    actions: vec![AliasAction {
+                        action: "add".to_string(),
+                        index: format!("index_{}", i),
+                        alias: format!("alias_{}", i),
+                        filter: None,
+                        routing: None,
+                        search_routing: None,
+                        index_routing: None,
+                        is_write_index: None,
+                    }],
+                };
+                
+                let request = Request::builder()
+                    .uri("/_aliases/atomic")
+                    .method("POST")
+                    .header("content-type", "application/json")
+                    .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+                    .unwrap();
+                <Router as Clone>::clone(&app_clone).oneshot(request).await.unwrap()
+            });
+            handles.push(handle);
+        }
+        
+        // Wait for all requests to complete
+        for handle in handles {
+            let response = handle.await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+        }
     }
 }

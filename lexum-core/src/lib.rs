@@ -52,6 +52,9 @@ pub mod index;
 /// Logging and tracing setup
 pub mod logging;
 
+/// Performance monitoring and regression detection
+pub mod performance;
+
 /// Query types and builders
 pub mod query;
 

@@ -3,7 +3,6 @@
 use lexum_cli::commands::search::{self, SortOrder};
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_search_basic() {

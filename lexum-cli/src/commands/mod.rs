@@ -1,5 +1,6 @@
 //! Command implementations
 
+pub mod alias;
 pub mod document;
 pub mod help;
 pub mod index;

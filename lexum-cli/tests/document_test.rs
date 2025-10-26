@@ -3,7 +3,6 @@
 use lexum_cli::commands::document;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_add_document_success() {

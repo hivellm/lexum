@@ -97,6 +97,12 @@ enum Commands {
         #[command(subcommand)]
         action: SnapshotAction,
     },
+
+    /// Alias management commands
+    Alias {
+        #[command(subcommand)]
+        action: AliasAction,
+    },
 }
 
 #[derive(Subcommand)]
@@ -225,6 +231,40 @@ enum SnapshotAction {
     Repo {
         /// Repository name
         repository: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum AliasAction {
+    /// List all aliases
+    List,
+    /// Get aliases for a specific index
+    Get {
+        /// Index name
+        index: String,
+    },
+    /// Create an alias
+    Create {
+        /// Index name
+        index: String,
+        /// Alias name
+        alias: String,
+        /// Configuration file (JSON)
+        #[arg(short, long)]
+        config: Option<String>,
+    },
+    /// Delete an alias
+    Delete {
+        /// Index name
+        index: String,
+        /// Alias name
+        alias: String,
+    },
+    /// Perform atomic alias operations
+    Atomic {
+        /// Operations file (JSON)
+        #[arg(short, long)]
+        file: String,
     },
 }
 
@@ -413,6 +453,31 @@ async fn main() -> Result<()> {
             }
             SnapshotAction::Repo { repository } => {
                 commands::snapshot::get_repository(&cli.url, &repository).await?;
+            }
+        },
+        Some(Commands::Alias { action }) => match action {
+            AliasAction::List => {
+                commands::alias::list_aliases(&cli.url).await?;
+            }
+            AliasAction::Get { index } => {
+                commands::alias::get_index_aliases(&cli.url, &index).await?;
+            }
+            AliasAction::Create { index, alias, config } => {
+                let config_value = if let Some(config_file) = config {
+                    let content = std::fs::read_to_string(&config_file)?;
+                    Some(serde_json::from_str(&content)?)
+                } else {
+                    None
+                };
+                commands::alias::create_alias(&cli.url, &index, &alias, config_value).await?;
+            }
+            AliasAction::Delete { index, alias } => {
+                commands::alias::delete_alias(&cli.url, &index, &alias).await?;
+            }
+            AliasAction::Atomic { file } => {
+                let content = std::fs::read_to_string(&file)?;
+                let operations: serde_json::Value = serde_json::from_str(&content)?;
+                commands::alias::atomic_operations(&cli.url, operations).await?;
             }
         },
         None => {

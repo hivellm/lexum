@@ -3,7 +3,6 @@
 use lexum_cli::commands::server;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_start_server_foreground() {

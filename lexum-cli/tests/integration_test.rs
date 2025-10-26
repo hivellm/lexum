@@ -426,8 +426,7 @@ async fn test_cli_error_handling_enhancements() -> Result<()> {
         error_output.contains("Connection refused")
             || error_output.contains("tcp connect error")
             || error_output.contains("error sending request"),
-        "Error output should contain connection error: {}",
-        error_output
+        "Error output should contain connection error: {error_output}"
     );
 
     Ok(())

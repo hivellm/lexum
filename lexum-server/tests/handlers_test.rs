@@ -338,3 +338,77 @@ fn test_search_request_serialization() {
     assert_eq!(deserialized.limit, 15);
     assert_eq!(deserialized.offset, 5);
 }
+
+// ============================================================================
+// Rollover Handler Tests
+// ============================================================================
+
+#[test]
+fn test_rollover_conditions() {
+    use lexum_server::handlers::rollover::RolloverConditions;
+
+    let conditions = RolloverConditions {
+        max_age: Some("7d".to_string()),
+        max_size: Some("5gb".to_string()),
+        max_docs: Some(1000000),
+        max_primary_shard_size: Some("1gb".to_string()),
+    };
+
+    assert_eq!(conditions.max_age, Some("7d".to_string()));
+    assert_eq!(conditions.max_size, Some("5gb".to_string()));
+    assert_eq!(conditions.max_docs, Some(1000000));
+    assert_eq!(conditions.max_primary_shard_size, Some("1gb".to_string()));
+}
+
+#[test]
+fn test_rollover_request() {
+    use lexum_server::handlers::rollover::{RolloverConditions, RolloverRequest};
+
+    let conditions = RolloverConditions {
+        max_docs: Some(1000),
+        ..Default::default()
+    };
+
+    let request = RolloverRequest {
+        conditions,
+        new_index: Some("new-index".to_string()),
+        dry_run: true,
+    };
+
+    assert_eq!(request.conditions.max_docs, Some(1000));
+    assert_eq!(request.new_index, Some("new-index".to_string()));
+    assert_eq!(request.dry_run, true);
+}
+
+#[test]
+fn test_rollover_response() {
+    use lexum_server::handlers::rollover::{IndexStats, RolloverResponse};
+
+    let stats = IndexStats {
+        num_docs: 1000,
+        size_in_bytes: 1024000,
+        age_in_millis: 86400000, // 1 day
+        num_primary_shards: 1,
+    };
+
+    let response = RolloverResponse {
+        acknowledged: true,
+        conditions_met: true,
+        old_index: "old-index".to_string(),
+        new_index: "new-index".to_string(),
+        dry_run: false,
+        rolled_over_due_to: Some("max_docs:1000".to_string()),
+        index_stats: stats,
+    };
+
+    assert_eq!(response.acknowledged, true);
+    assert_eq!(response.conditions_met, true);
+    assert_eq!(response.old_index, "old-index");
+    assert_eq!(response.new_index, "new-index");
+    assert_eq!(response.dry_run, false);
+    assert_eq!(
+        response.rolled_over_due_to,
+        Some("max_docs:1000".to_string())
+    );
+    assert_eq!(response.index_stats.num_docs, 1000);
+}

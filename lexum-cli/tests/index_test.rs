@@ -3,7 +3,6 @@
 use lexum_cli::commands::index;
 use std::fs;
 use tempfile::TempDir;
-use tokio;
 
 #[tokio::test]
 async fn test_create_index_success() {
@@ -11,7 +10,7 @@ async fn test_create_index_success() {
     let schema_file = temp_dir.path().join("schema.yml");
 
     // Create a test schema file
-    let schema = r#"
+    let schema = r"
 - name: title
   type: text
   stored: true
@@ -27,7 +26,7 @@ async fn test_create_index_success() {
   stored: true
   indexed: true
   fast: true
-"#;
+      ";
     fs::write(&schema_file, schema).unwrap();
 
     // This will fail because there's no server, but we can test the file reading part
@@ -83,10 +82,10 @@ async fn test_create_index_minimal_schema() {
     let schema_file = temp_dir.path().join("minimal_schema.yml");
 
     // Create a minimal schema file
-    let schema = r#"
+    let schema = r"
 - name: id
   type: text
-"#;
+      ";
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(
@@ -110,7 +109,7 @@ async fn test_create_index_complex_schema() {
     let schema_file = temp_dir.path().join("complex_schema.yml");
 
     // Create a complex schema file
-    let schema = r#"
+    let schema = r"
 - name: title
   type: text
   stored: true
@@ -151,7 +150,7 @@ async fn test_create_index_complex_schema() {
   stored: true
   indexed: true
   fast: true
-"#;
+      ";
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(
@@ -222,10 +221,10 @@ async fn test_create_index_with_special_characters() {
     let temp_dir = TempDir::new().unwrap();
     let schema_file = temp_dir.path().join("schema.yml");
 
-    let schema = r#"
+    let schema = r"
 - name: title
   type: text
-"#;
+      ";
     fs::write(&schema_file, schema).unwrap();
 
     let special_name = "test-index_123@example.com";
@@ -269,11 +268,11 @@ async fn test_create_index_with_malformed_schema() {
     let schema_file = temp_dir.path().join("malformed_schema.yml");
 
     // Create a schema with missing required fields
-    let schema = r#"
+    let schema = r"
 - name: title
   # missing type field
   stored: true
-"#;
+      ";
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(
@@ -332,7 +331,7 @@ async fn test_create_index_with_all_field_types() {
     let schema_file = temp_dir.path().join("all_types_schema.yml");
 
     // Create a schema with all supported field types
-    let schema = r#"
+    let schema = r"
 - name: text_field
   type: text
   stored: true
@@ -368,7 +367,7 @@ async fn test_create_index_with_all_field_types() {
   stored: true
   indexed: false
   fast: false
-"#;
+      ";
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(

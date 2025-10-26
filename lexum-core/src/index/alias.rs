@@ -416,7 +416,7 @@ impl AliasManager {
 
         // Execute operations with rollback on failure
         let result = self.execute_operations_internal(&transaction);
-        
+
         match result {
             Ok(response) => {
                 tracing::info!(
@@ -516,10 +516,10 @@ impl AliasManager {
     /// Rollback a failed transaction
     fn rollback_transaction(&self, transaction: &AliasTransaction) {
         let mut aliases = self.aliases.write();
-        
+
         // Restore the snapshot
         *aliases = transaction.aliases_snapshot.clone();
-        
+
         tracing::info!("Transaction rolled back successfully");
     }
 
