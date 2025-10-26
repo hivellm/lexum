@@ -394,7 +394,10 @@ async fn test_snapshot_deletion_workflow() {
         .unwrap();
 
     // Should fail because index doesn't exist
-    assert_eq!(create_snapshot_response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        create_snapshot_response.status(),
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
 
     // Step 4: Test that we can list snapshots (should be empty)
     let list_snapshots_response = app
