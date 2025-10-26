@@ -26,17 +26,19 @@ async fn test_alias_resolution_single_index() {
     let max_attempts = 3;
     let result = loop {
         attempts += 1;
-        match manager.create_index("test_index", schema.clone(), settings.clone()).await {
+        match manager
+            .create_index("test_index", schema.clone(), settings.clone())
+            .await
+        {
             Ok(index) => break Ok(index),
             Err(e) if attempts < max_attempts => {
                 eprintln!("Attempt {attempts} failed: {e}");
                 tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts)).await;
-                continue;
             }
             Err(e) => break Err(e),
         }
     };
-    
+
     result.unwrap();
 
     // Create an alias pointing to the index
@@ -73,21 +75,29 @@ async fn test_alias_resolution_multiple_indices() {
         let max_attempts = 3;
         loop {
             attempts += 1;
-            match manager.create_index(name, schema.clone(), settings.clone()).await {
+            match manager
+                .create_index(name, schema.clone(), settings.clone())
+                .await
+            {
                 Ok(_) => return Ok(()),
                 Err(e) if attempts < max_attempts => {
                     eprintln!("Attempt {attempts} failed for {name}: {e}");
                     tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts)).await;
-                    continue;
                 }
                 Err(e) => return Err(e),
             }
         }
     }
 
-    create_index_with_retry(&manager, "index1", schema.clone(), settings.clone()).await.unwrap();
-    create_index_with_retry(&manager, "index2", schema.clone(), settings.clone()).await.unwrap();
-    create_index_with_retry(&manager, "index3", schema, settings).await.unwrap();
+    create_index_with_retry(&manager, "index1", schema.clone(), settings.clone())
+        .await
+        .unwrap();
+    create_index_with_retry(&manager, "index2", schema.clone(), settings.clone())
+        .await
+        .unwrap();
+    create_index_with_retry(&manager, "index3", schema, settings)
+        .await
+        .unwrap();
 
     // Create an alias pointing to multiple indices
     let indices = vec![
@@ -133,17 +143,19 @@ async fn test_alias_resolution_direct_index() {
     let max_attempts = 3;
     let result = loop {
         attempts += 1;
-        match manager.create_index("direct_index", schema.clone(), settings.clone()).await {
+        match manager
+            .create_index("direct_index", schema.clone(), settings.clone())
+            .await
+        {
             Ok(index) => break Ok(index),
             Err(e) if attempts < max_attempts => {
                 eprintln!("Attempt {attempts} failed: {e}");
                 tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts)).await;
-                continue;
             }
             Err(e) => break Err(e),
         }
     };
-    
+
     result.unwrap();
 
     // Test direct index resolution
@@ -176,20 +188,26 @@ async fn test_multi_index_search_executor_with_alias() {
         let max_attempts = 3;
         loop {
             attempts += 1;
-            match manager.create_index(name, schema.clone(), settings.clone()).await {
+            match manager
+                .create_index(name, schema.clone(), settings.clone())
+                .await
+            {
                 Ok(_) => return Ok(()),
                 Err(e) if attempts < max_attempts => {
                     eprintln!("Attempt {attempts} failed for {name}: {e}");
                     tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts)).await;
-                    continue;
                 }
                 Err(e) => return Err(e),
             }
         }
     }
 
-    create_index_with_retry(&manager, "index1", schema.clone(), settings.clone()).await.unwrap();
-    create_index_with_retry(&manager, "index2", schema, settings).await.unwrap();
+    create_index_with_retry(&manager, "index1", schema.clone(), settings.clone())
+        .await
+        .unwrap();
+    create_index_with_retry(&manager, "index2", schema, settings)
+        .await
+        .unwrap();
 
     // Note: Document addition would require more complex setup
     // For now, we'll just test alias resolution without documents
@@ -246,20 +264,26 @@ async fn test_alias_resolution_with_filtering() {
         let max_attempts = 3;
         loop {
             attempts += 1;
-            match manager.create_index(name, schema.clone(), settings.clone()).await {
+            match manager
+                .create_index(name, schema.clone(), settings.clone())
+                .await
+            {
                 Ok(_) => return Ok(()),
                 Err(e) if attempts < max_attempts => {
                     eprintln!("Attempt {attempts} failed for {name}: {e}");
                     tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts)).await;
-                    continue;
                 }
                 Err(e) => return Err(e),
             }
         }
     }
 
-    create_index_with_retry(&manager, "tech_index", schema.clone(), settings.clone()).await.unwrap();
-    create_index_with_retry(&manager, "news_index", schema, settings).await.unwrap();
+    create_index_with_retry(&manager, "tech_index", schema.clone(), settings.clone())
+        .await
+        .unwrap();
+    create_index_with_retry(&manager, "news_index", schema, settings)
+        .await
+        .unwrap();
 
     // Create alias with filter
     let indices = vec![IndexName::new("tech_index"), IndexName::new("news_index")];
@@ -303,12 +327,14 @@ async fn test_alias_resolution_performance() {
         let max_attempts = 3;
         loop {
             attempts += 1;
-            match manager.create_index(name, schema.clone(), settings.clone()).await {
+            match manager
+                .create_index(name, schema.clone(), settings.clone())
+                .await
+            {
                 Ok(_) => return Ok(()),
                 Err(e) if attempts < max_attempts => {
                     eprintln!("Attempt {attempts} failed for {name}: {e}");
                     tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts)).await;
-                    continue;
                 }
                 Err(e) => return Err(e),
             }
@@ -318,7 +344,9 @@ async fn test_alias_resolution_performance() {
     let mut indices = Vec::new();
     for i in 0..100 {
         let index_name = format!("index_{i}");
-        create_index_with_retry(&manager, &index_name, schema.clone(), settings.clone()).await.unwrap();
+        create_index_with_retry(&manager, &index_name, schema.clone(), settings.clone())
+            .await
+            .unwrap();
         indices.push(IndexName::new(&index_name));
     }
 
@@ -362,17 +390,19 @@ async fn test_alias_resolution_case_sensitivity() {
     let max_attempts = 3;
     let result = loop {
         attempts += 1;
-        match manager.create_index("TestIndex", schema.clone(), settings.clone()).await {
+        match manager
+            .create_index("TestIndex", schema.clone(), settings.clone())
+            .await
+        {
             Ok(index) => break Ok(index),
             Err(e) if attempts < max_attempts => {
                 eprintln!("Attempt {attempts} failed: {e}");
                 tokio::time::sleep(tokio::time::Duration::from_millis(100 * attempts)).await;
-                continue;
             }
             Err(e) => break Err(e),
         }
     };
-    
+
     result.unwrap();
 
     // Create alias with different case

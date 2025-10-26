@@ -1,25 +1,29 @@
 //! Alias management commands for Lexum CLI
 
+use crate::client::LexumClient;
 use anyhow::Result;
 use colored::Colorize;
-use crate::client::LexumClient;
 use serde_json::json;
 
 /// List all aliases
 pub async fn list_aliases(url: &str) -> Result<()> {
     let client = LexumClient::new(url.to_string());
     let body: serde_json::Value = client.get("/_aliases").await?;
-    
+
     println!("{}", "Aliases:".bright_blue().bold());
-    
+
     if let Some(aliases) = body.as_object() {
         if aliases.is_empty() {
             println!("  No aliases found");
         } else {
             for (name, alias_info) in aliases {
-                println!("  {} -> {}", name.bright_cyan(), 
-                    alias_info["indices"].as_array()
-                        .map(|indices| indices.iter()
+                println!(
+                    "  {} -> {}",
+                    name.bright_cyan(),
+                    alias_info["indices"]
+                        .as_array()
+                        .map(|indices| indices
+                            .iter()
                             .map(|i| i.as_str().unwrap_or(""))
                             .collect::<Vec<_>>()
                             .join(", "))
@@ -28,25 +32,32 @@ pub async fn list_aliases(url: &str) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
 /// Get aliases for a specific index
 pub async fn get_index_aliases(url: &str, index: &str) -> Result<()> {
     let client = LexumClient::new(url.to_string());
-    let body: serde_json::Value = client.get(&format!("/{}/_alias", index)).await?;
-    
-    println!("{}", format!("Aliases for index '{}':", index).bright_blue().bold());
-    
+    let body: serde_json::Value = client.get(&format!("/{index}/_alias")).await?;
+
+    println!(
+        "{}",
+        format!("Aliases for index '{index}':").bright_blue().bold()
+    );
+
     if let Some(aliases) = body.as_object() {
         if aliases.is_empty() {
             println!("  No aliases found for this index");
         } else {
             for (name, alias_info) in aliases {
-                println!("  {} -> {}", name.bright_cyan(), 
-                    alias_info["indices"].as_array()
-                        .map(|indices| indices.iter()
+                println!(
+                    "  {} -> {}",
+                    name.bright_cyan(),
+                    alias_info["indices"]
+                        .as_array()
+                        .map(|indices| indices
+                            .iter()
                             .map(|i| i.as_str().unwrap_or(""))
                             .collect::<Vec<_>>()
                             .join(", "))
@@ -55,14 +66,19 @@ pub async fn get_index_aliases(url: &str, index: &str) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
 /// Create an alias
-pub async fn create_alias(url: &str, index: &str, alias: &str, config: Option<serde_json::Value>) -> Result<()> {
+pub async fn create_alias(
+    url: &str,
+    index: &str,
+    alias: &str,
+    config: Option<serde_json::Value>,
+) -> Result<()> {
     let client = LexumClient::new(url.to_string());
-    
+
     let request_body = json!({
         "actions": [{
             "action": "add",
@@ -75,14 +91,23 @@ pub async fn create_alias(url: &str, index: &str, alias: &str, config: Option<se
             "is_write_index": config.as_ref().and_then(|c| c.get("is_write_index"))
         }]
     });
-    
-    match client.post::<serde_json::Value, serde_json::Value>("/_aliases", &request_body).await {
+
+    match client
+        .post::<serde_json::Value, serde_json::Value>("/_aliases", &request_body)
+        .await
+    {
         Ok(_response) => {
-            println!("{}", format!("Alias '{}' created successfully for index '{}'", alias, index).bright_green());
+            println!(
+                "{}",
+                format!("Alias '{alias}' created successfully for index '{index}'").bright_green()
+            );
             Ok(())
         }
         Err(e) => {
-            println!("{}", format!("Failed to create alias '{}': {}", alias, e).bright_red());
+            println!(
+                "{}",
+                format!("Failed to create alias '{alias}': {e}").bright_red()
+            );
             Ok(()) // Return Ok to handle errors gracefully
         }
     }
@@ -91,14 +116,20 @@ pub async fn create_alias(url: &str, index: &str, alias: &str, config: Option<se
 /// Delete an alias
 pub async fn delete_alias(url: &str, index: &str, alias: &str) -> Result<()> {
     let client = LexumClient::new(url.to_string());
-    
-    match client.delete(&format!("/{}/_alias/{}", index, alias)).await {
+
+    match client.delete(&format!("/{index}/_alias/{alias}")).await {
         Ok(_) => {
-            println!("{}", format!("Alias '{}' deleted successfully from index '{}'", alias, index).bright_green());
+            println!(
+                "{}",
+                format!("Alias '{alias}' deleted successfully from index '{index}'").bright_green()
+            );
             Ok(())
         }
         Err(e) => {
-            println!("{}", format!("Failed to delete alias '{}': {}", alias, e).bright_red());
+            println!(
+                "{}",
+                format!("Failed to delete alias '{alias}': {e}").bright_red()
+            );
             Ok(()) // Return Ok to handle errors gracefully
         }
     }
@@ -107,18 +138,27 @@ pub async fn delete_alias(url: &str, index: &str, alias: &str) -> Result<()> {
 /// Perform atomic alias operations
 pub async fn atomic_operations(url: &str, operations: serde_json::Value) -> Result<()> {
     let client = LexumClient::new(url.to_string());
-    
-    match client.post::<serde_json::Value, serde_json::Value>("/_aliases/atomic", &operations).await {
+
+    match client
+        .post::<serde_json::Value, serde_json::Value>("/_aliases/atomic", &operations)
+        .await
+    {
         Ok(body) => {
-            println!("{}", "Atomic alias operations completed successfully".bright_green());
-            
+            println!(
+                "{}",
+                "Atomic alias operations completed successfully".bright_green()
+            );
+
             if let Some(executed) = body.get("executed_operations") {
-                println!("  Executed {} operations", executed);
+                println!("  Executed {executed} operations");
             }
             Ok(())
         }
         Err(e) => {
-            println!("{}", format!("Failed to perform atomic operations: {}", e).bright_red());
+            println!(
+                "{}",
+                format!("Failed to perform atomic operations: {e}").bright_red()
+            );
             Ok(()) // Return Ok to handle errors gracefully
         }
     }
@@ -151,7 +191,7 @@ mod tests {
             .mock("GET", "/_aliases")
             .with_status(200)
             .with_header("content-type", "application/json")
-            .with_body(r#"{}"#)
+            .with_body(r"{}")
             .create();
 
         let result = list_aliases(&server.url()).await;

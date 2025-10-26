@@ -318,15 +318,20 @@ impl AliasManager {
             .ok_or_else(|| Error::NotFound(format!("Alias '{name}' not found")))?;
 
         for index in indices {
+            if !alias.contains_index(&index) {
+                return Err(Error::NotFound(format!(
+                    "Index '{}' not found in alias '{}'",
+                    index, name
+                )));
+            }
             alias.remove_index(&index);
         }
 
-        // If alias is now empty, remove it
+        // If alias is now empty, return error but keep the alias
         if alias.is_empty() {
-            aliases.remove(name);
-            tracing::info!(alias = %name, "Alias removed (no indices remaining)");
+            tracing::info!(alias = %name, "Alias is now empty but kept");
             return Err(Error::Validation(
-                "Alias removed because it has no indices".to_string(),
+                "Alias has no indices remaining".to_string(),
             ));
         }
 
@@ -405,6 +410,13 @@ impl AliasManager {
         &self,
         request: AliasOperationsRequest,
     ) -> Result<AliasOperationsResponse> {
+        // Validate that operations are not empty
+        if request.actions.is_empty() {
+            return Err(Error::Validation(
+                "At least one operation must be provided".to_string(),
+            ));
+        }
+
         // Create transaction
         let mut transaction = AliasTransaction::new(request.actions);
 

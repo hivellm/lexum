@@ -1,10 +1,10 @@
 //! Performance metrics collection and tracking
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 
 /// Performance metrics collector
 #[derive(Debug, Clone)]
@@ -79,10 +79,18 @@ impl Metrics {
             system: SystemMetrics::new(),
         }
     }
+}
 
+impl Default for Metrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Metrics {
     /// Record a timing measurement
     pub fn record_timing(&mut self, operation: &str, duration: Duration) {
-        let stats = self.timings.entry(operation.to_string()).or_insert_with(TimingStats::new);
+        let stats = self.timings.entry(operation.to_string()).or_default();
         stats.add_measurement(duration);
     }
 
@@ -165,27 +173,35 @@ impl TimingStats {
             recent: Vec::new(),
         }
     }
+}
 
+impl Default for TimingStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl TimingStats {
     /// Add a timing measurement
     pub fn add_measurement(&mut self, duration: Duration) {
         self.count += 1;
         self.total += duration;
-        
+
         if duration < self.min {
             self.min = duration;
         }
         if duration > self.max {
             self.max = duration;
         }
-        
-        self.avg = Duration::from_nanos((self.total.as_nanos() / self.count as u128) as u64);
-        
+
+        self.avg = Duration::from_nanos((self.total.as_nanos() / u128::from(self.count)) as u64);
+
         // Keep recent measurements for percentile calculation
         self.recent.push(duration);
         if self.recent.len() > 1000 {
             self.recent.drain(0..100); // Keep only last 900
         }
-        
+
         self.calculate_percentiles();
     }
 
@@ -194,10 +210,10 @@ impl TimingStats {
         if self.recent.is_empty() {
             return;
         }
-        
+
         let mut sorted = self.recent.clone();
         sorted.sort();
-        
+
         let len = sorted.len();
         self.p50 = sorted[len * 50 / 100];
         self.p95 = sorted[len * 95 / 100];
@@ -231,7 +247,15 @@ impl SystemMetrics {
             thread_count: 0,
         }
     }
+}
 
+impl Default for SystemMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SystemMetrics {
     /// Update system metrics
     pub fn update(&mut self) {
         // In a real implementation, this would read from system APIs
@@ -299,7 +323,9 @@ impl PerformanceTimer {
     /// Finish timing and record the measurement
     pub async fn finish(self) {
         let duration = self.start.elapsed();
-        self.collector.record_timing(&self.operation, duration).await;
+        self.collector
+            .record_timing(&self.operation, duration)
+            .await;
     }
 }
 
@@ -322,30 +348,34 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_collector() {
         let collector = MetricsCollector::new();
-        
+
         // Test timing recording
-        collector.record_timing("test_operation", Duration::from_millis(100)).await;
-        collector.record_timing("test_operation", Duration::from_millis(200)).await;
-        
+        collector
+            .record_timing("test_operation", Duration::from_millis(100))
+            .await;
+        collector
+            .record_timing("test_operation", Duration::from_millis(200))
+            .await;
+
         // Test counter increment
         collector.increment_counter("test_counter", 5).await;
         collector.increment_counter("test_counter", 3).await;
-        
+
         // Test gauge recording
         collector.record_gauge("test_gauge", 42.5).await;
-        
+
         let metrics = collector.get_metrics().await;
-        
+
         // Verify timing stats
         let timing_stats = metrics.get_timing_stats("test_operation").unwrap();
         assert_eq!(timing_stats.count, 2);
         assert_eq!(timing_stats.total, Duration::from_millis(300));
         assert_eq!(timing_stats.min, Duration::from_millis(100));
         assert_eq!(timing_stats.max, Duration::from_millis(200));
-        
+
         // Verify counter
         assert_eq!(metrics.get_counter("test_counter"), Some(8));
-        
+
         // Verify gauge
         assert_eq!(metrics.get_gauge("test_gauge"), Some(42.5));
     }
@@ -353,11 +383,11 @@ mod tests {
     #[tokio::test]
     async fn test_performance_timer() {
         let collector = Arc::new(MetricsCollector::new());
-        
+
         let timer = PerformanceTimer::start("test_timer", collector.clone());
         tokio::time::sleep(Duration::from_millis(50)).await;
         timer.finish().await;
-        
+
         let metrics = collector.get_metrics().await;
         let timing_stats = metrics.get_timing_stats("test_timer").unwrap();
         assert_eq!(timing_stats.count, 1);
@@ -367,11 +397,11 @@ mod tests {
     #[test]
     fn test_timing_stats() {
         let mut stats = TimingStats::new();
-        
+
         stats.add_measurement(Duration::from_millis(100));
         stats.add_measurement(Duration::from_millis(200));
         stats.add_measurement(Duration::from_millis(300));
-        
+
         assert_eq!(stats.count, 3);
         assert_eq!(stats.total, Duration::from_millis(600));
         assert_eq!(stats.min, Duration::from_millis(100));

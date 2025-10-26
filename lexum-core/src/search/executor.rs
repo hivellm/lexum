@@ -3,8 +3,8 @@
 use crate::error::{Error, Result};
 use crate::index::Index;
 use crate::query::Query;
-use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
 use crate::search::optimizer::QueryOptimizer;
+use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
 use crate::types::{DocumentId, Score};
 use dashmap::DashMap;
 use std::sync::Arc;
@@ -108,17 +108,17 @@ impl SearchExecutor {
         sort: Option<SortOption>,
     ) -> Result<SearchResult> {
         let start = Instant::now();
-        
+
         // Optimize query for better performance
         let optimizer = QueryOptimizer::new();
         let optimized_query = optimizer.optimize(query)?;
-        
+
         // Analyze query complexity
         let analysis = optimizer.analyze(&optimized_query);
         if analysis.is_complex() {
             tracing::warn!("Complex query detected: {:?}", analysis.recommendations());
         }
-        
+
         // Check cache first if enabled
         if self.cache_enabled {
             let key = Self::cache_key(&optimized_query, limit, offset, &sort);
@@ -402,14 +402,19 @@ impl SearchExecutor {
                     .collect();
 
                 if terms.is_empty() {
-                    return Err(Error::Config("More Like This query cannot be empty".to_string()));
+                    return Err(Error::Config(
+                        "More Like This query cannot be empty".to_string(),
+                    ));
                 }
 
                 // Create a boolean query with should clauses for each term
                 let mut clauses = Vec::new();
                 for term in terms {
                     let term_query = TermQuery::new(term, IndexRecordOption::Basic);
-                    clauses.push((Occur::Should, Box::new(term_query) as Box<dyn tantivy::query::Query>));
+                    clauses.push((
+                        Occur::Should,
+                        Box::new(term_query) as Box<dyn tantivy::query::Query>,
+                    ));
                 }
 
                 Ok(Box::new(BooleanQuery::from(clauses)))

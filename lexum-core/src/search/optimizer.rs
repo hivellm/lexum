@@ -9,6 +9,7 @@ pub struct QueryOptimizer {
     /// Maximum query depth to prevent infinite recursion
     max_depth: usize,
     /// Whether to enable query caching
+    #[allow(dead_code)]
     enable_caching: bool,
 }
 
@@ -37,7 +38,9 @@ impl QueryOptimizer {
     /// Recursively optimize query with depth tracking
     fn optimize_recursive(&self, query: Query, depth: usize) -> Result<Query> {
         if depth > self.max_depth {
-            return Err(crate::error::Error::Config("Query too deep for optimization".to_string()));
+            return Err(crate::error::Error::Config(
+                "Query too deep for optimization".to_string(),
+            ));
         }
 
         match query {
@@ -68,18 +71,20 @@ impl QueryOptimizer {
                     .collect::<Result<Vec<_>>>()?;
 
                 // Remove empty boolean queries
-                if bool_query.must.is_empty() 
-                    && bool_query.should.is_empty() 
-                    && bool_query.must_not.is_empty() 
-                    && bool_query.filter.is_empty() {
+                if bool_query.must.is_empty()
+                    && bool_query.should.is_empty()
+                    && bool_query.must_not.is_empty()
+                    && bool_query.filter.is_empty()
+                {
                     return Ok(Query::MatchAll);
                 }
 
                 // Optimize single-clause boolean queries
-                if bool_query.must.len() == 1 
-                    && bool_query.should.is_empty() 
-                    && bool_query.must_not.is_empty() 
-                    && bool_query.filter.is_empty() {
+                if bool_query.must.len() == 1
+                    && bool_query.should.is_empty()
+                    && bool_query.must_not.is_empty()
+                    && bool_query.filter.is_empty()
+                {
                     return Ok(bool_query.must.into_iter().next().unwrap());
                 }
 
@@ -96,15 +101,18 @@ impl QueryOptimizer {
             }
 
             Query::FunctionScore(func_score_query) => {
-                let optimized_query = self.optimize_recursive(*func_score_query.query, depth + 1)?;
-                Ok(Query::FunctionScore(crate::query::types::FunctionScoreQuery {
-                    query: Box::new(optimized_query),
-                    functions: func_score_query.functions,
-                    score_mode: func_score_query.score_mode,
-                    boost_mode: func_score_query.boost_mode,
-                    max_boost: func_score_query.max_boost,
-                    min_score: func_score_query.min_score,
-                }))
+                let optimized_query =
+                    self.optimize_recursive(*func_score_query.query, depth + 1)?;
+                Ok(Query::FunctionScore(
+                    crate::query::types::FunctionScoreQuery {
+                        query: Box::new(optimized_query),
+                        functions: func_score_query.functions,
+                        score_mode: func_score_query.score_mode,
+                        boost_mode: func_score_query.boost_mode,
+                        max_boost: func_score_query.max_boost,
+                        min_score: func_score_query.min_score,
+                    },
+                ))
             }
 
             // For other query types, return as-is
@@ -126,9 +134,11 @@ impl QueryOptimizer {
 
         match query {
             Query::Bool(bool_query) => {
-                analysis.boolean_clauses += bool_query.must.len() + bool_query.should.len() 
-                    + bool_query.must_not.len() + bool_query.filter.len();
-                
+                analysis.boolean_clauses += bool_query.must.len()
+                    + bool_query.should.len()
+                    + bool_query.must_not.len()
+                    + bool_query.filter.len();
+
                 for clause in &bool_query.must {
                     self.analyze_recursive(clause, analysis, depth + 1);
                 }
@@ -181,7 +191,7 @@ impl QueryOptimizer {
             }
 
             _ => {
-                if let Some(field) = self.get_query_field(query) {
+                if let Some(field) = Self::get_query_field(query) {
                     analysis.unique_fields.insert(field);
                 }
             }
@@ -189,7 +199,7 @@ impl QueryOptimizer {
     }
 
     /// Extract field name from query if possible
-    fn get_query_field(&self, query: &Query) -> Option<String> {
+    fn get_query_field(query: &Query) -> Option<String> {
         match query {
             Query::Match(match_query) => Some(match_query.field.clone()),
             Query::Term(term_query) => Some(term_query.field.clone()),
@@ -273,7 +283,8 @@ impl QueryAnalysis {
         let mut recommendations = Vec::new();
 
         if self.max_depth > 5 {
-            recommendations.push("Consider reducing query depth to improve performance".to_string());
+            recommendations
+                .push("Consider reducing query depth to improve performance".to_string());
         }
 
         if self.boolean_clauses > 10 {
@@ -293,11 +304,13 @@ impl QueryAnalysis {
         }
 
         if self.unique_fields.len() > 10 {
-            recommendations.push("Query spans many fields, consider field-specific queries".to_string());
+            recommendations
+                .push("Query spans many fields, consider field-specific queries".to_string());
         }
 
         if self.more_like_this_queries > 0 {
-            recommendations.push("More Like This queries are expensive, consider caching".to_string());
+            recommendations
+                .push("More Like This queries are expensive, consider caching".to_string());
         }
 
         if recommendations.is_empty() {
@@ -331,7 +344,7 @@ mod tests {
         let optimizer = QueryOptimizer::new();
         let query = Query::Match(MatchQuery::new("title", "test"));
         let optimized = optimizer.optimize(query.clone()).unwrap();
-        
+
         // Simple queries should remain unchanged
         assert!(matches!(optimized, Query::Match(_)));
     }
@@ -339,10 +352,12 @@ mod tests {
     #[test]
     fn test_boolean_query_optimization() {
         let optimizer = QueryOptimizer::new();
-        let query = Query::Bool(BoolQuery::new()
-            .must(Query::Match(MatchQuery::new("title", "test")))
-            .should(Query::Term(TermQuery::new("status", "active"))));
-        
+        let query = Query::Bool(
+            BoolQuery::new()
+                .must(Query::Match(MatchQuery::new("title", "test")))
+                .should(Query::Term(TermQuery::new("status", "active"))),
+        );
+
         let optimized = optimizer.optimize(query).unwrap();
         assert!(matches!(optimized, Query::Bool(_)));
     }
@@ -352,7 +367,7 @@ mod tests {
         let optimizer = QueryOptimizer::new();
         let query = Query::Bool(BoolQuery::new());
         let optimized = optimizer.optimize(query).unwrap();
-        
+
         // Empty boolean queries should become MatchAll
         assert!(matches!(optimized, Query::MatchAll));
     }
@@ -363,7 +378,7 @@ mod tests {
         let inner_query = Query::Match(MatchQuery::new("title", "test"));
         let query = Query::Bool(BoolQuery::new().must(inner_query));
         let optimized = optimizer.optimize(query).unwrap();
-        
+
         // Single-clause boolean queries should be simplified
         assert!(matches!(optimized, Query::Match(_)));
     }
@@ -371,13 +386,15 @@ mod tests {
     #[test]
     fn test_query_analysis() {
         let optimizer = QueryOptimizer::new();
-        let query = Query::Bool(BoolQuery::new()
-            .must(Query::Match(MatchQuery::new("title", "test")))
-            .should(Query::Fuzzy(FuzzyQuery::new("name", "john")))
-            .must_not(Query::Regex(RegexQuery::new("content", "spam"))));
-        
+        let query = Query::Bool(
+            BoolQuery::new()
+                .must(Query::Match(MatchQuery::new("title", "test")))
+                .should(Query::Fuzzy(FuzzyQuery::new("name", "john")))
+                .must_not(Query::Regex(RegexQuery::new("content", "spam"))),
+        );
+
         let analysis = optimizer.analyze(&query);
-        
+
         assert_eq!(analysis.total_clauses, 4); // Bool + 3 sub-clauses
         assert_eq!(analysis.boolean_clauses, 3);
         assert_eq!(analysis.fuzzy_queries, 1);
@@ -395,7 +412,7 @@ mod tests {
         analysis.boolean_clauses = 5;
         analysis.fuzzy_queries = 2;
         analysis.regex_queries = 1;
-        
+
         let score = analysis.complexity_score();
         assert!(score > 0);
         assert!(analysis.is_complex());
@@ -408,7 +425,7 @@ mod tests {
         analysis.boolean_clauses = 15;
         analysis.fuzzy_queries = 5;
         analysis.regex_queries = 3;
-        
+
         let recommendations = analysis.recommendations();
         assert!(!recommendations.is_empty());
         assert!(recommendations.iter().any(|r| r.contains("depth")));

@@ -75,6 +75,13 @@ impl QueryOptimizer {
                 Query::Regex(regex_query.clone())
             }
             Query::MatchAll => query.clone(),
+            Query::MoreLikeThis(mlt_query) => Query::MoreLikeThis(mlt_query.clone()),
+            Query::Nested(nested_query) => Query::Nested(nested_query.clone()),
+            Query::FunctionScore(func_score_query) => {
+                Query::FunctionScore(func_score_query.clone())
+            }
+            Query::GeoDistance(geo_query) => Query::GeoDistance(geo_query.clone()),
+            Query::Script(script_query) => Query::Script(script_query.clone()),
         };
 
         QueryPlan {
@@ -278,6 +285,11 @@ impl QueryOptimizer {
             Query::Wildcard(wildcard_query) => Query::Wildcard(wildcard_query),
             Query::Regex(regex_query) => Query::Regex(regex_query),
             Query::MatchAll => query,
+            Query::MoreLikeThis(mlt_query) => Query::MoreLikeThis(mlt_query),
+            Query::Nested(nested_query) => Query::Nested(nested_query),
+            Query::FunctionScore(func_score_query) => Query::FunctionScore(func_score_query),
+            Query::GeoDistance(geo_query) => Query::GeoDistance(geo_query),
+            Query::Script(script_query) => Query::Script(script_query),
         }
     }
 
@@ -307,7 +319,12 @@ impl QueryOptimizer {
                     .unwrap_or(50);
                 must_selectivity.min(should_selectivity)
             }
-            Query::MatchAll => 50, // Default for unknown queries
+            Query::MatchAll => 50,         // Default for unknown queries
+            Query::MoreLikeThis(_) => 40,  // More Like This queries are moderately selective
+            Query::Nested(_) => 35,        // Nested queries are moderately selective
+            Query::FunctionScore(_) => 30, // Function score queries are moderately selective
+            Query::GeoDistance(_) => 25,   // Geo distance queries are moderately selective
+            Query::Script(_) => 45,        // Script queries are less selective
         }
     }
 }

@@ -1,7 +1,7 @@
 //! Alias functionality tests
 
 use lexum_core::index::AliasManager;
-use lexum_core::index::alias::{AliasAction, AliasOperationsRequest, AliasConfig, AliasName};
+use lexum_core::index::alias::{AliasAction, AliasConfig, AliasName, AliasOperationsRequest};
 use lexum_core::types::IndexName;
 
 #[test]
@@ -300,8 +300,10 @@ fn test_alias_creation_with_config() {
         is_write_index: Some(true),
     };
 
-    let alias = manager.create_alias("test-alias", indices, Some(config)).unwrap();
-    
+    let alias = manager
+        .create_alias("test-alias", indices, Some(config))
+        .unwrap();
+
     assert_eq!(alias.name.as_str(), "test-alias");
     assert_eq!(alias.index_count(), 2);
     assert!(alias.config.filter.is_some());
@@ -329,7 +331,12 @@ fn test_alias_creation_empty_indices() {
     let manager = AliasManager::new();
     let result = manager.create_alias("test-alias", vec![], None);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("must have at least one target index"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("must have at least one target index")
+    );
 }
 
 #[test]
@@ -358,15 +365,21 @@ fn test_alias_list_empty() {
 #[test]
 fn test_alias_list_multiple() {
     let manager = AliasManager::new();
-    
+
     // Create multiple aliases
-    manager.create_alias("alias1", vec![IndexName::new("index1")], None).unwrap();
-    manager.create_alias("alias2", vec![IndexName::new("index2")], None).unwrap();
-    manager.create_alias("alias3", vec![IndexName::new("index3")], None).unwrap();
+    manager
+        .create_alias("alias1", vec![IndexName::new("index1")], None)
+        .unwrap();
+    manager
+        .create_alias("alias2", vec![IndexName::new("index2")], None)
+        .unwrap();
+    manager
+        .create_alias("alias3", vec![IndexName::new("index3")], None)
+        .unwrap();
 
     let aliases = manager.list_aliases();
     assert_eq!(aliases.len(), 3);
-    
+
     let alias_names: Vec<&str> = aliases.iter().map(|a| a.name.as_str()).collect();
     assert!(alias_names.contains(&"alias1"));
     assert!(alias_names.contains(&"alias2"));
@@ -384,7 +397,8 @@ fn test_alias_add_indices_to_nonexistent() {
 #[test]
 fn test_alias_remove_indices_from_nonexistent() {
     let manager = AliasManager::new();
-    let result = manager.remove_indices_from_alias("nonexistent-alias", vec![IndexName::new("index1")]);
+    let result =
+        manager.remove_indices_from_alias("nonexistent-alias", vec![IndexName::new("index1")]);
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not found"));
 }
@@ -396,7 +410,8 @@ fn test_alias_remove_nonexistent_indices() {
     manager.create_alias("test-alias", indices, None).unwrap();
 
     // Try to remove non-existent indices
-    let result = manager.remove_indices_from_alias("test-alias", vec![IndexName::new("nonexistent-index")]);
+    let result =
+        manager.remove_indices_from_alias("test-alias", vec![IndexName::new("nonexistent-index")]);
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not found"));
 }
@@ -432,7 +447,11 @@ fn test_alias_contains_index() {
 #[test]
 fn test_alias_index_count() {
     let manager = AliasManager::new();
-    let indices = vec![IndexName::new("index1"), IndexName::new("index2"), IndexName::new("index3")];
+    let indices = vec![
+        IndexName::new("index1"),
+        IndexName::new("index2"),
+        IndexName::new("index3"),
+    ];
     let alias = manager.create_alias("test-alias", indices, None).unwrap();
 
     assert_eq!(alias.index_count(), 3);
@@ -489,7 +508,12 @@ fn test_alias_operations_request_validation() {
     let request = AliasOperationsRequest::new(operations);
     let result = manager.execute_atomic_operations(request);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("must have at least one target index"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("must have at least one target index")
+    );
 }
 
 #[test]
@@ -563,8 +587,8 @@ fn test_alias_concurrent_operations() {
     for i in 0..10 {
         let manager_clone = manager.clone();
         let handle = thread::spawn(move || {
-            let indices = vec![IndexName::new(&format!("index{}", i))];
-            manager_clone.create_alias(format!("alias{}", i), indices, None)
+            let indices = vec![IndexName::new(&format!("index{i}"))];
+            manager_clone.create_alias(format!("alias{i}"), indices, None)
         });
         handles.push(handle);
     }
@@ -597,7 +621,7 @@ fn test_alias_name_validation() {
 
     for name in valid_names {
         let result = manager.create_alias(name, indices.clone(), None);
-        assert!(result.is_ok(), "Failed to create alias with name: {}", name);
+        assert!(result.is_ok(), "Failed to create alias with name: {name}");
         manager.delete_alias(name).unwrap();
     }
 }
@@ -638,7 +662,7 @@ fn test_alias_config_serialization() {
 #[test]
 fn test_alias_name_serialization() {
     let alias_name = AliasName::new("test-alias");
-    
+
     // Test serialization
     let json = serde_json::to_string(&alias_name).unwrap();
     assert_eq!(json, "\"test-alias\"");
@@ -651,7 +675,7 @@ fn test_alias_name_serialization() {
 #[test]
 fn test_alias_name_display() {
     let alias_name = AliasName::new("test-alias");
-    assert_eq!(format!("{}", alias_name), "test-alias");
+    assert_eq!(format!("{alias_name}"), "test-alias");
 }
 
 #[test]
@@ -673,14 +697,14 @@ fn test_alias_name_clone() {
 #[test]
 fn test_alias_name_hash() {
     use std::collections::HashSet;
-    
+
     let mut set = HashSet::new();
     let alias_name1 = AliasName::new("test-alias");
     let alias_name2 = AliasName::new("test-alias");
-    
+
     set.insert(alias_name1);
     set.insert(alias_name2);
-    
+
     // Should only have one entry since they're equal
     assert_eq!(set.len(), 1);
 }
@@ -690,7 +714,7 @@ fn test_alias_name_equality() {
     let alias_name1 = AliasName::new("test-alias");
     let alias_name2 = AliasName::new("test-alias");
     let alias_name3 = AliasName::new("different-alias");
-    
+
     assert_eq!(alias_name1, alias_name2);
     assert_ne!(alias_name1, alias_name3);
 }

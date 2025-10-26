@@ -564,7 +564,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_aliases_with_data() {
         let app = create_test_app();
-        
+
         // First create some aliases
         let create_request = AliasOperationsRequest {
             actions: vec![
@@ -590,7 +590,7 @@ mod tests {
                 },
             ],
         };
-        
+
         let create_req = Request::builder()
             .uri("/_aliases")
             .method("POST")
@@ -612,7 +612,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_index_aliases_with_data() {
         let app = create_test_app();
-        
+
         // First create an alias for an index
         let create_request = AliasOperationsRequest {
             actions: vec![AliasAction {
@@ -626,7 +626,7 @@ mod tests {
                 is_write_index: None,
             }],
         };
-        
+
         let create_req = Request::builder()
             .uri("/_aliases")
             .method("POST")
@@ -659,7 +659,7 @@ mod tests {
             "index_routing": "user1",
             "is_write_index": true
         });
-        
+
         let request = Request::builder()
             .uri("/test_index/_alias/test_alias")
             .method("PUT")
@@ -687,7 +687,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_alias_success() {
         let app = create_test_app();
-        
+
         // First create an alias
         let create_request = AliasOperationsRequest {
             actions: vec![AliasAction {
@@ -701,7 +701,7 @@ mod tests {
                 is_write_index: None,
             }],
         };
-        
+
         let create_req = Request::builder()
             .uri("/_aliases")
             .method("POST")
@@ -736,9 +736,7 @@ mod tests {
     #[tokio::test]
     async fn test_perform_alias_operations_empty_actions() {
         let app = create_test_app();
-        let request_body = AliasOperationsRequest {
-            actions: vec![],
-        };
+        let request_body = AliasOperationsRequest { actions: vec![] };
         let request = Request::builder()
             .uri("/_aliases")
             .method("POST")
@@ -790,9 +788,7 @@ mod tests {
     #[tokio::test]
     async fn test_perform_atomic_alias_operations_empty_actions() {
         let app = create_test_app();
-        let request_body = AliasOperationsRequest {
-            actions: vec![],
-        };
+        let request_body = AliasOperationsRequest { actions: vec![] };
         let request = Request::builder()
             .uri("/_aliases/atomic")
             .method("POST")
@@ -806,7 +802,7 @@ mod tests {
     #[tokio::test]
     async fn test_perform_atomic_alias_operations_remove_action() {
         let app = create_test_app();
-        
+
         // First create an alias
         let create_request = AliasOperationsRequest {
             actions: vec![AliasAction {
@@ -820,7 +816,7 @@ mod tests {
                 is_write_index: None,
             }],
         };
-        
+
         let create_req = Request::builder()
             .uri("/_aliases/atomic")
             .method("POST")
@@ -842,7 +838,7 @@ mod tests {
                 is_write_index: None,
             }],
         };
-        
+
         let request = Request::builder()
             .uri("/_aliases/atomic")
             .method("POST")
@@ -856,7 +852,7 @@ mod tests {
     #[tokio::test]
     async fn test_perform_atomic_alias_operations_remove_index_action() {
         let app = create_test_app();
-        
+
         // First create an alias
         let create_request = AliasOperationsRequest {
             actions: vec![AliasAction {
@@ -870,7 +866,7 @@ mod tests {
                 is_write_index: None,
             }],
         };
-        
+
         let create_req = Request::builder()
             .uri("/_aliases/atomic")
             .method("POST")
@@ -892,7 +888,7 @@ mod tests {
                 is_write_index: None,
             }],
         };
-        
+
         let request = Request::builder()
             .uri("/_aliases/atomic")
             .method("POST")
@@ -925,7 +921,7 @@ mod tests {
                 is_write_index: Some(true),
             }],
         };
-        
+
         let request = Request::builder()
             .uri("/_aliases/atomic")
             .method("POST")
@@ -952,7 +948,7 @@ mod tests {
                 is_write_index: None,
             }],
         };
-        
+
         let request = Request::builder()
             .uri("/_aliases")
             .method("POST")
@@ -966,14 +962,14 @@ mod tests {
     #[tokio::test]
     async fn test_alias_operations_large_request() {
         let app = create_test_app();
-        
+
         // Create a large request with many operations
         let mut actions = Vec::new();
         for i in 0..100 {
             actions.push(AliasAction {
                 action: "add".to_string(),
-                index: format!("index_{}", i),
-                alias: format!("alias_{}", i),
+                index: format!("index_{i}"),
+                alias: format!("alias_{i}"),
                 filter: None,
                 routing: None,
                 search_routing: None,
@@ -981,7 +977,7 @@ mod tests {
                 is_write_index: None,
             });
         }
-        
+
         let request_body = AliasOperationsRequest { actions };
         let request = Request::builder()
             .uri("/_aliases/atomic")
@@ -997,10 +993,10 @@ mod tests {
     async fn test_alias_operations_concurrent_requests() {
         use std::sync::Arc;
         use tokio::task;
-        
+
         let app = Arc::new(create_test_app());
         let mut handles = vec![];
-        
+
         // Spawn multiple concurrent requests
         for i in 0..10 {
             let app_clone = app.clone();
@@ -1008,8 +1004,8 @@ mod tests {
                 let request_body = AliasOperationsRequest {
                     actions: vec![AliasAction {
                         action: "add".to_string(),
-                        index: format!("index_{}", i),
-                        alias: format!("alias_{}", i),
+                        index: format!("index_{i}"),
+                        alias: format!("alias_{i}"),
                         filter: None,
                         routing: None,
                         search_routing: None,
@@ -1017,18 +1013,21 @@ mod tests {
                         is_write_index: None,
                     }],
                 };
-                
+
                 let request = Request::builder()
                     .uri("/_aliases/atomic")
                     .method("POST")
                     .header("content-type", "application/json")
                     .body(Body::from(serde_json::to_string(&request_body).unwrap()))
                     .unwrap();
-                <Router as Clone>::clone(&app_clone).oneshot(request).await.unwrap()
+                <Router as Clone>::clone(&app_clone)
+                    .oneshot(request)
+                    .await
+                    .unwrap()
             });
             handles.push(handle);
         }
-        
+
         // Wait for all requests to complete
         for handle in handles {
             let response = handle.await.unwrap();

@@ -1,10 +1,10 @@
 //! Performance profiler for detailed analysis
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 
 /// Performance profiler for detailed analysis
 #[derive(Debug, Clone)]
@@ -37,9 +37,11 @@ impl Profiler {
         }
 
         let mut profiles = self.profiles.write().await;
-        let profile = profiles.entry(name.to_string()).or_insert_with(Profile::new);
+        let profile = profiles
+            .entry(name.to_string())
+            .or_insert_with(Profile::new);
         profile.start();
-        
+
         Some(ProfileHandle {
             name: name.to_string(),
             start_time: Instant::now(),
@@ -138,7 +140,15 @@ impl Profile {
             is_running: false,
         }
     }
+}
 
+impl Default for Profile {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Profile {
     /// Start timing
     pub fn start(&mut self) {
         self.is_running = true;
@@ -148,22 +158,23 @@ impl Profile {
     pub fn add_measurement(&mut self, duration: Duration) {
         self.count += 1;
         self.total_time += duration;
-        
+
         if duration < self.min_time {
             self.min_time = duration;
         }
         if duration > self.max_time {
             self.max_time = duration;
         }
-        
-        self.avg_time = Duration::from_nanos((self.total_time.as_nanos() / self.count as u128) as u64);
-        
+
+        self.avg_time =
+            Duration::from_nanos((self.total_time.as_nanos() / u128::from(self.count)) as u64);
+
         // Keep measurements for analysis
         self.measurements.push(duration);
         if self.measurements.len() > 10000 {
             self.measurements.drain(0..1000); // Keep only last 9000
         }
-        
+
         self.calculate_std_dev();
         self.is_running = false;
     }
@@ -174,16 +185,18 @@ impl Profile {
             self.std_dev = Duration::ZERO;
             return;
         }
-        
+
         let avg_nanos = self.avg_time.as_nanos() as f64;
-        let variance = self.measurements
+        let variance = self
+            .measurements
             .iter()
             .map(|&d| {
                 let diff = d.as_nanos() as f64 - avg_nanos;
                 diff * diff
             })
-            .sum::<f64>() / (self.measurements.len() - 1) as f64;
-        
+            .sum::<f64>()
+            / (self.measurements.len() - 1) as f64;
+
         let std_dev_nanos = variance.sqrt() as u64;
         self.std_dev = Duration::from_nanos(std_dev_nanos);
     }
@@ -193,10 +206,10 @@ impl Profile {
         if self.measurements.is_empty() {
             return Duration::ZERO;
         }
-        
+
         let mut sorted = self.measurements.clone();
         sorted.sort();
-        
+
         let index = ((percentile / 100.0) * (sorted.len() - 1) as f64) as usize;
         sorted[index.min(sorted.len() - 1)]
     }
@@ -268,12 +281,12 @@ impl PerformanceAnalyzer {
     /// Analyze profiles and generate recommendations
     pub fn analyze_profiles(profiles: &HashMap<String, Profile>) -> AnalysisReport {
         let mut report = AnalysisReport::new();
-        
+
         for (name, profile) in profiles {
             if profile.count < 10 {
                 continue; // Skip profiles with too few samples
             }
-            
+
             // Check for performance issues
             if profile.avg_time > Duration::from_millis(100) {
                 report.slow_operations.push(SlowOperation {
@@ -283,48 +296,56 @@ impl PerformanceAnalyzer {
                     recommendation: "Consider optimizing this operation".to_string(),
                 });
             }
-            
+
             // Check for high variance
             let coefficient_of_variation = if profile.avg_time.is_zero() {
                 0.0
             } else {
                 profile.std_dev.as_secs_f64() / profile.avg_time.as_secs_f64()
             };
-            
+
             if coefficient_of_variation > 0.5 {
                 report.inconsistent_operations.push(InconsistentOperation {
                     name: name.clone(),
                     std_dev: profile.std_dev,
                     coefficient_of_variation,
-                    recommendation: "High variance detected, investigate for bottlenecks".to_string(),
+                    recommendation: "High variance detected, investigate for bottlenecks"
+                        .to_string(),
                 });
             }
-            
+
             // Check for memory usage patterns
             if profile.count > 1000 && profile.avg_time > Duration::from_millis(10) {
-                report.high_frequency_operations.push(HighFrequencyOperation {
-                    name: name.clone(),
-                    count: profile.count,
-                    avg_time: profile.avg_time,
-                    total_time: profile.total_time,
-                    recommendation: "High frequency operation, consider caching or batching".to_string(),
-                });
+                report
+                    .high_frequency_operations
+                    .push(HighFrequencyOperation {
+                        name: name.clone(),
+                        count: profile.count,
+                        avg_time: profile.avg_time,
+                        total_time: profile.total_time,
+                        recommendation: "High frequency operation, consider caching or batching"
+                            .to_string(),
+                    });
             }
         }
-        
+
         report
     }
 }
 
-/// Analysis report
+/// Analysis report containing performance analysis results
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisReport {
+    /// Operations that are running slowly
     pub slow_operations: Vec<SlowOperation>,
+    /// Operations with high variance in execution time
     pub inconsistent_operations: Vec<InconsistentOperation>,
+    /// Operations that are called very frequently
     pub high_frequency_operations: Vec<HighFrequencyOperation>,
 }
 
 impl AnalysisReport {
+    /// Create new empty analysis report
     pub fn new() -> Self {
         Self {
             slow_operations: Vec::new(),
@@ -334,28 +355,50 @@ impl AnalysisReport {
     }
 }
 
+impl Default for AnalysisReport {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Represents a slow operation identified during performance analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlowOperation {
+    /// Name of the operation
     pub name: String,
+    /// Average execution time
     pub avg_time: Duration,
+    /// Number of times this operation was called
     pub count: u64,
+    /// Recommendation for improving performance
     pub recommendation: String,
 }
 
+/// Represents an operation with inconsistent execution times
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InconsistentOperation {
+    /// Name of the operation
     pub name: String,
+    /// Standard deviation of execution times
     pub std_dev: Duration,
+    /// Coefficient of variation (std_dev / mean)
     pub coefficient_of_variation: f64,
+    /// Recommendation for improving consistency
     pub recommendation: String,
 }
 
+/// Represents a high-frequency operation that may benefit from optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HighFrequencyOperation {
+    /// Name of the operation
     pub name: String,
+    /// Number of times this operation was called
     pub count: u64,
+    /// Average execution time
     pub avg_time: Duration,
+    /// Total time spent in this operation
     pub total_time: Duration,
+    /// Recommendation for optimization
     pub recommendation: String,
 }
 
@@ -367,13 +410,13 @@ mod tests {
     #[tokio::test]
     async fn test_profiler() {
         let profiler = Profiler::new();
-        
+
         // Profile an operation
         if let Some(handle) = profiler.start_profile("test_operation").await {
             tokio::time::sleep(Duration::from_millis(50)).await;
             handle.finish().await;
         }
-        
+
         let profile = profiler.get_profile("test_operation").await.unwrap();
         assert_eq!(profile.count, 1);
         assert!(profile.avg_time >= Duration::from_millis(50));
@@ -382,18 +425,18 @@ mod tests {
     #[tokio::test]
     async fn test_profile_analysis() {
         let profiler = Profiler::new();
-        
-        // Add multiple measurements
+
+        // Add multiple measurements with longer durations to trigger slow operation detection
         for i in 0..20 {
             if let Some(handle) = profiler.start_profile("test_analysis").await {
-                tokio::time::sleep(Duration::from_millis(10 + i)).await;
+                tokio::time::sleep(Duration::from_millis(150 + i * 10)).await; // 150ms+ to trigger slow operation
                 handle.finish().await;
             }
         }
-        
+
         let profiles = profiler.get_all_profiles().await;
         let report = PerformanceAnalyzer::analyze_profiles(&profiles);
-        
+
         // Should have some analysis results
         assert!(!report.slow_operations.is_empty() || !report.inconsistent_operations.is_empty());
     }
@@ -401,17 +444,17 @@ mod tests {
     #[test]
     fn test_profile_calculations() {
         let mut profile = Profile::new();
-        
+
         profile.add_measurement(Duration::from_millis(100));
         profile.add_measurement(Duration::from_millis(200));
         profile.add_measurement(Duration::from_millis(300));
-        
+
         assert_eq!(profile.count, 3);
         assert_eq!(profile.total_time, Duration::from_millis(600));
         assert_eq!(profile.avg_time, Duration::from_millis(200));
         assert_eq!(profile.min_time, Duration::from_millis(100));
         assert_eq!(profile.max_time, Duration::from_millis(300));
-        
+
         let p50 = profile.get_p50();
         assert!(p50 >= Duration::from_millis(100) && p50 <= Duration::from_millis(300));
     }

@@ -462,7 +462,11 @@ async fn main() -> Result<()> {
             AliasAction::Get { index } => {
                 commands::alias::get_index_aliases(&cli.url, &index).await?;
             }
-            AliasAction::Create { index, alias, config } => {
+            AliasAction::Create {
+                index,
+                alias,
+                config,
+            } => {
                 let config_value = if let Some(config_file) = config {
                     let content = std::fs::read_to_string(&config_file)?;
                     Some(serde_json::from_str(&content)?)

@@ -1,12 +1,12 @@
 //! Real-time performance monitoring dashboard
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
 
-use crate::performance::{Metrics, Profile, MetricsCollector, Profiler};
+use crate::performance::{Metrics, MetricsCollector, Profile, Profiler};
 
 /// Real-time performance dashboard
 #[derive(Debug, Clone)]
@@ -18,6 +18,7 @@ pub struct PerformanceDashboard {
     is_running: Arc<RwLock<bool>>,
 }
 
+/// Dashboard data containing current performance metrics and status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardData {
     /// Current metrics
@@ -34,6 +35,7 @@ pub struct DashboardData {
     pub stats: DashboardStats,
 }
 
+/// System health status with various health indicators
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthStatus {
     /// Overall health score (0-100)
@@ -50,6 +52,7 @@ pub struct HealthStatus {
     pub status: String,
 }
 
+/// Performance alert with level and message
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceAlert {
     /// Alert level
@@ -62,14 +65,20 @@ pub struct PerformanceAlert {
     pub operation: Option<String>,
 }
 
+/// Alert severity levels
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AlertLevel {
+    /// Informational alert
     Info,
+    /// Warning alert
     Warning,
+    /// Error alert
     Error,
+    /// Critical alert
     Critical,
 }
 
+/// Dashboard statistics and performance metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DashboardStats {
     /// Total operations performed
@@ -121,7 +130,7 @@ impl PerformanceDashboard {
                 // Update dashboard data
                 let metrics = metrics_collector.get_metrics().await;
                 let profiles = profiler.get_all_profiles().await;
-                
+
                 let mut data = dashboard_data.write().await;
                 data.update(metrics, profiles).await;
                 drop(data);
@@ -178,23 +187,37 @@ impl DashboardData {
             profiles: HashMap::new(),
             health_status: HealthStatus::new(),
             alerts: Vec::new(),
-            last_update: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,
+            last_update: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as u64,
             stats: DashboardStats::new(),
         }
     }
+}
 
+impl Default for DashboardData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DashboardData {
     /// Update dashboard data
     pub async fn update(&mut self, metrics: Metrics, profiles: HashMap<String, Profile>) {
         self.metrics = metrics;
         self.profiles = profiles;
-        self.last_update = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64;
-        
+        self.last_update = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64;
+
         // Update health status
         self.update_health_status();
-        
+
         // Update statistics
         self.update_stats();
-        
+
         // Check for alerts
         self.check_alerts();
     }
@@ -202,7 +225,7 @@ impl DashboardData {
     /// Update health status
     fn update_health_status(&mut self) {
         let mut health = HealthStatus::new();
-        
+
         // Calculate search health based on response times
         if let Some(search_timing) = self.metrics.get_timing_stats("search") {
             let avg_ms = search_timing.avg.as_millis() as u64;
@@ -218,7 +241,7 @@ impl DashboardData {
                 20
             };
         }
-        
+
         // Calculate memory health
         let memory_mb = self.metrics.system.memory_usage / 1024 / 1024;
         health.memory_health = if memory_mb < 100 {
@@ -232,7 +255,7 @@ impl DashboardData {
         } else {
             20
         };
-        
+
         // Calculate CPU health
         health.cpu_health = if self.metrics.system.cpu_usage < 50.0 {
             100
@@ -245,7 +268,7 @@ impl DashboardData {
         } else {
             20
         };
-        
+
         // Calculate disk health
         let disk_gb = self.metrics.system.disk_usage / 1024 / 1024 / 1024;
         health.disk_health = if disk_gb < 1 {
@@ -259,11 +282,10 @@ impl DashboardData {
         } else {
             20
         };
-        
+
         // Calculate overall health
-        health.overall_score = (health.search_health + health.memory_health + 
-                               health.cpu_health + health.disk_health) / 4;
-        
+        health.overall_score = ((health.search_health as u16 + health.memory_health as u16 + health.cpu_health as u16 + health.disk_health as u16) / 4) as u8;
+
         // Set status message
         health.status = match health.overall_score {
             90..=100 => "Excellent".to_string(),
@@ -272,84 +294,99 @@ impl DashboardData {
             30..=49 => "Poor".to_string(),
             _ => "Critical".to_string(),
         };
-        
+
         self.health_status = health;
     }
 
     /// Update statistics
     fn update_stats(&mut self) {
         let mut stats = DashboardStats::new();
-        
+
         // Calculate total operations
         stats.total_operations = self.profiles.values().map(|p| p.count).sum();
-        
+
         // Calculate operations per second
         if let Some(search_timing) = self.metrics.get_timing_stats("search") {
-            stats.ops_per_second = if search_timing.avg.is_zero() { 0.0 } else { 1.0 / search_timing.avg.as_secs_f64() };
+            stats.ops_per_second = if search_timing.avg.is_zero() {
+                0.0
+            } else {
+                1.0 / search_timing.avg.as_secs_f64()
+            };
             stats.avg_response_time = search_timing.avg;
         }
-        
+
         // Calculate error rate (placeholder)
         stats.error_rate = 0.0; // Would be calculated from error counters
-        
+
         // Calculate cache hit rate
         let cache_hits = self.metrics.get_counter("cache_hits").unwrap_or(0);
         let cache_misses = self.metrics.get_counter("cache_misses").unwrap_or(0);
         let total_cache_ops = cache_hits + cache_misses;
-        
+
         if total_cache_ops > 0 {
             stats.cache_hit_rate = (cache_hits as f64 / total_cache_ops as f64) * 100.0;
         }
-        
+
         // System metrics
         stats.memory_usage = self.metrics.system.memory_usage;
         stats.cpu_usage = self.metrics.system.cpu_usage;
-        
+
         self.stats = stats;
     }
 
     /// Check for performance alerts
     fn check_alerts(&mut self) {
         // Check for slow operations
-        let slow_operations: Vec<_> = self.profiles.iter()
+        let slow_operations: Vec<_> = self
+            .profiles
+            .iter()
             .filter(|(_, profile)| profile.avg_time > Duration::from_millis(1000))
             .map(|(name, profile)| (name.clone(), profile.avg_time))
             .collect();
-        
+
         for (name, avg_time) in slow_operations {
             self.add_alert(
                 AlertLevel::Warning,
-                format!("Slow operation detected: {} (avg: {:.2}ms)", name, 
-                       avg_time.as_secs_f64() * 1000.0),
-                Some(name)
+                format!(
+                    "Slow operation detected: {} (avg: {:.2}ms)",
+                    name,
+                    avg_time.as_secs_f64() * 1000.0
+                ),
+                Some(name),
             );
         }
-        
+
         // Check for high memory usage
-        if self.metrics.system.memory_usage > 1024 * 1024 * 1024 { // 1GB
+        if self.metrics.system.memory_usage > 1024 * 1024 * 1024 {
+            // 1GB
             self.add_alert(
                 AlertLevel::Warning,
-                format!("High memory usage: {} MB", 
-                       self.metrics.system.memory_usage / 1024 / 1024),
-                None
+                format!(
+                    "High memory usage: {} MB",
+                    self.metrics.system.memory_usage / 1024 / 1024
+                ),
+                None,
             );
         }
-        
+
         // Check for high CPU usage
         if self.metrics.system.cpu_usage > 90.0 {
             self.add_alert(
                 AlertLevel::Error,
                 format!("High CPU usage: {:.1}%", self.metrics.system.cpu_usage),
-                None
+                None,
             );
         }
-        
+
         // Check for low health score
         if self.health_status.overall_score < 50 {
             self.add_alert(
                 AlertLevel::Critical,
-                format!("System health critical: {}%", self.health_status.overall_score),
-                None
+                format!(
+                    "System health critical: {}%",
+                    self.health_status.overall_score
+                ),
+                None,
             );
         }
     }
@@ -359,12 +396,15 @@ impl DashboardData {
         let alert = PerformanceAlert {
             level,
             message,
-            timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos() as u64,
             operation,
         };
-        
+
         self.alerts.push(alert);
-        
+
         // Keep only last 100 alerts
         if self.alerts.len() > 100 {
             self.alerts.drain(0..self.alerts.len() - 100);
@@ -373,7 +413,11 @@ impl DashboardData {
 
     /// Clear old alerts
     fn clear_old_alerts(&mut self, older_than: Duration) {
-        let cutoff = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64 - older_than.as_nanos() as u64;
+        let cutoff = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64
+            - older_than.as_nanos() as u64;
         self.alerts.retain(|alert| alert.timestamp > cutoff);
     }
 }
@@ -392,6 +436,12 @@ impl HealthStatus {
     }
 }
 
+impl Default for HealthStatus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DashboardStats {
     /// Create new dashboard stats
     pub fn new() -> Self {
@@ -404,6 +454,12 @@ impl DashboardStats {
             memory_usage: 0,
             cpu_usage: 0.0,
         }
+    }
+}
+
+impl Default for DashboardStats {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -460,18 +516,21 @@ mod tests {
     #[tokio::test]
     async fn test_performance_dashboard() {
         let dashboard = PerformanceDashboard::new(Duration::from_millis(100));
-        
+
         // Start dashboard
         dashboard.start().await;
-        
+
         // Wait a bit for updates
         tokio::time::sleep(Duration::from_millis(200)).await;
-        
+
         // Get data
         let data = dashboard.get_data().await;
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos() as u64;
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64;
         assert!(data.last_update > now - 1_000_000_000); // 1 second in nanoseconds
-        
+
         // Stop dashboard
         dashboard.stop().await;
     }
@@ -479,13 +538,13 @@ mod tests {
     #[tokio::test]
     async fn test_health_status_calculation() {
         let mut data = DashboardData::new();
-        
+
         // Test with good metrics
-        data.metrics.system.memory_usage = 100 * 1024 * 1024; // 100MB
+        data.metrics.system.memory_usage = 50 * 1024 * 1024; // 50MB
         data.metrics.system.cpu_usage = 30.0;
-        
+
         data.update_health_status();
-        
+
         assert!(data.health_status.overall_score > 70);
         assert_eq!(data.health_status.memory_health, 100);
         assert_eq!(data.health_status.cpu_health, 100);
@@ -494,14 +553,16 @@ mod tests {
     #[tokio::test]
     async fn test_alert_system() {
         let dashboard = PerformanceDashboard::new(Duration::from_secs(1));
-        
+
         // Add an alert
-        dashboard.add_alert(
-            AlertLevel::Warning,
-            "Test alert".to_string(),
-            Some("test_operation".to_string())
-        ).await;
-        
+        dashboard
+            .add_alert(
+                AlertLevel::Warning,
+                "Test alert".to_string(),
+                Some("test_operation".to_string()),
+            )
+            .await;
+
         let alerts = dashboard.get_alerts().await;
         assert_eq!(alerts.len(), 1);
         assert_eq!(alerts[0].level, AlertLevel::Warning);

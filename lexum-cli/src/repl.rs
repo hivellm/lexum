@@ -671,55 +671,69 @@ impl ReplSession {
         if args.is_empty() {
             println!(
                 "{}",
-                "Alias commands: list, get <index>, create <index> <alias>, delete <index> <alias>".bright_yellow()
+                "Alias commands: list, get <index>, create <index> <alias>, delete <index> <alias>"
+                    .bright_yellow()
             );
             return Ok(());
         }
 
         match args[0] {
-            "list" => {
-                match self.client.get::<serde_json::Value>("/_aliases").await {
-                    Ok(aliases) => {
-                        println!("{}", "Aliases:".bright_blue().bold());
-                        if let Some(alias_map) = aliases.as_object() {
-                            if alias_map.is_empty() {
-                                println!("  No aliases found");
-                            } else {
-                                for (name, alias_info) in alias_map {
-                                    println!("  {} -> {}", name.bright_cyan(), 
-                                        alias_info["indices"].as_array()
-                                            .map(|indices| indices.iter()
-                                                .map(|i| i.as_str().unwrap_or(""))
-                                                .collect::<Vec<_>>()
-                                                .join(", "))
-                                            .unwrap_or_else(|| "[]".to_string())
-                                    );
-                                }
+            "list" => match self.client.get::<serde_json::Value>("/_aliases").await {
+                Ok(aliases) => {
+                    println!("{}", "Aliases:".bright_blue().bold());
+                    if let Some(alias_map) = aliases.as_object() {
+                        if alias_map.is_empty() {
+                            println!("  No aliases found");
+                        } else {
+                            for (name, alias_info) in alias_map {
+                                println!(
+                                    "  {} -> {}",
+                                    name.bright_cyan(),
+                                    alias_info["indices"]
+                                        .as_array()
+                                        .map(|indices| indices
+                                            .iter()
+                                            .map(|i| i.as_str().unwrap_or(""))
+                                            .collect::<Vec<_>>()
+                                            .join(", "))
+                                        .unwrap_or_else(|| "[]".to_string())
+                                );
                             }
                         }
                     }
-                    Err(_) => {
-                        println!("{}", "Failed to list aliases".bright_red());
-                    }
                 }
-            }
+                Err(_) => {
+                    println!("{}", "Failed to list aliases".bright_red());
+                }
+            },
             "get" => {
                 if args.len() < 2 {
                     println!("{}", "Usage: alias get <index>".bright_red());
                     return Ok(());
                 }
                 let index = args[1];
-                match self.client.get::<serde_json::Value>(&format!("/{}/_alias", index)).await {
+                match self
+                    .client
+                    .get::<serde_json::Value>(&format!("/{index}/_alias"))
+                    .await
+                {
                     Ok(aliases) => {
-                        println!("{}", format!("Aliases for index '{}':", index).bright_blue().bold());
+                        println!(
+                            "{}",
+                            format!("Aliases for index '{index}':").bright_blue().bold()
+                        );
                         if let Some(alias_map) = aliases.as_object() {
                             if alias_map.is_empty() {
                                 println!("  No aliases found for this index");
                             } else {
                                 for (name, alias_info) in alias_map {
-                                    println!("  {} -> {}", name.bright_cyan(), 
-                                        alias_info["indices"].as_array()
-                                            .map(|indices| indices.iter()
+                                    println!(
+                                        "  {} -> {}",
+                                        name.bright_cyan(),
+                                        alias_info["indices"]
+                                            .as_array()
+                                            .map(|indices| indices
+                                                .iter()
                                                 .map(|i| i.as_str().unwrap_or(""))
                                                 .collect::<Vec<_>>()
                                                 .join(", "))
@@ -730,7 +744,10 @@ impl ReplSession {
                         }
                     }
                     Err(_) => {
-                        println!("{}", format!("Failed to get aliases for index '{}'", index).bright_red());
+                        println!(
+                            "{}",
+                            format!("Failed to get aliases for index '{index}'").bright_red()
+                        );
                     }
                 }
             }
@@ -748,12 +765,24 @@ impl ReplSession {
                         "alias": alias
                     }]
                 });
-                match self.client.post::<serde_json::Value, serde_json::Value>("/_aliases", &request_body).await {
+                match self
+                    .client
+                    .post::<serde_json::Value, serde_json::Value>("/_aliases", &request_body)
+                    .await
+                {
                     Ok(_) => {
-                        println!("{}", format!("Alias '{}' created successfully for index '{}'", alias, index).bright_green());
+                        println!(
+                            "{}",
+                            format!("Alias '{alias}' created successfully for index '{index}'")
+                                .bright_green()
+                        );
                     }
                     Err(_) => {
-                        println!("{}", format!("Failed to create alias '{}' for index '{}'", alias, index).bright_red());
+                        println!(
+                            "{}",
+                            format!("Failed to create alias '{alias}' for index '{index}'")
+                                .bright_red()
+                        );
                     }
                 }
             }
@@ -764,17 +793,32 @@ impl ReplSession {
                 }
                 let index = args[1];
                 let alias = args[2];
-                match self.client.delete(&format!("/{}/_alias/{}", index, alias)).await {
+                match self
+                    .client
+                    .delete(&format!("/{index}/_alias/{alias}"))
+                    .await
+                {
                     Ok(_) => {
-                        println!("{}", format!("Alias '{}' deleted successfully from index '{}'", alias, index).bright_green());
+                        println!(
+                            "{}",
+                            format!("Alias '{alias}' deleted successfully from index '{index}'")
+                                .bright_green()
+                        );
                     }
                     Err(_) => {
-                        println!("{}", format!("Failed to delete alias '{}' from index '{}'", alias, index).bright_red());
+                        println!(
+                            "{}",
+                            format!("Failed to delete alias '{alias}' from index '{index}'")
+                                .bright_red()
+                        );
                     }
                 }
             }
             _ => {
-                println!("{}", "Unknown alias command. Use 'alias' for help.".bright_red());
+                println!(
+                    "{}",
+                    "Unknown alias command. Use 'alias' for help.".bright_red()
+                );
             }
         }
         Ok(())

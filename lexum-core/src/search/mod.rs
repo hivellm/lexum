@@ -7,5 +7,5 @@ pub mod result;
 
 pub use executor::SearchExecutor;
 pub use multi_executor::MultiIndexSearchExecutor;
-pub use optimizer::{QueryOptimizer, QueryAnalysis};
+pub use optimizer::{QueryAnalysis, QueryOptimizer};
 pub use result::{SearchHit, SearchResult, SortOption, SortOrder};

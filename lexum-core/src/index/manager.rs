@@ -14,7 +14,7 @@ use super::alias::{
 use super::settings::IndexSettings;
 
 /// Index wrapper around Tantivy index
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Index {
     /// Index name
     pub(crate) name: IndexName,
@@ -435,6 +435,265 @@ mod tests {
         let manager = IndexManager::new("./data");
         let result = manager.delete_index("non_existent").await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_index() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        let result = manager.create_index("test_index", schema, settings).await;
+        assert!(result.is_ok());
+
+        let index = result.unwrap();
+        assert_eq!(index.name().as_str(), "test_index");
+        assert!(manager.index_exists("test_index"));
+    }
+
+    #[tokio::test]
+    async fn test_create_duplicate_index() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        
+        // Create first index
+        let result1 = manager.create_index("test_index", schema.clone(), settings.clone()).await;
+        assert!(result1.is_ok());
+
+        // Try to create duplicate
+        let result2 = manager.create_index("test_index", schema, settings).await;
+        assert!(result2.is_err());
+        assert!(result2.unwrap_err().to_string().contains("already exists"));
+    }
+
+    #[tokio::test]
+    async fn test_get_index() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("test_index", schema, settings).await.unwrap();
+
+        let index = manager.get_index("test_index").unwrap();
+        assert_eq!(index.name().as_str(), "test_index");
+    }
+
+    #[tokio::test]
+    async fn test_list_indices() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        
+        // Initially empty
+        let indices = manager.list_indices();
+        assert_eq!(indices.len(), 0);
+
+        // Create indices
+        manager.create_index("index1", schema.clone(), settings.clone()).await.unwrap();
+        manager.create_index("index2", schema, settings).await.unwrap();
+
+        let indices = manager.list_indices();
+        assert_eq!(indices.len(), 2);
+        assert!(indices.contains(&"index1".to_string()));
+        assert!(indices.contains(&"index2".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_delete_index() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("test_index", schema, settings).await.unwrap();
+
+        assert!(manager.index_exists("test_index"));
+
+        let result = manager.delete_index("test_index").await;
+        assert!(result.is_ok());
+
+        assert!(!manager.index_exists("test_index"));
+    }
+
+    #[tokio::test]
+    async fn test_get_index_stats() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("test_index", schema, settings).await.unwrap();
+
+        let stats = manager.get_index_stats("test_index").await.unwrap();
+        assert_eq!(stats.name, "test_index");
+        assert_eq!(stats.num_docs, 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_index_stats_nonexistent() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let result = manager.get_index_stats("nonexistent").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_alias() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("index1", schema, settings).await.unwrap();
+
+        let indices = vec![IndexName::new("index1")];
+        let result = manager.create_alias("my_alias", indices);
+        assert!(result.is_ok());
+
+        let alias = result.unwrap();
+        assert_eq!(alias.name.as_str(), "my_alias");
+        assert!(manager.alias_exists("my_alias"));
+    }
+
+    #[tokio::test]
+    async fn test_create_alias_nonexistent_index() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let indices = vec![IndexName::new("nonexistent")];
+        let result = manager.create_alias("my_alias", indices);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+
+    #[tokio::test]
+    async fn test_resolve_name_index() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("index1", schema, settings).await.unwrap();
+
+        let result = manager.resolve_name("index1");
+        assert!(result.is_ok());
+        let indices = result.unwrap();
+        assert_eq!(indices.len(), 1);
+        assert_eq!(indices[0].as_str(), "index1");
+    }
+
+    #[tokio::test]
+    async fn test_resolve_name_alias() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("index1", schema, settings).await.unwrap();
+
+        let indices = vec![IndexName::new("index1")];
+        manager.create_alias("my_alias", indices).unwrap();
+
+        let result = manager.resolve_name("my_alias");
+        assert!(result.is_ok());
+        let indices = result.unwrap();
+        assert_eq!(indices.len(), 1);
+        assert_eq!(indices[0].as_str(), "index1");
+    }
+
+    #[tokio::test]
+    async fn test_resolve_name_nonexistent() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let result = manager.resolve_name("nonexistent");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_add_indices_to_alias() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("index1", schema.clone(), settings.clone()).await.unwrap();
+        manager.create_index("index2", schema, settings).await.unwrap();
+
+        let indices = vec![IndexName::new("index1")];
+        manager.create_alias("my_alias", indices).unwrap();
+
+        let new_indices = vec![IndexName::new("index2")];
+        let result = manager.add_indices_to_alias("my_alias", new_indices);
+        assert!(result.is_ok());
+
+        let alias = manager.get_alias("my_alias").unwrap();
+        assert_eq!(alias.indices.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_remove_indices_from_alias() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let manager = IndexManager::new(temp_dir.path());
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = IndexSettings::new().with_shards(1);
+        manager.create_index("index1", schema, settings).await.unwrap();
+
+        let indices = vec![IndexName::new("index1")];
+        manager.create_alias("my_alias", indices).unwrap();
+
+        let remove_indices = vec![IndexName::new("index1")];
+        let result = manager.remove_indices_from_alias("my_alias", remove_indices);
+        assert!(result.is_err()); // Should return error when alias becomes empty
+        assert!(result.unwrap_err().to_string().contains("no indices"));
+
+        // Alias should still exist but be empty
+        assert!(manager.alias_exists("my_alias"));
+        let alias = manager.get_alias("my_alias").unwrap();
+        assert!(alias.is_empty());
     }
 
     // Note: Full integration tests with disk I/O will be in tests/ directory

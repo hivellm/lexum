@@ -339,12 +339,24 @@ pub struct MoreLikeThisQuery {
     pub max_word_length: u32,
 }
 
-fn default_min_term_freq() -> u32 { 1 }
-fn default_max_query_terms() -> u32 { 25 }
-fn default_min_doc_freq() -> u32 { 5 }
-fn default_max_doc_freq() -> u32 { 0 }
-fn default_min_word_length() -> u32 { 0 }
-fn default_max_word_length() -> u32 { 0 }
+fn default_min_term_freq() -> u32 {
+    1
+}
+fn default_max_query_terms() -> u32 {
+    25
+}
+fn default_min_doc_freq() -> u32 {
+    5
+}
+fn default_max_doc_freq() -> u32 {
+    0
+}
+fn default_min_word_length() -> u32 {
+    0
+}
+fn default_max_word_length() -> u32 {
+    0
+}
 
 impl MoreLikeThisQuery {
     /// Create new More Like This query
@@ -374,10 +386,12 @@ pub struct NestedQuery {
     pub score_mode: NestedScoreMode,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+/// Score mode for nested queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum NestedScoreMode {
     /// Average score of all matching nested objects
+    #[default]
     Avg,
     /// Sum of all matching nested object scores
     Sum,
@@ -387,12 +401,6 @@ pub enum NestedScoreMode {
     Min,
     /// No scoring (filter only)
     None,
-}
-
-impl Default for NestedScoreMode {
-    fn default() -> Self {
-        Self::Avg
-    }
 }
 
 impl NestedQuery {
@@ -427,10 +435,12 @@ pub struct FunctionScoreQuery {
     pub min_score: Option<f32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+/// Score mode for function score queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum FunctionScoreMode {
     /// Multiply function scores
+    #[default]
     Multiply,
     /// Sum function scores
     Sum,
@@ -444,16 +454,12 @@ pub enum FunctionScoreMode {
     Min,
 }
 
-impl Default for FunctionScoreMode {
-    fn default() -> Self {
-        Self::Multiply
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+/// Boost mode for function score queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum FunctionBoostMode {
     /// Multiply boost with query score
+    #[default]
     Multiply,
     /// Replace query score with boost
     Replace,
@@ -467,12 +473,7 @@ pub enum FunctionBoostMode {
     Min,
 }
 
-impl Default for FunctionBoostMode {
-    fn default() -> Self {
-        Self::Multiply
-    }
-}
-
+/// Score functions for function score queries
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ScoreFunction {
@@ -486,6 +487,7 @@ pub enum ScoreFunction {
     Gauss(DecayFunction),
 }
 
+/// Field value factor for scoring
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct FieldValueFactor {
     /// Field to use for scoring
@@ -501,29 +503,38 @@ pub struct FieldValueFactor {
     pub missing: Option<f32>,
 }
 
-fn default_factor() -> f32 { 1.0 }
+fn default_factor() -> f32 {
+    1.0
+}
 
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+/// Field value modifiers for scoring
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum FieldModifier {
+    /// No modification
+    #[default]
     None,
+    /// Logarithmic modification
     Log,
+    /// Logarithmic modification (log(1 + value))
     Log1p,
+    /// Logarithmic modification (log(2 + value))
     Log2p,
+    /// Natural logarithm
     Ln,
+    /// Natural logarithm (ln(1 + value))
     Ln1p,
+    /// Natural logarithm (ln(2 + value))
     Ln2p,
+    /// Square the value
     Square,
+    /// Square root of the value
     Sqrt,
+    /// Reciprocal of the value
     Reciprocal,
 }
 
-impl Default for FieldModifier {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
+/// Decay function for scoring based on distance
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct DecayFunction {
     /// Field to use for decay
@@ -540,8 +551,12 @@ pub struct DecayFunction {
     pub offset: Option<serde_json::Value>,
 }
 
-fn default_decay() -> f32 { 0.5 }
-fn default_max_boost() -> f32 { 3.4028235e38 }
+fn default_decay() -> f32 {
+    0.5
+}
+fn default_max_boost() -> f32 {
+    3.4028235e38
+}
 
 impl FunctionScoreQuery {
     /// Create new function score query
@@ -568,6 +583,7 @@ pub struct GeoDistanceQuery {
     pub location: GeoPoint,
 }
 
+/// Geographic point with latitude and longitude
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct GeoPoint {
     /// Latitude
@@ -698,7 +714,10 @@ mod tests {
 
     #[test]
     fn test_more_like_this_query() {
-        let query = MoreLikeThisQuery::new(vec!["title".to_string(), "content".to_string()], "sample text");
+        let query = MoreLikeThisQuery::new(
+            vec!["title".to_string(), "content".to_string()],
+            "sample text",
+        );
 
         assert_eq!(query.fields, vec!["title", "content"]);
         assert_eq!(query.like, "sample text");
@@ -723,8 +742,14 @@ mod tests {
 
         assert!(matches!(function_score.query.as_ref(), Query::Match(_)));
         assert!(function_score.functions.is_empty());
-        assert!(matches!(function_score.score_mode, FunctionScoreMode::Multiply));
-        assert!(matches!(function_score.boost_mode, FunctionBoostMode::Multiply));
+        assert!(matches!(
+            function_score.score_mode,
+            FunctionScoreMode::Multiply
+        ));
+        assert!(matches!(
+            function_score.boost_mode,
+            FunctionBoostMode::Multiply
+        ));
     }
 
     #[test]
