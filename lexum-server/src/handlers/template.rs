@@ -232,6 +232,7 @@ mod tests {
                 lexum_core::SnapshotManager::new(&lexum_core::config::Config::default()).unwrap(),
             )),
             template_manager: Arc::new(TemplateManager::new()),
+            task_manager: Arc::new(crate::handlers::reindex::TaskManager::new()),
         }
     }
 

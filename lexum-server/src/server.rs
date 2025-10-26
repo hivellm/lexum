@@ -94,6 +94,7 @@ impl Server {
             index_manager: self.index_manager,
             snapshot_manager: self.snapshot_manager,
             template_manager: Arc::new(TemplateManager::new()),
+            task_manager: Arc::new(crate::handlers::reindex::TaskManager::new()),
         };
 
         let app = build_router(state);

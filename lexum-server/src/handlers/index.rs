@@ -13,6 +13,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::ToSchema;
 
+use crate::handlers::reindex::TaskManager;
+
 /// Application state
 #[derive(Clone)]
 pub struct AppState {
@@ -22,6 +24,8 @@ pub struct AppState {
     pub snapshot_manager: Arc<RwLock<SnapshotManager>>,
     /// Template manager
     pub template_manager: Arc<TemplateManager>,
+    /// Task manager for reindex operations
+    pub task_manager: Arc<TaskManager>,
 }
 
 impl Default for AppState {
@@ -53,6 +57,7 @@ impl Default for AppState {
             index_manager: Arc::new(IndexManager::new(&temp_dir)),
             snapshot_manager,
             template_manager: Arc::new(TemplateManager::new()),
+            task_manager: Arc::new(TaskManager::new()),
         }
     }
 }
@@ -374,6 +379,7 @@ mod tests {
             index_manager: Arc::new(IndexManager::new(temp_path)),
             snapshot_manager,
             template_manager: Arc::new(TemplateManager::new()),
+            task_manager: Arc::new(TaskManager::new()),
         }
     }
 

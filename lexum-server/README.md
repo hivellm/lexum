@@ -7,6 +7,8 @@ REST API server for the Lexum search engine.
 - **Index Management**: Create, delete, and list indices
 - **Document Operations**: Add, get, update, and delete documents
 - **Search**: Execute search queries with filtering and pagination
+- **Reindexing**: Copy documents between indices with transformation support
+- **Task Management**: Track and monitor long-running operations
 - **Health Check**: Service health monitoring
 
 ## API Endpoints
@@ -39,6 +41,16 @@ DELETE /api/v1/indices/:index/documents/:id - Delete document
 
 ```
 POST   /api/v1/indices/:index/search - Search documents
+```
+
+### Reindexing Operations
+
+```
+POST   /_reindex                    - Start reindex operation
+GET    /_tasks                      - List all tasks
+GET    /_tasks/:task_id             - Get task information
+POST   /_tasks/:task_id/_    - Cancel task
+```
 ```
 
 ## Running

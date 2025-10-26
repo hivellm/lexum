@@ -1,10 +1,21 @@
 //! Reindexing operations endpoints
 
-use axum::{extract::State, http::StatusCode, response::Json};
+use axum::{extract::State, response::Json};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 use utoipa::ToSchema;
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
 use crate::handlers::index::AppState;
+use crate::error::{ApiError, ApiResult};
+use lexum_core::{
+    document::store::DocumentStore,
+    query::Query,
+    search::SearchExecutor,
+};
 
 /// Reindex request
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -83,6 +94,84 @@ pub struct ReindexResponse {
     pub throttled_until_nanos: Option<u64>,
 }
 
+/// Task manager for tracking reindex operations
+#[derive(Debug, Clone)]
+pub struct TaskManager {
+    tasks: Arc<RwLock<HashMap<String, ReindexTask>>>,
+}
+
+impl TaskManager {
+    /// Create a new task manager
+    pub fn new() -> Self {
+        Self {
+            tasks: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Create a new task and return its ID
+    pub async fn create_task(&self, task: ReindexTask) -> String {
+        let task_id = task.task_id.clone();
+        let mut tasks = self.tasks.write().await;
+        tasks.insert(task_id.clone(), task);
+        task_id
+    }
+
+    /// Get a task by ID
+    pub async fn get_task(&self, task_id: &str) -> Option<ReindexTask> {
+        let tasks = self.tasks.read().await;
+        tasks.get(task_id).cloned()
+    }
+
+    /// Update a task's status
+    pub async fn update_task(&self, task_id: &str, status: TaskStatus) -> bool {
+        let mut tasks = self.tasks.write().await;
+        if let Some(task) = tasks.get_mut(task_id) {
+            task.status = status;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// List all tasks
+    pub async fn list_tasks(&self) -> Vec<ReindexTask> {
+        let tasks = self.tasks.read().await;
+        tasks.values().cloned().collect()
+    }
+
+    /// Cancel a task
+    pub async fn cancel_task(&self, task_id: &str) -> bool {
+        let mut tasks = self.tasks.write().await;
+        if let Some(task) = tasks.get_mut(task_id) {
+            task.cancelled = true;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+/// Reindex task information
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ReindexTask {
+    /// Task ID
+    pub task_id: String,
+    /// Source index name
+    pub source_index: String,
+    /// Destination index name
+    pub dest_index: String,
+    /// Task status
+    pub status: TaskStatus,
+    /// Start time
+    pub start_time: DateTime<Utc>,
+    /// End time (if completed)
+    pub end_time: Option<DateTime<Utc>>,
+    /// Whether the task was cancelled
+    pub cancelled: bool,
+    /// Error message if failed
+    pub error: Option<String>,
+}
+
 /// Task information
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TaskInfo {
@@ -133,6 +222,174 @@ pub struct TaskStatus {
     pub throttled_until_nanos: Option<u64>,
 }
 
+/// Perform the actual reindex operation
+async fn perform_reindex(
+    state: AppState,
+    request: ReindexRequest,
+    task_id: String,
+) -> Result<(), String> {
+    let batch_size = 100; // Process documents in batches
+    let mut offset = 0;
+    let mut total_processed = 0;
+    let mut total_created = 0;
+    let mut total_failed = 0;
+    let mut total_batches = 0;
+
+    // Get source and destination indices
+    let source_index = state.index_manager.get_index(&request.source.index)
+        .map_err(|e| format!("Source index not found: {}", e))?;
+    let dest_index = state.index_manager.get_index(&request.dest.index)
+        .map_err(|e| format!("Destination index not found: {}", e))?;
+
+    // Create document stores
+    let _source_store = DocumentStore::new(Arc::new(source_index));
+    let dest_store = DocumentStore::new(Arc::new(dest_index));
+
+    // Create search executor for source index
+    let search_executor = SearchExecutor::new(Arc::new(state.index_manager.get_index(&request.source.index)
+        .map_err(|e| format!("Failed to get source index: {}", e))?));
+
+    // Build query - use provided query or match all
+    let query = if let Some(query_json) = request.query {
+        // Parse custom query from JSON
+        serde_json::from_value(query_json)
+            .map_err(|e| format!("Invalid query format: {}", e))?
+    } else {
+        Query::MatchAll
+    };
+
+    loop {
+        // Check if task was cancelled
+        if let Some(task) = state.task_manager.get_task(&task_id).await {
+            if task.cancelled {
+                tracing::info!("Reindex task {} was cancelled", task_id);
+                return Ok(());
+            }
+        }
+
+        // Search for documents in current batch
+        let search_result = search_executor.search(query.clone(), batch_size, offset, None).await
+            .map_err(|e| format!("Search failed: {}", e))?;
+
+        if search_result.hits.is_empty() {
+            // No more documents to process
+            break;
+        }
+
+        // Process documents in this batch
+        let mut batch_created = 0;
+        let mut batch_failed = 0;
+
+        for hit in &search_result.hits {
+            // Apply field filtering if specified
+            let mut document = hit.source.clone();
+            
+            if let Some(source_fields) = &request.source.source {
+                // Include only specified fields
+                let mut filtered_doc = serde_json::Map::new();
+                for field in source_fields {
+                    if let Some(value) = document.get(field) {
+                        filtered_doc.insert(field.clone(), value.clone());
+                    }
+                }
+                document = serde_json::Value::Object(filtered_doc);
+            }
+
+            if let Some(exclude_fields) = &request.source.source_excludes {
+                // Exclude specified fields
+                if let serde_json::Value::Object(ref mut obj) = document {
+                    for field in exclude_fields {
+                        obj.remove(field);
+                    }
+                }
+            }
+
+            // Apply script transformation if provided
+            if let Some(script) = &request.script {
+                // For now, we'll skip script execution as it requires a script engine
+                // In a real implementation, this would execute the script
+                tracing::warn!("Script transformation not yet implemented, skipping script: {}", script.source);
+            }
+
+            // Add document to destination index
+            let doc_id = hit.id.clone();
+            match dest_store.add_document_with_id(doc_id.clone(), document.clone()).await {
+                Ok(_) => {
+                    batch_created += 1;
+                    total_created += 1;
+                }
+                Err(e) => {
+                    tracing::error!("Failed to add document {}: {}", doc_id, e);
+                    batch_failed += 1;
+                    total_failed += 1;
+                }
+            }
+
+            // Check max_docs limit
+            if let Some(max_docs) = request.max_docs {
+                if total_processed >= max_docs {
+                    break;
+                }
+            }
+        }
+
+        total_processed += search_result.hits.len() as u64;
+        total_batches += 1;
+
+        // Update task status
+        let status = TaskStatus {
+            total: search_result.total as u64,
+            completed: total_processed,
+            failed: total_failed,
+            cancelled: 0,
+            created: total_created,
+            deleted: 0,
+            noops: 0,
+            retries: 0,
+            throttled_until_millis: None,
+            throttled_until_nanos: None,
+        };
+
+        state.task_manager.update_task(&task_id, status).await;
+
+        tracing::info!(
+            "Reindex batch {} completed: {} documents processed, {} created, {} failed",
+            total_batches,
+            search_result.hits.len(),
+            batch_created,
+            batch_failed
+        );
+
+        // Move to next batch
+        offset += batch_size;
+
+        // Check if we've processed all documents
+        if search_result.hits.len() < batch_size {
+            break;
+        }
+    }
+
+    // Mark task as completed
+    if let Some(mut task) = state.task_manager.get_task(&task_id).await {
+        task.end_time = Some(Utc::now());
+        task.status.completed = total_processed;
+        task.status.created = total_created;
+        task.status.failed = total_failed;
+        // Update the task in the manager
+        state.task_manager.update_task(&task_id, task.status.clone()).await;
+    }
+
+    tracing::info!(
+        "Reindex operation {} completed: {} total documents processed, {} created, {} failed",
+        task_id,
+        total_processed,
+        total_created,
+        total_failed
+    );
+
+    Ok(())
+}
+
 /// Reindex operation
 #[utoipa::path(
     post,
@@ -146,29 +403,79 @@ pub struct TaskStatus {
     tag = "Reindexing"
 )]
 pub async fn reindex(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(request): Json<ReindexRequest>,
-) -> Result<Json<ReindexResponse>, StatusCode> {
+) -> ApiResult<Json<ReindexResponse>> {
     tracing::info!(
         "Starting reindex operation from '{}' to '{}'",
         request.source.index,
         request.dest.index
     );
 
-    // For now, just return a mock response
-    // In a real implementation, this would:
-    // 1. Validate source and destination indices
-    // 2. Start a background task for reindexing
-    // 3. Return a task ID for tracking progress
-    // 4. Process documents in batches
-    // 5. Apply transformations if script is provided
+    // Validate source index exists
+    let source_index = state.index_manager.get_index(&request.source.index)
+        .map_err(|e| ApiError::Validation(format!("Source index '{}' not found: {}", request.source.index, e)))?;
 
-    let task_id = format!("reindex_{}_{}", request.source.index, request.dest.index);
+    // Check if destination index exists, if not create it
+    let _dest_index = if state.index_manager.index_exists(&request.dest.index) {
+        state.index_manager.get_index(&request.dest.index)
+            .map_err(|e| ApiError::Validation(format!("Failed to get destination index '{}': {}", request.dest.index, e)))?
+    } else {
+        // Create destination index with same settings as source
+        let settings = source_index.settings().clone();
+        let schema = source_index.schema();
+        state.index_manager.create_index(&request.dest.index, schema, settings).await
+            .map_err(|e| ApiError::Validation(format!("Failed to create destination index '{}': {}", request.dest.index, e)))?
+    };
+
+    // Generate unique task ID
+    let task_id = format!("reindex_{}_{}_{}", 
+        request.source.index, 
+        request.dest.index, 
+        Uuid::new_v4().to_string()[..8].to_string()
+    );
+
+    // Create task
+    let task = ReindexTask {
+        task_id: task_id.clone(),
+        source_index: request.source.index.clone(),
+        dest_index: request.dest.index.clone(),
+        status: TaskStatus {
+            total: 0,
+            completed: 0,
+            failed: 0,
+            cancelled: 0,
+            created: 0,
+            deleted: 0,
+            noops: 0,
+            retries: 0,
+            throttled_until_millis: None,
+            throttled_until_nanos: None,
+        },
+        start_time: Utc::now(),
+        end_time: None,
+        cancelled: false,
+        error: None,
+    };
+
+    // Store task
+    state.task_manager.create_task(task).await;
+
+    // Start reindex operation in background
+    let state_clone = state.clone();
+    let request_clone = request.clone();
+    let task_id_clone = task_id.clone();
+    
+    tokio::spawn(async move {
+        if let Err(e) = perform_reindex(state_clone, request_clone, task_id_clone).await {
+            tracing::error!("Reindex operation failed: {}", e);
+        }
+    });
 
     Ok(Json(ReindexResponse {
         task: task_id,
         acknowledged: true,
-        total: 0, // Would be calculated from source index
+        total: 0, // Will be updated as operation progresses
         updated: 0,
         created: 0,
         failed: 0,
@@ -192,34 +499,30 @@ pub async fn reindex(
     tag = "Tasks"
 )]
 pub async fn get_task(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     axum::extract::Path(task_id): axum::extract::Path<String>,
-) -> Result<Json<TaskInfo>, StatusCode> {
+) -> ApiResult<Json<TaskInfo>> {
     tracing::info!("Getting task information for task: {}", task_id);
 
-    // For now, return a mock task info
-    // In a real implementation, this would query the task manager
+    let task = state.task_manager.get_task(&task_id).await
+        .ok_or_else(|| ApiError::InvalidRequest(format!("Task {} not found", task_id)))?;
+
+    let running_time = if let Some(end_time) = task.end_time {
+        ((end_time.timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
+    } else {
+        ((Utc::now().timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
+    };
+
     Ok(Json(TaskInfo {
-        task_id: task_id.clone(),
+        task_id: task.task_id,
         task_type: "reindex".to_string(),
         action: "indices:data/write/reindex".to_string(),
-        description: format!("reindex from [{}] to [{}]", "source_index", "dest_index"),
-        status: TaskStatus {
-            total: 1000,
-            completed: 500,
-            failed: 0,
-            cancelled: 0,
-            created: 500,
-            deleted: 0,
-            noops: 0,
-            retries: 0,
-            throttled_until_millis: None,
-            throttled_until_nanos: None,
-        },
-        start_time_in_millis: chrono::Utc::now().timestamp_millis() as u64,
-        running_time_in_nanos: 5000000000, // 5 seconds
+        description: format!("reindex from [{}] to [{}]", task.source_index, task.dest_index),
+        status: task.status,
+        start_time_in_millis: task.start_time.timestamp_millis() as u64,
+        running_time_in_nanos: running_time,
         parent_task_id: None,
-        cancellable: true,
+        cancellable: !task.cancelled,
         headers: serde_json::json!({}),
     }))
 }
@@ -236,16 +539,20 @@ pub async fn get_task(
     tag = "Tasks"
 )]
 pub async fn cancel_task(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     axum::extract::Path(task_id): axum::extract::Path<String>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+) -> ApiResult<Json<serde_json::Value>> {
     tracing::info!("Cancelling task: {}", task_id);
 
-    // For now, just return success
-    // In a real implementation, this would cancel the running task
-    Ok(Json(serde_json::json!({
-        "acknowledged": true
-    })))
+    let cancelled = state.task_manager.cancel_task(&task_id).await;
+    
+    if cancelled {
+        Ok(Json(serde_json::json!({
+            "acknowledged": true
+        })))
+    } else {
+        Err(ApiError::InvalidRequest(format!("Task {} not found", task_id)))
+    }
 }
 
 /// List tasks
@@ -258,14 +565,44 @@ pub async fn cancel_task(
     tag = "Tasks"
 )]
 pub async fn list_tasks(
-    State(_state): State<AppState>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+    State(state): State<AppState>,
+) -> ApiResult<Json<serde_json::Value>> {
     tracing::info!("Listing all tasks");
 
-    // For now, return empty task list
-    // In a real implementation, this would return all running tasks
+    let tasks = state.task_manager.list_tasks().await;
+    
+    let mut nodes = serde_json::Map::new();
+    let mut node_tasks = serde_json::Map::new();
+    
+    for task in tasks {
+        let task_info = TaskInfo {
+            task_id: task.task_id.clone(),
+            task_type: "reindex".to_string(),
+            action: "indices:data/write/reindex".to_string(),
+            description: format!("reindex from [{}] to [{}]", task.source_index, task.dest_index),
+            status: task.status,
+            start_time_in_millis: task.start_time.timestamp_millis() as u64,
+            running_time_in_nanos: if let Some(end_time) = task.end_time {
+                ((end_time.timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
+            } else {
+                ((Utc::now().timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
+            },
+            parent_task_id: None,
+            cancellable: !task.cancelled,
+            headers: serde_json::json!({}),
+        };
+        
+        node_tasks.insert(task.task_id, serde_json::to_value(task_info).unwrap());
+    }
+    
+    nodes.insert("tasks".to_string(), serde_json::Value::Object(node_tasks));
+    
     Ok(Json(serde_json::json!({
-        "nodes": {}
+        "nodes": {
+            "local": {
+                "tasks": nodes
+            }
+        }
     })))
 }
 
@@ -319,7 +656,8 @@ mod tests {
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        // Should return 400 because source index doesn't exist
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]
@@ -331,7 +669,8 @@ mod tests {
             .body(Body::empty())
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        // Should return 400 because task doesn't exist
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]
@@ -343,7 +682,8 @@ mod tests {
             .body(Body::empty())
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
+        // Should return 400 because task doesn't exist
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]
