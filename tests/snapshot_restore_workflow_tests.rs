@@ -266,6 +266,85 @@ async fn test_create_incremental_snapshot() -> Result<()> {
 }
 
 #[tokio::test]
+async fn test_create_enhanced_incremental_snapshot() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    let config = create_test_snapshot_config(&temp_dir);
+
+    let index_manager = Arc::new(IndexManager::new(temp_dir.path()));
+    let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config)?));
+
+    // Create test index
+    create_test_index(&index_manager, "test_index", 50).await?;
+
+    // Check if index creation was skipped due to Tantivy issues
+    if check_index_creation_skipped(&index_manager, "test_index") {
+        return Ok(());
+    }
+
+    let repo_name = RepositoryName::new("test_repo");
+
+    // Create full snapshot first
+    let full_snapshot_name = SnapshotName::new("full_snapshot");
+    let full_request = CreateSnapshotRequest {
+        indices: vec![IndexName::new("test_index")],
+        snapshot_type: Some(SnapshotType::Full),
+        ..Default::default()
+    };
+
+    let full_snapshot = snapshot_manager
+        .read()
+        .await
+        .create_snapshot(&repo_name, full_snapshot_name.clone(), full_request)
+        .await?;
+
+    assert_eq!(full_snapshot.state, SnapshotState::Success);
+
+    // Add more documents to the index
+    let index = index_manager.get_index("test_index")?;
+    let document_store = DocumentStore::new(Arc::new(index));
+
+    for i in 50..100 {
+        let doc = json!({
+            "title": format!("New Document {} Title", i),
+            "content": format!("This is new content for document {}.", i),
+            "category": "new",
+            "price": (i * 10) as i64,
+            "created_at": chrono::Utc::now().to_rfc3339()
+        });
+
+        document_store.add_document(doc).await?;
+    }
+
+    // Create enhanced incremental snapshot with Phase 3 optimizations
+    let enhanced_snapshot_name = SnapshotName::new("enhanced_incremental_snapshot");
+    let enhanced_request = CreateSnapshotRequest {
+        indices: vec![IndexName::new("test_index")],
+        snapshot_type: Some(SnapshotType::Incremental),
+        parent_snapshot: Some(full_snapshot_name),
+        use_enhanced: true, // Enable Phase 3 optimizations
+        ..Default::default()
+    };
+
+    let enhanced_snapshot = snapshot_manager
+        .read()
+        .await
+        .create_snapshot(&repo_name, enhanced_snapshot_name.clone(), enhanced_request)
+        .await?;
+
+    // Verify enhanced incremental snapshot
+    assert_eq!(enhanced_snapshot.state, SnapshotState::Success);
+    assert_eq!(enhanced_snapshot.snapshot_type, SnapshotType::Incremental);
+    assert!(enhanced_snapshot.parent_snapshot.is_some());
+    assert_eq!(enhanced_snapshot.chain_depth, 1);
+
+    // Enhanced snapshots should have smaller size due to compression
+    // (though this may vary, we just verify it was created successfully)
+    assert!(enhanced_snapshot.size_bytes > 0);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_create_snapshot_with_multiple_indices() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);

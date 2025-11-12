@@ -612,6 +612,60 @@ mod tests {
     }
 
     #[test]
+    fn test_enhanced_snapshot_info_to_snapshot_info_conversion() {
+        use crate::snapshot::types::SnapshotInfo;
+        use crate::types::{IndexName, RepositoryName, SnapshotName};
+
+        let enhanced = EnhancedSnapshotInfo {
+            name: SnapshotName::new("test_snapshot"),
+            repository: RepositoryName::new("test_repo"),
+            indices: vec![IndexName::new("index1")],
+            parent_snapshot: Some(SnapshotName::new("parent")),
+            snapshot_type: crate::snapshot::types::SnapshotType::Incremental,
+            state: crate::snapshot::types::SnapshotState::Success,
+            start_time: chrono::Utc::now(),
+            end_time: Some(chrono::Utc::now()),
+            duration_in_millis: Some(1000),
+            failures: 0,
+            shards: crate::snapshot::types::ShardInfo::default(),
+            metadata: crate::snapshot::types::SnapshotMetadata::default(),
+            chain_depth: 1,
+            size_bytes: 1024,
+            document_count: 100,
+            compression_info: Some(CompressionInfo {
+                algorithm: CompressionType::Zstd,
+                compression_ratio: 0.5,
+                space_saved: 512,
+            }),
+            deduplication_info: Some(DeduplicationInfo {
+                duplicate_files: 10,
+                deduplication_ratio: 0.2,
+                space_saved: 256,
+            }),
+            parallel_processing_info: Some(ParallelProcessingInfo {
+                workers_used: 4,
+                total_processing_time: 500,
+            }),
+        };
+
+        let snapshot_info: SnapshotInfo = enhanced.into();
+
+        assert_eq!(snapshot_info.name.as_str(), "test_snapshot");
+        assert_eq!(snapshot_info.repository.as_str(), "test_repo");
+        assert_eq!(
+            snapshot_info.snapshot_type,
+            crate::snapshot::types::SnapshotType::Incremental
+        );
+        assert_eq!(
+            snapshot_info.state,
+            crate::snapshot::types::SnapshotState::Success
+        );
+        assert_eq!(snapshot_info.size_bytes, 1024);
+        assert_eq!(snapshot_info.document_count, 100);
+        assert_eq!(snapshot_info.chain_depth, 1);
+    }
+
+    #[test]
     fn test_compression_type_equality() {
         use crate::snapshot::compression::CompressionType;
         assert_eq!(CompressionType::None, CompressionType::None);

@@ -916,6 +916,167 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_bulk_operations_mixed_operations() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("_id", TEXT | STORED);
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_i64_field("views", INDEXED | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        // First, add a document
+        let doc_id = DocumentId::new("doc1");
+        store
+            .add_document_with_id(
+                doc_id.clone(),
+                serde_json::json!({"title": "Original", "views": 100}),
+            )
+            .await
+            .unwrap();
+
+        // Mixed operations: update, delete, index
+        let operations = vec![
+            BulkOperation::Update {
+                index: "test_index".to_string(),
+                id: doc_id.clone(),
+                document: serde_json::json!({"title": "Updated", "views": 200}),
+            },
+            BulkOperation::Delete {
+                index: "test_index".to_string(),
+                id: DocumentId::new("doc2"), // Non-existent, should still succeed
+            },
+            BulkOperation::Index {
+                index: "test_index".to_string(),
+                id: DocumentId::new("doc3"),
+                document: serde_json::json!({"title": "New Document", "views": 300}),
+            },
+        ];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_empty_list() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let operations = vec![];
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 0);
+        assert!(!bulk_result.errors);
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_large_batch() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_i64_field("value", INDEXED | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        // Create 100 operations
+        let mut operations = Vec::new();
+        for i in 0..100 {
+            operations.push(BulkOperation::Index {
+                index: "test_index".to_string(),
+                id: DocumentId::new(format!("doc_{}", i)),
+                document: serde_json::json!({
+                    "title": format!("Document {}", i),
+                    "value": i
+                }),
+            });
+        }
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 100);
+        assert!(!bulk_result.errors);
+    }
+
+    #[tokio::test]
+    async fn test_get_document_nonexistent() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("_id", TEXT | STORED);
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+        let doc_id = DocumentId::new("nonexistent_doc");
+
+        let result = store.get_document(&doc_id).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[tokio::test]
+    async fn test_update_document_nonexistent() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("_id", TEXT | STORED);
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+        let doc_id = DocumentId::new("nonexistent_doc");
+
+        // Update should succeed even if document doesn't exist (it will create it)
+        let updated_doc = serde_json::json!({
+            "title": "New Document"
+        });
+
+        let result = store.update_document(&doc_id, updated_doc).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
     async fn test_bulk_operations_delete_without_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
