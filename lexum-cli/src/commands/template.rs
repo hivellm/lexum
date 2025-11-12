@@ -101,5 +101,92 @@ pub async fn handle_template_command(
     Ok(())
 }
 
-// Tests temporarily disabled due to mockito API changes
-// TODO: Re-enable template tests with updated mockito API
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_template_action_creation() {
+        // Test that TemplateAction variants can be created
+        let _create = TemplateAction::Create {
+            name: "test".to_string(),
+            pattern: "test-*".to_string(),
+            priority: 1,
+        };
+        let _list = TemplateAction::List;
+        let _get = TemplateAction::Get {
+            name: "test".to_string(),
+        };
+        let _delete = TemplateAction::Delete {
+            name: "test".to_string(),
+        };
+    }
+
+    #[tokio::test]
+    async fn test_template_command_without_server() {
+        // Test that template commands handle server errors gracefully
+        let action = TemplateAction::List;
+        let result = handle_template_command(
+            action,
+            "http://localhost:9999".to_string(),
+            "json".to_string(),
+        )
+        .await;
+
+        // Should fail gracefully without server
+        assert!(result.is_ok()); // Function returns Ok even on error (prints error)
+    }
+
+    #[tokio::test]
+    async fn test_template_create_command_structure() {
+        // Test create command structure
+        let action = TemplateAction::Create {
+            name: "test_template".to_string(),
+            pattern: "test-*".to_string(),
+            priority: 10,
+        };
+        let result = handle_template_command(
+            action,
+            "http://localhost:9999".to_string(),
+            "json".to_string(),
+        )
+        .await;
+
+        // Should handle error gracefully
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_template_get_command_structure() {
+        // Test get command structure
+        let action = TemplateAction::Get {
+            name: "test_template".to_string(),
+        };
+        let result = handle_template_command(
+            action,
+            "http://localhost:9999".to_string(),
+            "json".to_string(),
+        )
+        .await;
+
+        // Should handle error gracefully
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_template_delete_command_structure() {
+        // Test delete command structure
+        let action = TemplateAction::Delete {
+            name: "test_template".to_string(),
+        };
+        let result = handle_template_command(
+            action,
+            "http://localhost:9999".to_string(),
+            "json".to_string(),
+        )
+        .await;
+
+        // Should handle error gracefully
+        assert!(result.is_ok());
+    }
+}

@@ -437,50 +437,39 @@ impl Default for ProgressTracker {
 mod tests {
     use super::*;
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    #[ignore] // TODO: Fix hanging issue - test times out after 5 seconds
+    #[tokio::test]
     async fn test_progress_tracking() {
-        use tokio::time::{Duration, timeout};
-
         let tracker = ProgressTracker::new();
 
-        // Wrap test in timeout to prevent hanging
-        let test_future = async {
-            // Start an operation
-            let id = tracker
-                .start_operation(
-                    OperationType::BulkOperation,
-                    "Test operation".to_string(),
-                    100,
-                    None,
-                )
-                .await
-                .unwrap();
-
-            // Update progress
-            tracker
-                .update_progress(&id, Some(50), None, None, None, None)
-                .await
-                .unwrap();
-
-            // Get progress
-            let progress = tracker.get_progress(&id).await.unwrap().unwrap();
-            assert_eq!(progress.metrics.completed, 50);
-            assert_eq!(progress.metrics.total, 100);
-            assert_eq!(progress.metrics.percentage(), 50.0);
-
-            // Mark as completed
-            tracker.mark_completed(&id).await.unwrap();
-
-            let progress = tracker.get_progress(&id).await.unwrap().unwrap();
-            assert_eq!(progress.status, ProgressStatus::Completed);
-            assert!(progress.end_time.is_some());
-        };
-
-        // Set timeout to 5 seconds
-        timeout(Duration::from_secs(5), test_future)
+        // Start an operation
+        let id = tracker
+            .start_operation(
+                OperationType::BulkOperation,
+                "Test operation".to_string(),
+                100,
+                None,
+            )
             .await
-            .expect("Test should complete within 5 seconds");
+            .unwrap();
+
+        // Update progress
+        tracker
+            .update_progress(&id, Some(50), None, None, None, None)
+            .await
+            .unwrap();
+
+        // Get progress
+        let progress = tracker.get_progress(&id).await.unwrap().unwrap();
+        assert_eq!(progress.metrics.completed, 50);
+        assert_eq!(progress.metrics.total, 100);
+        assert_eq!(progress.metrics.percentage(), 50.0);
+
+        // Mark as completed
+        tracker.mark_completed(&id).await.unwrap();
+
+        let progress = tracker.get_progress(&id).await.unwrap().unwrap();
+        assert_eq!(progress.status, ProgressStatus::Completed);
+        assert!(progress.end_time.is_some());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

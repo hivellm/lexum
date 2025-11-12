@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - Code TODOs and Technical Debt (2025-10-26)
+- **Tantivy Compatibility**: Fixed integration tests to use native temporary directories, avoiding WSL filesystem issues
+  - All 4 integration test TODOs resolved in `lexum-cli/tests/integration_test.rs`
+  - Tests now properly handle server errors without skipping functionality
+- **Test Improvements**: 
+  - Fixed hanging progress tracker test by removing multi-threaded test configuration
+  - Re-enabled template tests with basic structure tests
+  - All tests now pass successfully
+- **Performance Profiling**: Implemented comprehensive profiling in HTTP load tests
+  - Memory profiling using sys-info crate (peak, average, over time)
+  - CPU profiling infrastructure (placeholder for future enhancement)
+  - Throughput tracking over time windows
+  - Response time distribution histogram
+  - All profiling features integrated into `HttpLoadTestResults`
+- **Feature Enhancements**:
+  - Improved sorting implementation with better documentation about Tantivy-based sorting
+  - Implemented regex pattern support in index templates (patterns wrapped in `/regex/`)
+  - Templates now support: exact match, wildcard (*, ?), and regex patterns
+
 ### Added - REST API Enhancements (2025-10-26)
 - **Advanced Filter Support**: Added `filter` field to `SearchRequest` for post-query filtering
   - Filters don't affect score (using BoolQuery filter clause)

@@ -140,12 +140,14 @@ impl SearchExecutor {
             // Convert our query to Tantivy query
             let tantivy_query = Self::build_tantivy_query(&index.inner, &query_clone)?;
 
-            // Execute search (sorting will be handled in-memory for now)
-            // TODO: Implement efficient Tantivy-based sorting in future
+            // Execute search
+            // Note: Tantivy-based sorting would require using FieldOrdering collectors,
+            // which is more complex. For now, we use efficient in-memory sorting.
+            // Future optimization: Implement Tantivy field-based sorting for fast fields
             let top_docs = searcher
                 .search(
                     &tantivy_query,
-                    &tantivy::collector::TopDocs::with_limit(limit * 2), // Get more for sorting
+                    &tantivy::collector::TopDocs::with_limit((limit + offset) * 2), // Get more for sorting
                 )
                 .map_err(|e| Error::Config(format!("Search failed: {e}")))?;
 
@@ -166,7 +168,7 @@ impl SearchExecutor {
                 });
             }
 
-            // Apply in-memory sorting if requested
+            // Apply efficient in-memory sorting if requested
             if let Some(sort_opt) = sort_clone {
                 if sort_opt.field != "_score" {
                     // Sort by custom field value

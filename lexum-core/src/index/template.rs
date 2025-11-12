@@ -5,6 +5,7 @@
 
 use crate::error::{Error, Result};
 use crate::schema::{FieldConfig, SchemaBuilder};
+use regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tantivy::schema::Schema;
@@ -61,8 +62,18 @@ impl IndexPattern {
 
     /// Check if this pattern matches an index name
     pub fn matches(&self, index_name: &str) -> bool {
-        // Simple wildcard matching for now
-        // TODO: Support more complex patterns like regex
+        // Check if pattern is a regex (starts and ends with /)
+        if self.0.starts_with('/') && self.0.ends_with('/') && self.0.len() > 2 {
+            // Regex pattern
+            let regex_pattern = &self.0[1..self.0.len() - 1];
+            if let Ok(re) = regex::Regex::new(regex_pattern) {
+                return re.is_match(index_name);
+            }
+            // If regex compilation fails, fall back to exact match
+            return self.0 == index_name;
+        }
+
+        // Simple wildcard matching
         if self.0.contains('*') || self.0.contains('?') {
             self.matches_wildcard(index_name)
         } else {
