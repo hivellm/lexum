@@ -199,12 +199,55 @@ impl DocumentStore {
 
     /// Get a document by ID
     ///
-    /// Note: Current implementation requires "_id" field in schema
-    pub async fn get_document(&self, _doc_id: &DocumentId) -> Result<JsonValue> {
-        // Will implement with proper ID field support
-        Err(Error::Config(
-            "get_document requires schema with _id field - not yet implemented".to_string(),
-        ))
+    /// Requires the schema to have an "_id" field (keyword or text type).
+    pub async fn get_document(&self, doc_id: &DocumentId) -> Result<JsonValue> {
+        let schema = self.index.schema();
+        let index = self.index.clone();
+        let doc_id_str = doc_id.as_str().to_string();
+
+        // Check if schema has _id field
+        let id_field = schema.get_field("_id").map_err(|_| {
+            Error::Config(
+                "get_document requires schema with _id field. Please add an _id field (keyword or text type) to your schema.".to_string(),
+            )
+        })?;
+
+        tokio::task::spawn_blocking(move || {
+            let reader = index.reader()?;
+            let searcher = reader.searcher();
+
+            // Create a term query for the _id field
+            let term = tantivy::Term::from_field_text(id_field, &doc_id_str);
+            let query =
+                tantivy::query::TermQuery::new(term, tantivy::schema::IndexRecordOption::Basic);
+
+            // Search for the document
+            let top_docs = searcher
+                .search(&query, &tantivy::collector::TopDocs::with_limit(1))
+                .map_err(|e| Error::Config(format!("Search failed: {e}")))?;
+
+            if top_docs.is_empty() {
+                return Err(Error::Config(format!(
+                    "Document with ID '{doc_id_str}' not found"
+                )));
+            }
+
+            // Get the first (and should be only) result
+            let (_score, doc_address) = top_docs[0];
+            let doc: TantivyDocument = searcher
+                .doc(doc_address)
+                .map_err(|e| Error::Config(format!("Failed to retrieve document: {e}")))?;
+
+            // Convert Tantivy document to JSON
+            let json_str = doc.to_json(&schema);
+            let json_value: JsonValue = serde_json::from_str(&json_str)
+                .map_err(|e| Error::Config(format!("Failed to parse document JSON: {e}")))?;
+
+            tracing::debug!(doc_id = %doc_id_str, "Document retrieved");
+            Ok::<JsonValue, Error>(json_value)
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))?
     }
 
     /// Update a document
@@ -606,7 +649,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_document_not_implemented() {
+    async fn test_get_document_without_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
         let schema = schema_builder.build();
@@ -627,8 +670,102 @@ mod tests {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("not yet implemented")
+                .contains("requires schema with _id field")
         );
+    }
+
+    #[tokio::test]
+    async fn test_get_document_with_id_field() {
+        // Create schema with _id field that is both stored and indexed
+        use crate::schema::FieldConfig;
+        use crate::schema::FieldType;
+        use crate::schema::SchemaBuilder as LexumSchemaBuilder;
+
+        let (schema, _) = LexumSchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("_id", FieldType::Keyword)
+                    .stored(true)
+                    .indexed(true),
+            )
+            .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+        let doc_id = DocumentId::new("test_doc");
+
+        // Add document first
+        let doc = serde_json::json!({
+            "title": "Test Document"
+        });
+        store
+            .add_document_with_id(doc_id.clone(), doc)
+            .await
+            .unwrap();
+
+        // Small delay to ensure commit is processed
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
+        // Get document - should succeed with _id field
+        // get_document creates a new reader which will see the committed changes
+        let result = store.get_document(&doc_id).await;
+        if let Err(e) = &result {
+            panic!("Error getting document: {e}");
+        }
+        let retrieved_doc = result.unwrap();
+        // Tantivy may return text fields as arrays, so check both formats
+        let title = retrieved_doc["title"]
+            .as_str()
+            .or_else(|| {
+                retrieved_doc["title"]
+                    .as_array()
+                    .and_then(|arr| arr.first())
+                    .and_then(|v| v.as_str())
+            })
+            .unwrap();
+        assert_eq!(title, "Test Document");
+
+        // _id should be a string
+        let id = retrieved_doc["_id"]
+            .as_str()
+            .or_else(|| {
+                retrieved_doc["_id"]
+                    .as_array()
+                    .and_then(|arr| arr.first())
+                    .and_then(|v| v.as_str())
+            })
+            .unwrap();
+        assert_eq!(id, "test_doc");
+    }
+
+    #[tokio::test]
+    async fn test_get_document_not_found() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("_id", TEXT | STORED);
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+        let doc_id = DocumentId::new("nonexistent_doc");
+
+        // Try to get non-existent document
+        let result = store.get_document(&doc_id).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[tokio::test]
