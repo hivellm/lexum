@@ -38,7 +38,18 @@ async fn test_lql_from_file_nonexistent() {
     // Should fail because file doesn't exist
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("No such file") || error.to_string().contains("not found"));
+    let error_str = error.to_string().to_lowercase();
+    if !(error_str.contains("no such file")
+        || error_str.contains("not found")
+        || error_str.contains("cannot find")
+        || error_str.contains("the system cannot find")
+        || error_str.contains("no such file or directory")
+        || error_str.contains("could not find file")
+        || error_str.contains("os error 2")
+        || error_str.contains("os error 3"))
+    {
+        panic!("Unexpected error message: {error_str}");
+    }
 }
 
 #[tokio::test]
