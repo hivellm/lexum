@@ -4,6 +4,7 @@ members = ["lexum-cli",
     "lexum-core", "lexum-server",
     "tests",
     "tests/e2e",
+    "tests/stress",
     # "tests/chaos",  # Disabled due to filesystem issues in WSL
 ]
 
