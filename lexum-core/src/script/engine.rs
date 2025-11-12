@@ -524,7 +524,7 @@ mod tests {
         if let Some(Value::Number(n)) = result {
             assert_eq!(n.as_f64(), Some(8.0));
         } else {
-            panic!("Expected Number, got {:?}", result);
+            panic!("Expected Number, got {result:?}");
         }
     }
 }
