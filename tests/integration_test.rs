@@ -91,8 +91,6 @@ async fn test_server_integration() -> Result<()> {
 async fn test_cli_integration() -> Result<()> {
     // Test CLI command parsing
     // use lexum_cli::repl::ReplSession;
-
-    // use lexum_cli::repl::ReplSession;
     // let _session = ReplSession::new("http://localhost:9200".to_string());
 
     // Test that session can be created
