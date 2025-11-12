@@ -199,6 +199,18 @@ impl SnapshotRepository for FsSnapshotRepository {
             .determine_snapshot_type(&request, &request.indices)
             .await?;
 
+        // Use enhanced incremental snapshot if requested and type is incremental
+        if request.use_enhanced && snapshot_type == SnapshotType::Incremental {
+            let enhanced_result = self
+                .create_enhanced_incremental_snapshot(snapshot_name, request)
+                .await?;
+            // Convert EnhancedSnapshotInfo to SnapshotInfo
+            let snapshot_info: SnapshotInfo = enhanced_result.snapshot_info.into();
+            // Save the snapshot metadata
+            self.save_snapshot_metadata(&snapshot_info).await?;
+            return Ok(snapshot_info);
+        }
+
         // Create snapshot metadata file
         let _metadata_file = format!("{snapshot_path}/snapshot.json");
         let mut snapshot_info = SnapshotInfo {
@@ -2030,6 +2042,7 @@ mod tests {
                 settings: HashMap::new(),
             }),
             wait_for_completion: true,
+            use_enhanced: false,
             ignore_unavailable: false,
             include_global_state: true,
             snapshot_type: None,

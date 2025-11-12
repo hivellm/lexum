@@ -164,6 +164,9 @@ pub struct CreateSnapshotRequest {
 
     /// Force full snapshot even if incremental is possible
     pub force_full: bool,
+
+    /// Use enhanced incremental snapshot with Phase 3 optimizations (compression, deduplication, parallel processing)
+    pub use_enhanced: bool,
 }
 
 impl Default for CreateSnapshotRequest {
@@ -177,6 +180,7 @@ impl Default for CreateSnapshotRequest {
             snapshot_type: None,
             parent_snapshot: None,
             force_full: false,
+            use_enhanced: false,
         }
     }
 }

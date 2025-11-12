@@ -8,7 +8,7 @@
 - [x] 1.3 Implement snapshot creation
 - [x] 1.4 Add snapshot listing
 - [x] 1.5 Implement snapshot deletion
-- [ ] 1.7 Implement incremental snapshots - Phase 3
+- [x] 1.7 Implement incremental snapshots - Phase 3
 - [x] 1.8 Test snapshot/restore workflows (18+ tests)
 - [x] 1.9 Snapshot statistics and monitoring
 - [x] 1.10 Repository management (create, get, list)

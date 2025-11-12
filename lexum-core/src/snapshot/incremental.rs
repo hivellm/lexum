@@ -488,6 +488,28 @@ impl Default for IncrementalSnapshotManager {
     }
 }
 
+impl From<EnhancedSnapshotInfo> for crate::snapshot::types::SnapshotInfo {
+    fn from(enhanced: EnhancedSnapshotInfo) -> Self {
+        Self {
+            name: enhanced.name,
+            repository: enhanced.repository,
+            state: enhanced.state,
+            snapshot_type: enhanced.snapshot_type,
+            indices: enhanced.indices,
+            start_time: enhanced.start_time,
+            end_time: enhanced.end_time,
+            duration_in_millis: enhanced.duration_in_millis,
+            failures: enhanced.failures,
+            shards: enhanced.shards,
+            metadata: enhanced.metadata,
+            parent_snapshot: enhanced.parent_snapshot,
+            chain_depth: enhanced.chain_depth,
+            size_bytes: enhanced.size_bytes,
+            document_count: enhanced.document_count,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
