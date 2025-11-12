@@ -89,9 +89,58 @@ logging:
 
 ## Index Operations
 
-### Index creation fails
+### Index creation fails (WSL Compatibility Issue)
 
-**Problem**: `Failed to create index: Invalid argument`
+**Problem**: `Failed to create index: Invalid argument (os error 22)` or `Tantivy filesystem compatibility issue detected`
+
+**Cause**: This is a known compatibility issue between Tantivy and WSL (Windows Subsystem for Linux) filesystem, especially when accessing Windows-mounted drives (e.g., `/mnt/f/`).
+
+**Solutions**:
+
+#### Option 1: Run on Windows Native (Recommended)
+
+Execute Lexum directly in PowerShell (Windows native) instead of WSL:
+
+```powershell
+# In PowerShell (Windows native)
+# Build for Windows
+cargo build --release
+
+# Set data directory to Windows native path
+$env:LEXUM_DATA_DIR = "C:\data\lexum"
+
+# Run server
+.\target\release\lexum-server.exe
+```
+
+**Why this works**: Tantivy works natively on Windows. The issue is specifically with WSL's filesystem layer, not Windows itself.
+
+#### Option 2: Use Linux Native Paths in WSL
+
+If you must use WSL, use Linux-native paths instead of Windows-mounted drives:
+
+```bash
+# In WSL, use Linux filesystem paths
+export LEXUM_DATA_DIR=/home/$USER/lexum-data
+
+# Create directory in Linux filesystem
+mkdir -p /home/$USER/lexum-data
+
+# Run server
+./target/release/lexum-server
+```
+
+#### Option 3: Use Docker (Cross-platform)
+
+Run Lexum in a Docker container to avoid filesystem issues:
+
+```bash
+docker run -v /var/lib/lexum:/data -p 9200:9200 lexum/lexum-server
+```
+
+### Index creation fails (General)
+
+**Problem**: `Failed to create index: Invalid argument` (other causes)
 
 **Solution**:
 1. Check data directory exists: `mkdir -p ./data`
