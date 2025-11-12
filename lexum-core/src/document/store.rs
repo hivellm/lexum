@@ -310,10 +310,12 @@ impl DocumentStore {
     ///
     /// let operations = vec![
     ///     BulkOperation::Index {
+    ///         index: "test".to_string(),
     ///         id: DocumentId::new("doc1"),
     ///         document: json!({"title": "Document 1"}),
     ///     },
     ///     BulkOperation::Index {
+    ///         index: "test".to_string(),
     ///         id: DocumentId::new("doc2"),
     ///         document: json!({"title": "Document 2"}),
     ///     },
