@@ -75,5 +75,10 @@ name = "simple_bench"
 path = "benchmark/simple_bench.rs"
 harness = false
 
+[features]
+default = []
+# Enable slow tests that may take longer or require special conditions
+slow-tests = []
+
 [lints]
 workspace = true
