@@ -177,7 +177,3 @@ mod tests {
         assert!(format_cell_value(None).contains("N/A"));
     }
 }
-
-
-
-

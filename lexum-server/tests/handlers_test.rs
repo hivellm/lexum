@@ -475,7 +475,3 @@ fn test_rollover_index_name_generation() {
     let result = generate_rollover_index_name("logs");
     assert_eq!(result, "logs-000001");
 }
-
-
-
-

@@ -930,12 +930,10 @@ impl LexumHelper {
                 "server" => {
                     let subcommands = vec!["start", "stop", "status", "config"];
                     for subcmd in subcommands {
-                        if subcmd.starts_with(line.trim()) {
-                            suggestions.push(Pair {
-                                display: subcmd.to_string(),
-                                replacement: subcmd.to_string(),
-                            });
-                        }
+                        suggestions.push(Pair {
+                            display: subcmd.to_string(),
+                            replacement: subcmd.to_string(),
+                        });
                     }
                 }
                 "snapshot" => {

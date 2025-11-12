@@ -13,6 +13,9 @@ use std::sync::Arc;
 pub struct SearchRequest {
     /// Query
     pub query: Query,
+    /// Filter queries (must match but don't affect score)
+    #[serde(default)]
+    pub filter: Option<Vec<Query>>,
     /// Limit (default: 10)
     #[serde(default = "default_limit")]
     pub limit: usize,
@@ -98,6 +101,23 @@ pub async fn search(
         request.query
     };
 
+    // Apply filters if provided (wrap query in bool query with filter clause)
+    let final_query = if let Some(ref filters) = request.filter {
+        if !filters.is_empty() {
+            // Wrap the main query in a bool query with filter clauses
+            let mut bool_query = lexum_core::BoolQuery::new();
+            bool_query = bool_query.must(query.clone());
+            for filter in filters {
+                bool_query = bool_query.filter(filter.clone());
+            }
+            lexum_core::Query::Bool(bool_query)
+        } else {
+            query
+        }
+    } else {
+        query
+    };
+
     // Use single index search for now (multi-index search not implemented yet)
     let mut result = if target_indices.len() > 1 {
         // For now, just search the first index
@@ -108,7 +128,12 @@ pub async fn search(
 
         let executor = SearchExecutor::new(Arc::new(index));
         executor
-            .search(query, request.limit, request.offset, request.sort)
+            .search(
+                final_query.clone(),
+                request.limit,
+                request.offset,
+                request.sort,
+            )
             .await?
     } else {
         // Single index search
@@ -119,7 +144,7 @@ pub async fn search(
 
         let executor = SearchExecutor::new(Arc::new(index));
         executor
-            .search(query, request.limit, request.offset, request.sort)
+            .search(final_query, request.limit, request.offset, request.sort)
             .await?
     };
 
@@ -190,6 +215,7 @@ pub async fn search(
     params(
         ("index_name" = String, Path, description = "Index name"),
         ("q" = Option<String>, Query, description = "Query string"),
+        ("filter" = Option<String>, Query, description = "JSON array of filter queries (don't affect score)"),
         ("limit" = Option<usize>, Query, description = "Number of results"),
         ("offset" = Option<usize>, Query, description = "Result offset"),
         ("sort" = Option<String>, Query, description = "Sort field:order"),
@@ -217,10 +243,31 @@ pub async fn search_get(
         .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
 
     // Build query from parameters
-    let query = if let Some(ref q) = params.q {
+    let base_query = if let Some(ref q) = params.q {
         lexum_core::Query::Match(lexum_core::MatchQuery::new("_all", q.clone()))
     } else {
         lexum_core::Query::MatchAll
+    };
+
+    // Parse filters
+    let filters = params
+        .filter
+        .and_then(|f| serde_json::from_str::<Vec<Query>>(&f).ok());
+
+    // Apply filters if provided
+    let query = if let Some(ref filters) = filters {
+        if !filters.is_empty() {
+            let mut bool_query = lexum_core::BoolQuery::new();
+            bool_query = bool_query.must(base_query);
+            for filter in filters {
+                bool_query = bool_query.filter(filter.clone());
+            }
+            lexum_core::Query::Bool(bool_query)
+        } else {
+            base_query
+        }
+    } else {
+        base_query
     };
 
     // Parse sort option
@@ -255,7 +302,8 @@ pub async fn search_get(
     };
 
     let request = SearchRequest {
-        query,
+        query: query.clone(),
+        filter: filters,
         limit: params.limit.unwrap_or(10),
         offset: params.offset.unwrap_or(0),
         sort,
@@ -276,7 +324,7 @@ pub async fn search_get(
 
         let executor = SearchExecutor::new(Arc::new(index));
         let mut result = executor
-            .search(request.query, request.limit, request.offset, request.sort)
+            .search(query.clone(), request.limit, request.offset, request.sort)
             .await?;
 
         // Apply minimum score filtering
@@ -354,6 +402,8 @@ pub async fn search_get(
 pub struct SearchParams {
     /// Query string
     pub q: Option<String>,
+    /// Filter queries (JSON array of queries, must match but don't affect score)
+    pub filter: Option<String>,
     /// Number of results
     pub limit: Option<usize>,
     /// Result offset
@@ -388,6 +438,7 @@ mod tests {
         ));
         let request = SearchRequest {
             query: query.clone(),
+            filter: None,
             limit: 20,
             offset: 5,
             sort: Some(SortOption::new("title", SortOrder::Asc)),
@@ -415,6 +466,7 @@ mod tests {
         ));
         let request = SearchRequest {
             query,
+            filter: None,
             limit: 10,  // default
             offset: 0,  // default
             sort: None, // default
@@ -441,6 +493,7 @@ mod tests {
         ));
         let request = SearchRequest {
             query,
+            filter: None,
             limit: 50,
             offset: 100,
             sort: None,
@@ -453,5 +506,102 @@ mod tests {
 
         assert_eq!(request.limit, 50);
         assert_eq!(request.offset, 100);
+    }
+
+    #[test]
+    fn test_search_request_with_filters() {
+        use lexum_core::{TermQuery, RangeQuery};
+
+        let query = Query::Match(MatchQuery::new(
+            "title".to_string(),
+            "test query".to_string(),
+        ));
+        
+        let filters = vec![
+            Query::Term(TermQuery::new("status", "active")),
+            Query::Range(RangeQuery::new("age").gte(serde_json::json!(18))),
+        ];
+
+        let request = SearchRequest {
+            query,
+            filter: Some(filters.clone()),
+            limit: 10,
+            offset: 0,
+            sort: None,
+            fields: None,
+            highlight: None,
+            explain: false,
+            min_score: None,
+            q: None,
+        };
+
+        assert!(request.filter.is_some());
+        assert_eq!(request.filter.as_ref().unwrap().len(), 2);
+        
+        // Test serialization
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.filter.is_some());
+        assert_eq!(deserialized.filter.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_search_request_filter_serialization() {
+        use lexum_core::TermQuery;
+
+        let query = Query::Match(MatchQuery::new(
+            "content".to_string(),
+            "search".to_string(),
+        ));
+        
+        let filter = vec![Query::Term(TermQuery::new("category", "tech"))];
+        
+        let request = SearchRequest {
+            query: query.clone(),
+            filter: Some(filter),
+            limit: 20,
+            offset: 0,
+            sort: None,
+            fields: None,
+            highlight: None,
+            explain: false,
+            min_score: None,
+            q: None,
+        };
+
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("filter"));
+        assert!(json.contains("category"));
+        
+        let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.filter.is_some());
+    }
+
+    #[test]
+    fn test_search_request_without_filters() {
+        let query = Query::Match(MatchQuery::new(
+            "title".to_string(),
+            "test".to_string(),
+        ));
+
+        let request = SearchRequest {
+            query,
+            filter: None,
+            limit: 10,
+            offset: 0,
+            sort: None,
+            fields: None,
+            highlight: None,
+            explain: false,
+            min_score: None,
+            q: None,
+        };
+
+        assert!(request.filter.is_none());
+        
+        // Test serialization without filters
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.filter.is_none());
     }
 }

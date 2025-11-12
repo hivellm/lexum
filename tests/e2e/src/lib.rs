@@ -560,6 +560,34 @@ impl E2ETestRunner {
         Ok(())
     }
 
+    /// Test search with filters
+    async fn search_with_filters(&self, index_name: &str) -> Result<()> {
+        use lexum_core::{BoolQuery, Query, TermQuery};
+
+        // Create a bool query with match query and term filter
+        let match_query = QueryBuilder::match_query("title", "Test Document");
+        let filter_query = Query::Term(TermQuery::new("user_id", "0"));
+        
+        let mut bool_query = BoolQuery::new();
+        bool_query = bool_query.must(match_query);
+        bool_query = bool_query.filter(filter_query);
+        
+        let query = Query::Bool(bool_query);
+        let index = self.app_state.index_manager.get_index(index_name)?;
+        let search_executor = SearchExecutor::new(Arc::new(index));
+
+        let results = search_executor.search(query, 10, 0, None).await?;
+
+        // Verify that filters are applied (results should match filter)
+        for hit in &results.hits {
+            if let Some(user_id) = hit.source.get("user_id") {
+                assert_eq!(user_id.as_i64(), Some(0), "Filter not applied correctly");
+            }
+        }
+        
+        Ok(())
+    }
+
     async fn update_test_documents(&self, index_name: &str) -> Result<()> {
         // Update first document
         let doc = json!({
@@ -745,5 +773,24 @@ mod tests {
             "Success rate too low: {}",
             results.success_rate
         );
+    }
+
+    #[tokio::test]
+    #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
+    async fn test_search_with_filters() {
+        let config = E2EConfig::default();
+        let runner = E2ETestRunner::new(config).unwrap();
+
+        // Create index and add documents
+        let index_name = "filter_test_index";
+        runner.create_test_index(index_name).await.unwrap();
+        runner.add_test_documents(index_name, 10).await.unwrap();
+
+        // Test search with filters
+        let result = runner.search_with_filters(index_name).await;
+        assert!(result.is_ok(), "Search with filters failed: {:?}", result.err());
+
+        // Cleanup
+        runner.delete_test_index(index_name).await.unwrap();
     }
 }

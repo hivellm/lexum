@@ -208,7 +208,7 @@ pub fn check_rollover_conditions(
 }
 
 /// Parse duration string (e.g., "7d", "30d", "1h")
-fn parse_duration(duration: &str) -> Option<u64> {
+pub(crate) fn parse_duration(duration: &str) -> Option<u64> {
     if duration.is_empty() {
         return None;
     }
@@ -240,7 +240,7 @@ fn parse_duration(duration: &str) -> Option<u64> {
 }
 
 /// Parse size string (e.g., "5gb", "1tb", "500mb")
-fn parse_size(size: &str) -> Option<u64> {
+pub(crate) fn parse_size(size: &str) -> Option<u64> {
     if size.is_empty() {
         return None;
     }
@@ -317,13 +317,144 @@ async fn perform_rollover(
         .await
         .map_err(|e| ApiError::InvalidRequest(e.to_string()))?;
 
-    // In a real implementation, we would:
-    // 1. Copy all documents from old index to new index
-    // 2. Update any aliases pointing to the old index
-    // 3. Optionally close or delete the old index
-    // 4. Update any templates or configurations
+    // Copy all documents from old index to new index
+    copy_documents(state, old_index, new_index).await?;
+
+    // Update any aliases pointing to the old index to point to the new index
+    update_aliases_for_rollover(state, old_index, new_index).await?;
 
     tracing::info!("Rollover completed: '{}' -> '{}'", old_index, new_index);
+    Ok(())
+}
+
+/// Copy all documents from source index to destination index
+async fn copy_documents(
+    state: &AppState,
+    source_index: &str,
+    dest_index: &str,
+) -> Result<(), ApiError> {
+    use lexum_core::document::store::DocumentStore;
+    use lexum_core::query::Query;
+    use lexum_core::search::executor::SearchExecutor;
+    use std::sync::Arc;
+
+    tracing::info!(
+        "Copying documents from '{}' to '{}'",
+        source_index,
+        dest_index
+    );
+
+    let source_index_arc = Arc::new(
+        state
+            .index_manager
+            .get_index(source_index)
+            .map_err(|_| ApiError::IndexNotFound(source_index.to_string()))?,
+    );
+    let dest_index_arc = Arc::new(
+        state
+            .index_manager
+            .get_index(dest_index)
+            .map_err(|_| ApiError::IndexNotFound(dest_index.to_string()))?,
+    );
+
+    let search_executor = SearchExecutor::new(source_index_arc.clone());
+    let dest_store = DocumentStore::new(dest_index_arc);
+
+    // Copy documents in batches
+    let batch_size = 100;
+    let mut offset = 0;
+    let mut total_copied = 0;
+
+    loop {
+        // Search for documents in current batch
+        let search_result = search_executor
+            .search(Query::MatchAll, batch_size, offset, None)
+            .await
+            .map_err(|e| ApiError::InvalidRequest(format!("Search failed: {e}")))?;
+
+        if search_result.hits.is_empty() {
+            break;
+        }
+
+        // Copy each document
+        for hit in &search_result.hits {
+            let doc_id = hit.id.clone();
+            let document = hit.source.clone();
+
+            dest_store
+                .add_document_with_id(doc_id, document)
+                .await
+                .map_err(|e| ApiError::InvalidRequest(format!("Failed to copy document: {e}")))?;
+
+            total_copied += 1;
+        }
+
+        offset += batch_size;
+
+        // Log progress every 1000 documents
+        if total_copied % 1000 == 0 {
+            tracing::info!("Copied {} documents so far...", total_copied);
+        }
+    }
+
+    tracing::info!(
+        "Copied {} documents from '{}' to '{}'",
+        total_copied,
+        source_index,
+        dest_index
+    );
+    Ok(())
+}
+
+/// Update aliases pointing to old index to point to new index
+async fn update_aliases_for_rollover(
+    state: &AppState,
+    old_index: &str,
+    new_index: &str,
+) -> Result<(), ApiError> {
+    use lexum_core::index::alias::AliasOperationsRequest;
+
+    tracing::info!("Updating aliases from '{}' to '{}'", old_index, new_index);
+
+    // Get all aliases for the old index
+    let aliases = state.index_manager.get_aliases_for_index(old_index);
+
+    if aliases.is_empty() {
+        tracing::info!("No aliases found for index '{}'", old_index);
+        return Ok(());
+    }
+
+    // Update each alias to point to the new index
+    for alias in aliases {
+        let alias_name = alias.name.as_str().to_string();
+        let old_index_name = lexum_core::types::IndexName::new(old_index);
+        let new_index_name = lexum_core::types::IndexName::new(new_index);
+
+        // Remove old index from alias and add new index
+        let operations = AliasOperationsRequest {
+            actions: vec![
+                lexum_core::index::alias::AliasAction::Remove {
+                    alias: lexum_core::index::alias::AliasName::new(&alias_name),
+                    indices: vec![old_index_name.clone()],
+                },
+                lexum_core::index::alias::AliasAction::Add {
+                    alias: lexum_core::index::alias::AliasName::new(&alias_name),
+                    indices: vec![new_index_name],
+                    config: Some(alias.config),
+                },
+            ],
+        };
+
+        state
+            .index_manager
+            .execute_alias_operations(operations)
+            .map_err(|e| {
+                ApiError::InvalidRequest(format!("Failed to update alias '{}': {e}", alias_name))
+            })?;
+
+        tracing::info!("Updated alias '{}' to point to '{}'", alias_name, new_index);
+    }
+
     Ok(())
 }
 

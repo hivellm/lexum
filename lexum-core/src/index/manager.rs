@@ -145,13 +145,11 @@ impl IndexManager {
                 TantivyIndex::create_in_dir(&index_path, schema).or_else(|e| {
                     // If it fails, try to create the directory again and retry
                     let _ = std::fs::create_dir_all(&index_path);
-                    TantivyIndex::create_in_dir(&index_path, schema_clone.clone()).map_err(
-                        |e2| {
-                            eprintln!("First attempt failed: {e}");
-                            eprintln!("Second attempt failed: {e2}");
-                            e2
-                        },
-                    )
+                    TantivyIndex::create_in_dir(&index_path, schema_clone.clone()).map_err(|e2| {
+                        eprintln!("First attempt failed: {e}");
+                        eprintln!("Second attempt failed: {e2}");
+                        e2
+                    })
                 })
             }
         })
