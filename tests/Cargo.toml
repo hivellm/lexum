@@ -4,6 +4,11 @@ version = "0.1.0-alpha"
 edition = "2024"
 rust-version = "1.85"
 
+[features]
+default = []
+# Enable tests that require a running server (start-to-start)
+s2s = []
+
 [lib]
 name = "integration_test"
 path = "integration_test.rs"

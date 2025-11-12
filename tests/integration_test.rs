@@ -186,7 +186,9 @@ async fn test_concurrent_operations() -> Result<()> {
 }
 
 /// E2E Test: Complete document lifecycle
+/// Requires a running server - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_e2e_document_lifecycle() {
     use reqwest::Client;
     use serde_json::json;
