@@ -316,7 +316,7 @@ impl ScriptParser {
         let path = self.parse_field_path()?;
         self.skip_whitespace();
 
-        // Skip optional '.' before remove() or add()
+        // Skip '.' before remove() or add() (parse_field_path stops before it)
         if self.peek() == '.' {
             self.advance();
             self.skip_whitespace();
@@ -428,8 +428,21 @@ impl ScriptParser {
 
         while self.position < self.source.len() {
             let ch = self.peek();
-            if ch.is_alphanumeric() || ch == '_' || ch == '.' {
+            if ch.is_alphanumeric() || ch == '_' {
                 path.push(self.advance());
+            } else if ch == '.' {
+                // Check if this '.' is followed by remove() or add()
+                let saved_pos = self.position;
+                self.advance(); // Skip '.'
+                self.skip_whitespace();
+                if self.starts_with("remove()") || self.starts_with("add(") {
+                    // This '.' is part of the method call, not the path
+                    self.position = saved_pos; // Restore position before '.'
+                    break;
+                } else {
+                    // This '.' is part of the path (nested field)
+                    path.push('.');
+                }
             } else {
                 break;
             }
