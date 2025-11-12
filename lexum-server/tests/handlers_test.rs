@@ -471,11 +471,11 @@ fn test_rollover_index_name_generation() {
 
     // Test with existing number suffix
     let result = generate_rollover_index_name("logs-2023-01-01");
-    assert_eq!(result, "logs-2023-01-2");
+    assert_eq!(result, "logs-2023-01-000002");
 
     // Test with different number
     let result = generate_rollover_index_name("logs-000001");
-    assert_eq!(result, "logs-2");
+    assert_eq!(result, "logs-000002");
 
     // Test without number suffix
     let result = generate_rollover_index_name("logs");
