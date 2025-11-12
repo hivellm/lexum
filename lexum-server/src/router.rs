@@ -7,6 +7,7 @@ use crate::handlers::{
 };
 use axum::Router;
 use axum::routing::{delete, get, post, put};
+use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
@@ -157,6 +158,18 @@ pub fn build_router(state: AppState) -> Router {
         // .merge(create_swagger_ui())
         // Middleware (rate limiting implemented, ready for full Tower integration)
         .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http()
+                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
+                    tracing::debug!("Request: {} {}", request.method(), request.uri());
+                })
+                .on_failure(
+                    |error: ServerErrorsFailureClass,
+                     _latency: std::time::Duration,
+                     _span: &tracing::Span| {
+                        tracing::error!("Request failed: {:?}", error);
+                    },
+                ),
+        )
         .with_state(state)
 }
