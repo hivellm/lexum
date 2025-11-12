@@ -769,4 +769,327 @@ mod tests {
         assert_eq!(script_query.source, "doc['field'].value > 10");
         assert!(script_query.params.is_empty());
     }
+
+    #[test]
+    fn test_range_query_bounds() {
+        let query = RangeQuery::new("age")
+            .gte(serde_json::json!(18))
+            .lt(serde_json::json!(65));
+
+        assert_eq!(query.field, "age");
+        assert!(query.gte.is_some());
+        assert!(query.lt.is_some());
+        assert!(query.lte.is_none());
+        assert!(query.gt.is_none());
+    }
+
+    #[test]
+    fn test_range_query_all_bounds() {
+        let query = RangeQuery::new("price")
+            .gt(serde_json::json!(10))
+            .lt(serde_json::json!(100))
+            .gte(serde_json::json!(20))
+            .lte(serde_json::json!(80));
+
+        assert_eq!(query.field, "price");
+        assert!(query.gt.is_some());
+        assert!(query.lt.is_some());
+        assert!(query.gte.is_some());
+        assert!(query.lte.is_some());
+    }
+
+    #[test]
+    fn test_bool_query_all_clauses() {
+        let bool_query = BoolQuery::new()
+            .must(Query::Term(TermQuery::new("status", "active")))
+            .should(Query::Match(MatchQuery::new("title", "test")))
+            .must_not(Query::Term(TermQuery::new("deleted", "true")))
+            .filter(Query::Range(
+                RangeQuery::new("age").gte(serde_json::json!(18)),
+            ));
+
+        assert_eq!(bool_query.must.len(), 1);
+        assert_eq!(bool_query.should.len(), 1);
+        assert_eq!(bool_query.must_not.len(), 1);
+        assert_eq!(bool_query.filter.len(), 1);
+    }
+
+    #[test]
+    fn test_bool_query_multiple_clauses() {
+        let bool_query = BoolQuery::new()
+            .must(Query::Term(TermQuery::new("status", "active")))
+            .must(Query::Match(MatchQuery::new("title", "test")));
+
+        assert_eq!(bool_query.must.len(), 2);
+    }
+
+    #[test]
+    fn test_fuzzy_query_transpositions() {
+        let query = FuzzyQuery::new("name", "test").transpositions(false);
+        assert!(!query.transpositions);
+    }
+
+    #[test]
+    fn test_fuzzy_query_prefix_length() {
+        let query = FuzzyQuery::new("name", "test").prefix_length(5);
+        assert_eq!(query.prefix_length, 5);
+    }
+
+    #[test]
+    fn test_phrase_query_default_slop() {
+        let query = PhraseQuery::new("content", "quick brown fox");
+        assert_eq!(query.slop, 0);
+    }
+
+    #[test]
+    fn test_regex_query_case_insensitive() {
+        let query = RegexQuery::new("content", "[A-Z]+").case_sensitive(false);
+        assert!(!query.case_sensitive);
+    }
+
+    #[test]
+    fn test_more_like_this_query_with_options() {
+        let mut query = MoreLikeThisQuery::new(vec!["title".to_string()], "sample");
+        query.min_term_freq = 2;
+        query.max_query_terms = 50;
+        query.min_doc_freq = 1;
+
+        assert_eq!(query.min_term_freq, 2);
+        assert_eq!(query.max_query_terms, 50);
+        assert_eq!(query.min_doc_freq, 1);
+    }
+
+    #[test]
+    fn test_nested_query_score_modes() {
+        let inner_query = Query::Term(TermQuery::new("nested.field", "value"));
+
+        let mut avg_query = NestedQuery::new("nested", inner_query.clone());
+        avg_query.score_mode = NestedScoreMode::Avg;
+        assert!(matches!(avg_query.score_mode, NestedScoreMode::Avg));
+
+        let mut max_query = NestedQuery::new("nested", inner_query.clone());
+        max_query.score_mode = NestedScoreMode::Max;
+        assert!(matches!(max_query.score_mode, NestedScoreMode::Max));
+
+        let mut sum_query = NestedQuery::new("nested", inner_query.clone());
+        sum_query.score_mode = NestedScoreMode::Sum;
+        assert!(matches!(sum_query.score_mode, NestedScoreMode::Sum));
+
+        let mut none_query = NestedQuery::new("nested", inner_query);
+        none_query.score_mode = NestedScoreMode::None;
+        assert!(matches!(none_query.score_mode, NestedScoreMode::None));
+    }
+
+    #[test]
+    fn test_function_score_query_modes() {
+        let base_query = Query::Match(MatchQuery::new("title", "test"));
+
+        let mut multiply_query = FunctionScoreQuery::new(base_query.clone());
+        multiply_query.score_mode = FunctionScoreMode::Multiply;
+        assert!(matches!(
+            multiply_query.score_mode,
+            FunctionScoreMode::Multiply
+        ));
+
+        let mut sum_query = FunctionScoreQuery::new(base_query.clone());
+        sum_query.score_mode = FunctionScoreMode::Sum;
+        assert!(matches!(sum_query.score_mode, FunctionScoreMode::Sum));
+
+        let mut avg_query = FunctionScoreQuery::new(base_query.clone());
+        avg_query.score_mode = FunctionScoreMode::Avg;
+        assert!(matches!(avg_query.score_mode, FunctionScoreMode::Avg));
+
+        let mut max_query = FunctionScoreQuery::new(base_query.clone());
+        max_query.score_mode = FunctionScoreMode::Max;
+        assert!(matches!(max_query.score_mode, FunctionScoreMode::Max));
+
+        let mut min_query = FunctionScoreQuery::new(base_query);
+        min_query.score_mode = FunctionScoreMode::Min;
+        assert!(matches!(min_query.score_mode, FunctionScoreMode::Min));
+    }
+
+    #[test]
+    fn test_function_score_query_boost_modes() {
+        let base_query = Query::Match(MatchQuery::new("title", "test"));
+
+        let mut multiply_boost = FunctionScoreQuery::new(base_query.clone());
+        multiply_boost.boost_mode = FunctionBoostMode::Multiply;
+        assert!(matches!(
+            multiply_boost.boost_mode,
+            FunctionBoostMode::Multiply
+        ));
+
+        let mut replace_boost = FunctionScoreQuery::new(base_query.clone());
+        replace_boost.boost_mode = FunctionBoostMode::Replace;
+        assert!(matches!(
+            replace_boost.boost_mode,
+            FunctionBoostMode::Replace
+        ));
+
+        let mut sum_boost = FunctionScoreQuery::new(base_query.clone());
+        sum_boost.boost_mode = FunctionBoostMode::Sum;
+        assert!(matches!(sum_boost.boost_mode, FunctionBoostMode::Sum));
+
+        let mut avg_boost = FunctionScoreQuery::new(base_query.clone());
+        avg_boost.boost_mode = FunctionBoostMode::Avg;
+        assert!(matches!(avg_boost.boost_mode, FunctionBoostMode::Avg));
+
+        let mut max_boost = FunctionScoreQuery::new(base_query.clone());
+        max_boost.boost_mode = FunctionBoostMode::Max;
+        assert!(matches!(max_boost.boost_mode, FunctionBoostMode::Max));
+
+        let mut min_boost = FunctionScoreQuery::new(base_query);
+        min_boost.boost_mode = FunctionBoostMode::Min;
+        assert!(matches!(min_boost.boost_mode, FunctionBoostMode::Min));
+    }
+
+    #[test]
+    fn test_function_score_query_with_limits() {
+        let base_query = Query::Match(MatchQuery::new("title", "test"));
+        let mut query = FunctionScoreQuery::new(base_query);
+        query.max_boost = 2.0;
+        query.min_score = Some(0.5);
+
+        assert_eq!(query.max_boost, 2.0);
+        assert_eq!(query.min_score, Some(0.5));
+    }
+
+    #[test]
+    fn test_script_query_with_params() {
+        let mut script_query = ScriptQuery::new("doc['field'].value > param");
+        script_query
+            .params
+            .insert("param".to_string(), serde_json::json!(10));
+
+        assert_eq!(script_query.source, "doc['field'].value > param");
+        assert_eq!(script_query.params.len(), 1);
+        assert_eq!(
+            script_query.params.get("param"),
+            Some(&serde_json::json!(10))
+        );
+    }
+
+    #[test]
+    fn test_query_serialization() {
+        let query = Query::Match(MatchQuery::new("title", "test"));
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("Match"));
+        assert!(json.contains("title"));
+        assert!(json.contains("test"));
+
+        let deserialized: Query = serde_json::from_str(&json).unwrap();
+        assert!(matches!(deserialized, Query::Match(_)));
+    }
+
+    #[test]
+    fn test_match_query_serialization() {
+        let query = MatchQuery::new("title", "test");
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("title"));
+        assert!(json.contains("test"));
+
+        let deserialized: MatchQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "title");
+        assert_eq!(deserialized.query, "test");
+    }
+
+    #[test]
+    fn test_term_query_serialization() {
+        let query = TermQuery::new("status", "active");
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("status"));
+        assert!(json.contains("active"));
+
+        let deserialized: TermQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "status");
+        assert_eq!(deserialized.value, "active");
+    }
+
+    #[test]
+    fn test_range_query_serialization() {
+        let query = RangeQuery::new("age")
+            .gte(serde_json::json!(18))
+            .lte(serde_json::json!(65));
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("age"));
+        assert!(json.contains("gte"));
+        assert!(json.contains("lte"));
+
+        let deserialized: RangeQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "age");
+        assert!(deserialized.gte.is_some());
+        assert!(deserialized.lte.is_some());
+    }
+
+    #[test]
+    fn test_bool_query_serialization() {
+        let bool_query = BoolQuery::new().must(Query::Term(TermQuery::new("status", "active")));
+
+        let json = serde_json::to_string(&bool_query).unwrap();
+        assert!(json.contains("must"));
+
+        let deserialized: BoolQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.must.len(), 1);
+    }
+
+    #[test]
+    fn test_fuzzy_query_serialization() {
+        let query = FuzzyQuery::new("name", "test")
+            .fuzziness(1)
+            .prefix_length(2)
+            .transpositions(false);
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("name"));
+        assert!(json.contains("test"));
+
+        let deserialized: FuzzyQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "name");
+        assert_eq!(deserialized.value, "test");
+        assert_eq!(deserialized.fuzziness, 1);
+        assert_eq!(deserialized.prefix_length, 2);
+        assert!(!deserialized.transpositions);
+    }
+
+    #[test]
+    fn test_phrase_query_serialization() {
+        let query = PhraseQuery::new("content", "quick brown fox").slop(2);
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("content"));
+        assert!(json.contains("quick brown fox"));
+
+        let deserialized: PhraseQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "content");
+        assert_eq!(deserialized.phrase, "quick brown fox");
+        assert_eq!(deserialized.slop, 2);
+    }
+
+    #[test]
+    fn test_wildcard_query_serialization() {
+        let query = WildcardQuery::new("name", "test*");
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("name"));
+        assert!(json.contains("test*"));
+
+        let deserialized: WildcardQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "name");
+        assert_eq!(deserialized.pattern, "test*");
+    }
+
+    #[test]
+    fn test_regex_query_serialization() {
+        let query = RegexQuery::new("content", "[A-Z]+").case_sensitive(true);
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("content"));
+        assert!(json.contains("[A-Z]+"));
+
+        let deserialized: RegexQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "content");
+        assert_eq!(deserialized.pattern, "[A-Z]+");
+        assert!(deserialized.case_sensitive);
+    }
 }

@@ -247,4 +247,87 @@ mod tests {
         assert!(cache_key.contains("multi:"));
         assert!(cache_key.contains("index1,index2"));
     }
+
+    #[tokio::test]
+    async fn test_cache_key_generation_without_sort() {
+        let indices = vec![IndexName::new("index1")];
+        let query = Query::Match(MatchQuery::new("field", "value"));
+
+        let cache_key =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query, 10, 0, &None);
+        assert!(!cache_key.is_empty());
+        assert!(cache_key.contains("multi:"));
+        assert!(cache_key.contains("index1"));
+    }
+
+    #[tokio::test]
+    async fn test_cache_key_generation_with_offset() {
+        let indices = vec![IndexName::new("index1")];
+        let query = Query::Match(MatchQuery::new("field", "value"));
+
+        let cache_key_1 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query, 10, 0, &None);
+        let cache_key_2 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query, 10, 5, &None);
+
+        assert_ne!(cache_key_1, cache_key_2);
+    }
+
+    #[tokio::test]
+    async fn test_cache_key_generation_different_queries() {
+        let indices = vec![IndexName::new("index1")];
+        let query1 = Query::Match(MatchQuery::new("field1", "value1"));
+        let query2 = Query::Match(MatchQuery::new("field2", "value2"));
+
+        let cache_key_1 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query1, 10, 0, &None);
+        let cache_key_2 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query2, 10, 0, &None);
+
+        assert_ne!(cache_key_1, cache_key_2);
+    }
+
+    #[tokio::test]
+    async fn test_extract_field_value() {
+        let source = serde_json::json!({
+            "title": "Test Document",
+            "views": 100,
+            "published": true
+        });
+
+        let title_value = MultiIndexSearchExecutor::extract_field_value(&source, "title");
+        assert_eq!(title_value, Some("Test Document".to_string()));
+
+        let views_value = MultiIndexSearchExecutor::extract_field_value(&source, "views");
+        assert_eq!(views_value, Some("100".to_string()));
+
+        let missing_value = MultiIndexSearchExecutor::extract_field_value(&source, "missing");
+        assert_eq!(missing_value, None);
+    }
+
+    #[tokio::test]
+    async fn test_extract_field_value_non_object() {
+        let source = serde_json::json!("not an object");
+        let value = MultiIndexSearchExecutor::extract_field_value(&source, "field");
+        assert_eq!(value, None);
+    }
+
+    #[tokio::test]
+    async fn test_clear_cache() {
+        let index_manager = Arc::new(IndexManager::new("./test_data"));
+        let executor = MultiIndexSearchExecutor::new(index_manager);
+
+        // Cache should be empty initially
+        assert_eq!(executor.cache.len(), 0);
+
+        // Clear cache (should not panic)
+        executor.clear_cache();
+        assert_eq!(executor.cache.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_default_implementation() {
+        let executor = MultiIndexSearchExecutor::default();
+        assert!(executor.cache_enabled);
+    }
 }

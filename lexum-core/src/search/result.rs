@@ -122,4 +122,141 @@ mod tests {
         let empty = SearchResult::empty();
         assert_eq!(empty.total, 0);
     }
+
+    #[test]
+    fn test_search_result_with_hits() {
+        let hits = vec![
+            SearchHit {
+                id: DocumentId::new("doc1"),
+                score: Score::new(0.95_f32),
+                source: serde_json::json!({"title": "Test 1"}),
+            },
+            SearchHit {
+                id: DocumentId::new("doc2"),
+                score: Score::new(0.85_f32),
+                source: serde_json::json!({"title": "Test 2"}),
+            },
+        ];
+
+        let result = SearchResult::new(hits.clone(), 2, 15);
+        assert_eq!(result.hits.len(), 2);
+        assert_eq!(result.total, 2);
+        assert_eq!(result.took_ms, 15);
+        assert_eq!(result.hits[0].id.as_str(), "doc1");
+        assert_eq!(result.hits[1].id.as_str(), "doc2");
+    }
+
+    #[test]
+    fn test_sort_order() {
+        assert_eq!(SortOrder::Asc, SortOrder::Asc);
+        assert_eq!(SortOrder::Desc, SortOrder::Desc);
+        assert_ne!(SortOrder::Asc, SortOrder::Desc);
+    }
+
+    #[test]
+    fn test_sort_order_display() {
+        assert_eq!(format!("{}", SortOrder::Asc), "asc");
+        assert_eq!(format!("{}", SortOrder::Desc), "desc");
+    }
+
+    #[test]
+    fn test_sort_order_default() {
+        let default: SortOrder = Default::default();
+        assert_eq!(default, SortOrder::Desc);
+    }
+
+    #[test]
+    fn test_sort_order_serialization() {
+        let asc_json = serde_json::to_string(&SortOrder::Asc).unwrap();
+        assert_eq!(asc_json, "\"asc\"");
+
+        let desc_json = serde_json::to_string(&SortOrder::Desc).unwrap();
+        assert_eq!(desc_json, "\"desc\"");
+
+        let deserialized_asc: SortOrder = serde_json::from_str(&asc_json).unwrap();
+        assert_eq!(deserialized_asc, SortOrder::Asc);
+
+        let deserialized_desc: SortOrder = serde_json::from_str(&desc_json).unwrap();
+        assert_eq!(deserialized_desc, SortOrder::Desc);
+    }
+
+    #[test]
+    fn test_sort_option_new() {
+        let option = SortOption::new("title", SortOrder::Asc);
+        assert_eq!(option.field, "title");
+        assert_eq!(option.order, SortOrder::Asc);
+    }
+
+    #[test]
+    fn test_sort_option_asc() {
+        let option = SortOption::asc("title");
+        assert_eq!(option.field, "title");
+        assert_eq!(option.order, SortOrder::Asc);
+    }
+
+    #[test]
+    fn test_sort_option_desc() {
+        let option = SortOption::desc("title");
+        assert_eq!(option.field, "title");
+        assert_eq!(option.order, SortOrder::Desc);
+    }
+
+    #[test]
+    fn test_sort_option_default_order() {
+        let option = SortOption {
+            field: "title".to_string(),
+            order: Default::default(),
+        };
+        assert_eq!(option.order, SortOrder::Desc);
+    }
+
+    #[test]
+    fn test_sort_option_serialization() {
+        let option = SortOption::new("title", SortOrder::Asc);
+        let json = serde_json::to_string(&option).unwrap();
+        assert!(json.contains("title"));
+        assert!(json.contains("asc"));
+
+        let deserialized: SortOption = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "title");
+        assert_eq!(deserialized.order, SortOrder::Asc);
+    }
+
+    #[test]
+    fn test_search_hit_serialization() {
+        let hit = SearchHit {
+            id: DocumentId::new("doc1"),
+            score: Score::new(0.95_f32),
+            source: serde_json::json!({"title": "Test"}),
+        };
+
+        let json = serde_json::to_string(&hit).unwrap();
+        assert!(json.contains("doc1"));
+        assert!(json.contains("0.95"));
+        assert!(json.contains("title"));
+
+        let deserialized: SearchHit = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id.as_str(), "doc1");
+        assert_eq!(deserialized.score.value(), 0.95_f32);
+    }
+
+    #[test]
+    fn test_search_result_serialization() {
+        let hits = vec![SearchHit {
+            id: DocumentId::new("doc1"),
+            score: Score::new(0.95_f32),
+            source: serde_json::json!({"title": "Test"}),
+        }];
+
+        let result = SearchResult::new(hits, 1, 10);
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("hits"));
+        assert!(json.contains("total"));
+        assert!(json.contains("took_ms"));
+
+        let deserialized: SearchResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.total, 1);
+        assert_eq!(deserialized.took_ms, 10);
+        assert_eq!(deserialized.hits.len(), 1);
+    }
 }
