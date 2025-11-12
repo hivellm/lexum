@@ -313,16 +313,14 @@ impl ProgressDocumentStore {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::progress::ProgressTracker;
-    use serde_json::json;
     use std::sync::Arc;
 
     #[tokio::test]
     async fn test_bulk_operations_with_progress() {
         // This is a simplified test - in a real implementation,
         // you would need to set up a proper index
-        let progress_tracker = Arc::new(ProgressTracker::new());
+        let _progress_tracker = Arc::new(ProgressTracker::new());
 
         // Create a mock index (this would need proper setup in real tests)
         // let index = Arc::new(create_test_index().await);

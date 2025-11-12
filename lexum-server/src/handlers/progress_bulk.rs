@@ -203,7 +203,7 @@ pub async fn bulk_operations_with_progress(
         errors: has_errors,
         took_ms,
         items: all_results,
-        progress_id: progress_id.map(|id| id.to_string()),
+        progress_id: progress_id.clone(),
         progress_stats,
     }))
 }

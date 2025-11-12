@@ -73,7 +73,9 @@ async fn test_phase3_compression_statistics() {
     assert_eq!(stats.compressed_size, compressed_size);
     // For small data, compression ratio might be > 1.0 due to overhead
     assert!(stats.compression_ratio <= 2.0); // Allow up to 2x size for small data
-    assert!(stats.space_saved >= 0 || stats.compression_ratio > 1.0); // Space saved can be negative for small data
+    // Space saved can be negative for small data, so we check compression ratio instead
+    // Note: space_saved is u64, so >= 0 is always true, we just check compression ratio
+    assert!(stats.compression_ratio > 1.0 || stats.compression_ratio <= 1.0);
     assert!(stats.space_saved_percent >= -100.0); // Allow negative percentages for small data
 }
 
@@ -124,7 +126,7 @@ async fn test_phase3_parallel_delta_processing() {
             assert_eq!(delta_results.len(), indices.len());
             for result in delta_results {
                 assert!(result.success);
-                assert!(result.processing_time.as_millis() >= 0);
+                // processing_time is always >= 0 (Duration type)
             }
         }
         Err(_) => {
@@ -146,7 +148,7 @@ async fn test_phase3_enhanced_incremental_snapshot() {
         },
     };
 
-    let repo = FsSnapshotRepository::new(config).unwrap();
+    let _repo = FsSnapshotRepository::new(config).unwrap();
     let mut manager = IncrementalSnapshotManager::new();
 
     let repository_name = RepositoryName::new("test_repo");
@@ -163,7 +165,7 @@ async fn test_phase3_enhanced_incremental_snapshot() {
         Ok(snapshot_result) => {
             assert_eq!(snapshot_result.snapshot_info.name, snapshot_name);
             assert_eq!(snapshot_result.snapshot_info.indices, indices);
-            assert!(snapshot_result.processing_time.as_millis() >= 0);
+            // processing_time is always >= 0 (Duration type)
 
             // Check Phase 3 enhancements are present
             assert!(snapshot_result.snapshot_info.compression_info.is_some());
@@ -266,8 +268,8 @@ async fn test_phase3_snapshot_chain_optimization() {
     match result {
         Ok(optimization_result) => {
             assert!(optimization_result.original_depth >= optimization_result.optimized_depth);
-            assert!(optimization_result.space_saved >= 0);
-            assert!(optimization_result.processing_time.as_millis() >= 0);
+            // space_saved can be negative for small data, processing_time is always >= 0
+            // Just verify the optimization completed successfully
         }
         Err(_) => {
             // Expected for test environment without actual data

@@ -169,10 +169,10 @@ mod integration_tests {
             "discount": 0.1
         });
 
-        let script = r#"
+        let script = r"
             ctx._source.count = ctx._source.count + 5;
             ctx._source.final_price = ctx._source.price * (1 - ctx._source.discount);
-        "#;
+        ";
 
         let mut parser = ScriptParser::new(script.to_string());
         let operations = parser.parse().unwrap();
@@ -245,10 +245,10 @@ mod integration_tests {
         params.insert("new_title".to_string(), json!("Parameterized Title"));
         params.insert("new_status".to_string(), json!("published"));
 
-        let script = r#"
+        let script = r"
             ctx._source.title = params.new_title;
             ctx._source.status = params.new_status;
-        "#;
+        ";
 
         let mut parser = ScriptParser::new(script.to_string());
         let operations = parser.parse().unwrap();
@@ -325,10 +325,10 @@ mod integration_tests {
             "scores": [85, 90, 78]
         });
 
-        let script = r#"
+        let script = r"
             ctx._source.tag_count = ctx._source.tags.length;
             ctx._source.avg_score = (ctx._source.scores[0] + ctx._source.scores[1] + ctx._source.scores[2]) / 3;
-        "#;
+        ";
 
         let mut parser = ScriptParser::new(script.to_string());
         let operations = parser.parse().unwrap();

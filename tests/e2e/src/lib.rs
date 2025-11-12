@@ -561,6 +561,7 @@ impl E2ETestRunner {
     }
 
     /// Test search with filters
+    #[allow(dead_code)]
     async fn search_with_filters(&self, index_name: &str) -> Result<()> {
         use lexum_core::{BoolQuery, Query, TermQuery};
 

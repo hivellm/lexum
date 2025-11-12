@@ -449,7 +449,7 @@ async fn update_aliases_for_rollover(
             .index_manager
             .execute_alias_operations(operations)
             .map_err(|e| {
-                ApiError::InvalidRequest(format!("Failed to update alias '{}': {e}", alias_name))
+                ApiError::InvalidRequest(format!("Failed to update alias '{alias_name}': {e}"))
             })?;
 
         tracing::info!("Updated alias '{}' to point to '{}'", alias_name, new_index);

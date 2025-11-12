@@ -198,6 +198,7 @@ fn test_search_request() {
     use lexum_server::handlers::search::SearchRequest;
 
     let request = SearchRequest {
+        filter: None,
         query: QueryBuilder::match_query("title", "test"),
         limit: 20,
         offset: 10,

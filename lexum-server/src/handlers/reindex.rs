@@ -280,24 +280,24 @@ pub struct TaskStatus {
 /// Execute script transformation on a document
 fn execute_script_transformation(
     script: &ReindexScript,
-    document: &mut serde_json::Value,
+    document: &serde_json::Value,
     doc_id: &str,
 ) -> Result<serde_json::Value, String> {
     // Parse the script
     let mut parser = ScriptParser::new(script.source.clone());
     let operations = parser
         .parse()
-        .map_err(|e| format!("Failed to parse script: {}", e))?;
+        .map_err(|e| format!("Failed to parse script: {e}"))?;
 
     // Create script context
     let params = script
         .params
-        .clone()
-        .map(|p| {
+        .as_ref()
+        .and_then(|p| {
             if let serde_json::Value::Object(map) = p {
-                map.into_iter().collect()
+                Some(map.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
             } else {
-                std::collections::HashMap::new()
+                None
             }
         })
         .unwrap_or_default();
@@ -316,7 +316,7 @@ fn execute_script_transformation(
     let engine = ScriptEngine::new(operations);
     engine
         .execute(&mut context)
-        .map_err(|e| format!("Script execution failed: {}", e))?;
+        .map_err(|e| format!("Script execution failed: {e}"))?;
 
     Ok(context.source)
 }
@@ -423,7 +423,7 @@ async fn perform_reindex(
 
             // Apply script transformation if provided
             if let Some(script) = &request.script {
-                match execute_script_transformation(&script, &mut document, &hit.id.to_string()) {
+                match execute_script_transformation(script, &document, hit.id.as_str()) {
                     Ok(transformed_doc) => {
                         document = transformed_doc;
                         tracing::debug!("Script transformation applied successfully");

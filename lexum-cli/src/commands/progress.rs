@@ -1,7 +1,7 @@
 //! Progress tracking commands
 
 use crate::client::LexumClient;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use colored::Colorize;
 use serde_json::Value;
 use std::time::Duration;
@@ -10,15 +10,25 @@ use tokio::time::sleep;
 /// Progress tracking information
 #[derive(Debug, Clone)]
 pub struct ProgressInfo {
+    /// Progress session ID
     pub id: String,
+    /// Type of operation
     pub operation_type: String,
+    /// Current status
     pub status: String,
+    /// Operation description
     pub description: String,
+    /// Total items to process
     pub total: u64,
+    /// Completed items
     pub completed: u64,
+    /// Failed items
     pub failed: u64,
+    /// Completion percentage
     pub percentage: f64,
+    /// Processing rate (items per second)
     pub rate: f64,
+    /// Estimated remaining time in seconds
     pub estimated_remaining: Option<u64>,
 }
 
@@ -33,13 +43,13 @@ pub async fn list_progress(
     let mut params = Vec::new();
 
     if let Some(op_type) = operation_type {
-        params.push(format!("operation_type={}", op_type));
+        params.push(format!("operation_type={op_type}"));
     }
     if let Some(status) = status {
-        params.push(format!("status={}", status));
+        params.push(format!("status={status}"));
     }
     if let Some(limit) = limit {
-        params.push(format!("limit={}", limit));
+        params.push(format!("limit={limit}"));
     }
 
     if !params.is_empty() {
@@ -82,8 +92,8 @@ pub async fn list_progress(
         println!("Type: {}", op_type.bright_white());
         println!("Status: {}", status.color(status_color));
         println!("Description: {}", description.bright_white());
-        println!("Progress: {}/{} ({:.1}%)", completed, total, percentage);
-        println!("Rate: {:.1} ops/sec", rate);
+        println!("Progress: {completed}/{total} ({percentage:.1}%)");
+        println!("Rate: {rate:.1} ops/sec");
         if failed > 0 {
             println!("Failed: {}", failed.to_string().bright_red());
         }
@@ -95,7 +105,7 @@ pub async fn list_progress(
 
 /// Get detailed progress information for a specific session
 pub async fn get_progress(client: &LexumClient, progress_id: &str) -> Result<()> {
-    let url = format!("/api/v1/progress/{}", progress_id);
+    let url = format!("/api/v1/progress/{progress_id}");
     match client.get::<Value>(&url).await {
         Ok(session) => {
             print_progress_details(&session);
@@ -126,7 +136,7 @@ pub async fn monitor_progress(
     println!();
 
     loop {
-        let url = format!("/api/v1/progress/{}", progress_id);
+        let url = format!("/api/v1/progress/{progress_id}");
         match client.get::<Value>(&url).await {
             Ok(session) => {
                 let status = session["status"].as_str().unwrap_or("Unknown");
@@ -143,7 +153,7 @@ pub async fn monitor_progress(
                 }
             }
             Err(e) => {
-                println!("{}", format!("Error fetching progress: {}", e).bright_red());
+                println!("{}", format!("Error fetching progress: {e}").bright_red());
                 break;
             }
         }
@@ -156,7 +166,7 @@ pub async fn monitor_progress(
 
 /// Cancel a progress operation
 pub async fn cancel_progress(client: &LexumClient, progress_id: &str) -> Result<()> {
-    let url = format!("/api/v1/progress/{}/cancel", progress_id);
+    let url = format!("/api/v1/progress/{progress_id}/cancel");
     match client.post::<Value, Value>(&url, &Value::Null).await {
         Ok(_) => {
             println!("{}", "Operation cancelled successfully".bright_green());
@@ -171,7 +181,7 @@ pub async fn cancel_progress(client: &LexumClient, progress_id: &str) -> Result<
 
 /// Pause a progress operation
 pub async fn pause_progress(client: &LexumClient, progress_id: &str) -> Result<()> {
-    let url = format!("/api/v1/progress/{}/pause", progress_id);
+    let url = format!("/api/v1/progress/{progress_id}/pause");
     match client.post::<Value, Value>(&url, &Value::Null).await {
         Ok(_) => {
             println!("{}", "Operation paused successfully".bright_green());
@@ -186,7 +196,7 @@ pub async fn pause_progress(client: &LexumClient, progress_id: &str) -> Result<(
 
 /// Resume a paused progress operation
 pub async fn resume_progress(client: &LexumClient, progress_id: &str) -> Result<()> {
-    let url = format!("/api/v1/progress/{}/resume", progress_id);
+    let url = format!("/api/v1/progress/{progress_id}/resume");
     match client.post::<Value, Value>(&url, &Value::Null).await {
         Ok(_) => {
             println!("{}", "Operation resumed successfully".bright_green());
@@ -223,11 +233,11 @@ pub async fn get_stats(client: &LexumClient) -> Result<()> {
     );
 
     if let Some(avg_time) = stats["avg_completion_time"].as_f64() {
-        println!("Average Completion Time: {:.2}s", avg_time);
+        println!("Average Completion Time: {avg_time:.2}s");
     }
 
     if let Some(common_op) = stats["most_common_operation"].as_str() {
-        println!("Most Common Operation: {}", common_op);
+        println!("Most Common Operation: {common_op}");
     }
 
     Ok(())
@@ -236,7 +246,7 @@ pub async fn get_stats(client: &LexumClient) -> Result<()> {
 /// Clean up old progress sessions
 pub async fn cleanup_progress(client: &LexumClient, max_age_hours: Option<u64>) -> Result<()> {
     let url = if let Some(age) = max_age_hours {
-        format!("/api/v1/progress/cleanup?max_age_hours={}", age)
+        format!("/api/v1/progress/cleanup?max_age_hours={age}")
     } else {
         "/api/v1/progress/cleanup".to_string()
     };
@@ -246,7 +256,7 @@ pub async fn cleanup_progress(client: &LexumClient, max_age_hours: Option<u64>) 
     let cleaned = result["cleaned_sessions"].as_u64().unwrap_or(0);
     println!(
         "{}",
-        format!("Cleaned up {} old progress sessions", cleaned).bright_green()
+        format!("Cleaned up {cleaned} old progress sessions").bright_green()
     );
 
     Ok(())
@@ -320,7 +330,7 @@ fn print_progress_details(session: &Value) {
         let hours = remaining / 3600;
         let minutes = (remaining % 3600) / 60;
         let seconds = remaining % 60;
-        println!("ETA: {}h {}m {}s", hours, minutes, seconds);
+        println!("ETA: {hours}h {minutes}m {seconds}s");
     }
 
     if let Some(phase) = current_phase {

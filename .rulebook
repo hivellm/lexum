@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "installedAt": "2025-10-25T20:02:08.644Z",
-  "updatedAt": "2025-10-25T20:02:08.644Z",
+  "updatedAt": "2025-11-12T02:04:03.847Z",
   "projectId": "13847e4b-f04e-4c2d-9001-cd7dace5b996",
   "features": {
     "openspec": true,
@@ -29,5 +29,16 @@
     "taskExecution": 300000,
     "cliResponse": 60000,
     "testRun": 120000
-  }
+  },
+  "mode": "full",
+  "languages": [
+    "rust"
+  ],
+  "frameworks": [],
+  "modules": [
+    "openspec",
+    "context7"
+  ],
+  "modular": true,
+  "rulebookDir": "rulebook"
 }

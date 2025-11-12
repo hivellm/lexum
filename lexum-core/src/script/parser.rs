@@ -9,33 +9,58 @@ use serde_json::Value;
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScriptOp {
     /// Set a field value
-    SetField { path: String, value: Value },
+    SetField {
+        /// Field path to set
+        path: String,
+        /// Value to set
+        value: Value,
+    },
     /// Remove a field
-    RemoveField { path: String },
+    RemoveField {
+        /// Field path to remove
+        path: String,
+    },
     /// Add a field with a value
-    AddField { path: String, value: Value },
+    AddField {
+        /// Field path to add
+        path: String,
+        /// Value to add
+        value: Value,
+    },
     /// Conditional operation
     If {
+        /// Condition to evaluate
         condition: Condition,
+        /// Operations to execute if condition is true
         then_ops: Vec<ScriptOp>,
+        /// Operations to execute if condition is false (optional)
         else_ops: Option<Vec<ScriptOp>>,
     },
     /// For each operation
     ForEach {
+        /// Array path to iterate over
         array_path: String,
+        /// Variable name for current element
         var_name: String,
+        /// Operations to execute for each element
         ops: Vec<ScriptOp>,
     },
     /// Mathematical operations
     Math {
+        /// Mathematical operation to perform
         operation: MathOp,
+        /// Target field path
         target: String,
+        /// Value to use in operation
         value: Value,
     },
     /// String operations
     StringOp {
+        /// String operation to perform
         operation: StringOp,
+        /// Target field path
         target: String,
+        /// Optional value for operation
         value: Option<String>,
     },
 }
@@ -44,45 +69,107 @@ pub enum ScriptOp {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Condition {
     /// Field exists
-    FieldExists { path: String },
+    FieldExists {
+        /// Field path to check
+        path: String,
+    },
     /// Field equals value
-    FieldEquals { path: String, value: Value },
+    FieldEquals {
+        /// Field path to check
+        path: String,
+        /// Value to compare
+        value: Value,
+    },
     /// Field contains value
-    FieldContains { path: String, value: Value },
+    FieldContains {
+        /// Field path to check
+        path: String,
+        /// Value to check for
+        value: Value,
+    },
     /// Field matches regex
-    FieldMatches { path: String, pattern: String },
+    FieldMatches {
+        /// Field path to check
+        path: String,
+        /// Regex pattern to match
+        pattern: String,
+    },
     /// Field is greater than value
-    FieldGt { path: String, value: Value },
+    FieldGt {
+        /// Field path to check
+        path: String,
+        /// Value to compare
+        value: Value,
+    },
     /// Field is less than value
-    FieldLt { path: String, value: Value },
+    FieldLt {
+        /// Field path to check
+        path: String,
+        /// Value to compare
+        value: Value,
+    },
     /// Logical AND
-    And { conditions: Vec<Condition> },
+    And {
+        /// Conditions to AND together
+        conditions: Vec<Condition>,
+    },
     /// Logical OR
-    Or { conditions: Vec<Condition> },
+    Or {
+        /// Conditions to OR together
+        conditions: Vec<Condition>,
+    },
     /// Logical NOT
-    Not { condition: Box<Condition> },
+    Not {
+        /// Condition to negate
+        condition: Box<Condition>,
+    },
 }
 
 /// Mathematical operations
 #[derive(Debug, Clone, PartialEq)]
 pub enum MathOp {
+    /// Addition operation
     Add,
+    /// Subtraction operation
     Subtract,
+    /// Multiplication operation
     Multiply,
+    /// Division operation
     Divide,
+    /// Modulo operation
     Modulo,
+    /// Power operation
     Power,
 }
 
 /// String operations
 #[derive(Debug, Clone, PartialEq)]
 pub enum StringOp {
+    /// Convert to lowercase
     ToLowerCase,
+    /// Convert to uppercase
     ToUpperCase,
+    /// Trim whitespace
     Trim,
-    Replace { from: String, to: String },
-    Concat { value: String },
-    Substring { start: usize, end: Option<usize> },
+    /// Replace string
+    Replace {
+        /// String to replace
+        from: String,
+        /// Replacement string
+        to: String,
+    },
+    /// Concatenate string
+    Concat {
+        /// Value to concatenate
+        value: String,
+    },
+    /// Extract substring
+    Substring {
+        /// Start position
+        start: usize,
+        /// End position (optional)
+        end: Option<usize>,
+    },
 }
 
 /// Script parser

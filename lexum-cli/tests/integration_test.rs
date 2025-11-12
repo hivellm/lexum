@@ -3,23 +3,23 @@
 use anyhow::Result;
 use std::io::Write;
 use std::process::{Command, Stdio};
-use std::time::Duration;
 use tempfile::TempDir;
-use tokio::time::{sleep, timeout};
 
 /// Test helper to start a Lexum server in the background
+#[allow(dead_code)]
 struct TestServer {
     _temp_dir: TempDir,
     server_handle: Option<std::process::Child>,
 }
 
 impl TestServer {
+    #[allow(dead_code)]
     async fn new() -> Result<Self> {
         // Skip server startup in tests - too slow and causes timeouts
         // Tests that need server should use mockito or skip server-dependent operations
-        return Err(anyhow::anyhow!(
+        Err(anyhow::anyhow!(
             "TestServer disabled - use mockito for HTTP tests"
-        ));
+        ))
 
         // Old implementation kept for reference:
         /*

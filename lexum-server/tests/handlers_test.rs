@@ -194,6 +194,7 @@ fn test_bulk_response_structure() {
 #[test]
 fn test_search_request_defaults() {
     let request = SearchRequest {
+        filter: None,
         query: QueryBuilder::match_all(),
         limit: 10,
         offset: 0,
@@ -213,6 +214,7 @@ fn test_search_request_defaults() {
 #[test]
 fn test_search_request_with_sort() {
     let request = SearchRequest {
+        filter: None,
         query: QueryBuilder::match_query("title", "test"),
         limit: 20,
         offset: 5,
@@ -236,6 +238,7 @@ fn test_search_request_with_sort() {
 #[test]
 fn test_search_request_with_fuzzy_query() {
     let request = SearchRequest {
+        filter: None,
         query: QueryBuilder::fuzzy_query("name", "jhon"),
         limit: 10,
         offset: 0,
@@ -253,6 +256,7 @@ fn test_search_request_with_fuzzy_query() {
 #[test]
 fn test_search_request_with_phrase_query() {
     let request = SearchRequest {
+        filter: None,
         query: QueryBuilder::phrase_query("content", "quick brown fox"),
         limit: 10,
         offset: 0,
@@ -274,6 +278,7 @@ fn test_search_request_with_bool_query() {
         .should(Query::Term(TermQuery::new("category", "tutorial")));
 
     let request = SearchRequest {
+        filter: None,
         query: Query::Bool(bool_query),
         limit: 50,
         offset: 0,
@@ -318,6 +323,7 @@ fn test_bulk_operation_serialization() {
 #[test]
 fn test_search_request_serialization() {
     let request = SearchRequest {
+        filter: None,
         query: QueryBuilder::match_query("title", "test"),
         limit: 15,
         offset: 5,
