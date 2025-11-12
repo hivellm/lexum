@@ -1,4 +1,7 @@
 //! Comprehensive integration tests for Lexum CLI
+//!
+//! Tests marked with `#[cfg(feature = "server-tests")]` require a running server
+//! and are excluded from CI/CD runs. Run with: `cargo test --features server-tests`
 
 use anyhow::Result;
 use std::io::Write;
@@ -172,6 +175,7 @@ async fn test_cli_global_options() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_advanced_search_options() -> Result<()> {
     // Test search with all advanced options
@@ -217,6 +221,7 @@ async fn test_cli_advanced_search_options() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_lql_operations() -> Result<()> {
     // Test LQL with basic query
@@ -266,6 +271,7 @@ async fn test_cli_lql_operations() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_document_operations() -> Result<()> {
     let (doc_path, _, _) = create_test_files()?;
@@ -321,6 +327,7 @@ async fn test_cli_document_operations() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_server_operations() -> Result<()> {
     // Test server status
@@ -344,6 +351,7 @@ async fn test_cli_server_operations() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_snapshot_operations() -> Result<()> {
     // Test snapshot list-repos
@@ -453,6 +461,7 @@ async fn test_cli_output_formats() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_boolean_queries() -> Result<()> {
     // Test boolean query syntax
@@ -476,6 +485,7 @@ async fn test_cli_boolean_queries() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_range_queries() -> Result<()> {
     // Test range query syntax
@@ -500,6 +510,7 @@ async fn test_cli_range_queries() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_fuzzy_queries() -> Result<()> {
     // Test fuzzy query syntax
@@ -518,6 +529,7 @@ async fn test_cli_fuzzy_queries() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_phrase_queries() -> Result<()> {
     // Test phrase query syntax
@@ -540,6 +552,7 @@ async fn test_cli_phrase_queries() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_wildcard_queries() -> Result<()> {
     // Test wildcard query syntax
@@ -558,6 +571,7 @@ async fn test_cli_wildcard_queries() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_complex_queries() -> Result<()> {
     // Test complex query combinations
@@ -591,6 +605,7 @@ async fn test_cli_complex_queries() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_pagination() -> Result<()> {
     // Test pagination with different offsets and limits
@@ -617,6 +632,7 @@ async fn test_cli_pagination() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_sorting_options() -> Result<()> {
     // Test different sorting options
@@ -642,6 +658,7 @@ async fn test_cli_sorting_options() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_field_selection() -> Result<()> {
     // Test different field selection options
@@ -665,6 +682,7 @@ async fn test_cli_field_selection() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_minimum_score() -> Result<()> {
     // Test different minimum score thresholds
@@ -683,6 +701,7 @@ async fn test_cli_minimum_score() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_highlight_and_explain() -> Result<()> {
     // Test highlight and explain options
@@ -697,6 +716,7 @@ async fn test_cli_highlight_and_explain() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_combined_options() -> Result<()> {
     // Test all options combined
@@ -727,6 +747,7 @@ async fn test_cli_combined_options() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server-tests")]
 #[tokio::test]
 async fn test_cli_lql_syntax_variations() -> Result<()> {
     // Test different LQL syntax variations

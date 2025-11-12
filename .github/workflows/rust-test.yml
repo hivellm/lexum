@@ -43,6 +43,8 @@ jobs:
       run: cargo build --tests --workspace
     
     - name: Run tests
+      # Exclude server-tests feature to avoid requiring running server in CI/CD
+      # Tests marked with #[cfg(feature = "server-tests")] will be skipped automatically
       run: cargo nextest run --workspace
     
     - name: Upload test report
