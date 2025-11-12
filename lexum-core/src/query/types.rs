@@ -973,7 +973,7 @@ mod tests {
     fn test_query_serialization() {
         let query = Query::Match(MatchQuery::new("title", "test"));
         let json = serde_json::to_string(&query).unwrap();
-        assert!(json.contains("Match"));
+        assert!(json.contains("match")); // snake_case serialization
         assert!(json.contains("title"));
         assert!(json.contains("test"));
 

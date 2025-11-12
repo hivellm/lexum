@@ -518,6 +518,13 @@ mod tests {
         let engine = ScriptEngine::new(operations);
         engine.execute(&mut context).unwrap();
 
-        assert_eq!(context.get_field("count"), Some(&json!(8)));
+        // math_add returns Number from f64, so result is 8.0, not 8
+        let result = context.get_field("count");
+        assert!(result.is_some());
+        if let Some(Value::Number(n)) = result {
+            assert_eq!(n.as_f64(), Some(8.0));
+        } else {
+            panic!("Expected Number, got {:?}", result);
+        }
     }
 }

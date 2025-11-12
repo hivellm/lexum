@@ -316,6 +316,12 @@ impl ScriptParser {
         let path = self.parse_field_path()?;
         self.skip_whitespace();
 
+        // Skip optional '.' before remove() or add()
+        if self.peek() == '.' {
+            self.advance();
+            self.skip_whitespace();
+        }
+
         if self.peek() == '=' {
             self.advance(); // Skip '='
             self.skip_whitespace();
