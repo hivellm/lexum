@@ -55,6 +55,8 @@ default = []
 # Feature flag for tests that require a running server
 # These tests are excluded from CI/CD runs
 server-tests = []
+# Enable tests that require a running server (start-to-start)
+s2s = []
 
 [dev-dependencies]
 tempfile = { workspace = true }
