@@ -20,8 +20,8 @@ node:
 # Network configuration
 network:
   host: "0.0.0.0"
-  http_port: 9200
-  transport_port: 9300
+  http_port: 17000
+  transport_port: 17300
 
 # Storage paths
 path:
@@ -131,8 +131,8 @@ snapshots:
 # You can override any configuration value using environment variables:
 # LEXUM_CLUSTER_NAME=my-cluster
 # LEXUM_NODE_NAME=my-node
-# LEXUM_NETWORK_HTTP_PORT=9200
-# LEXUM_NETWORK_TRANSPORT_PORT=9300
+# LEXUM_NETWORK_HTTP_PORT=17000
+# LEXUM_NETWORK_TRANSPORT_PORT=17300
 # LEXUM_LOGGING_LEVEL=debug
 # LEXUM_SNAPSHOTS_PATH=/custom/snapshots
 # LEXUM_SNAPSHOTS_MAX_SNAPSHOTS=200

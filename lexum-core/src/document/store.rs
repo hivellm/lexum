@@ -146,8 +146,25 @@ impl DocumentStore {
     ) -> Result<()> {
         let schema = self.index.schema();
 
+        // Add _id field to document if schema has _id field
+        let mut document_with_id = document.clone();
+        if schema.get_field("_id").is_ok() {
+            if let Some(obj) = document_with_id.as_object_mut() {
+                obj.insert(
+                    "_id".to_string(),
+                    serde_json::Value::String(doc_id.as_str().to_string()),
+                );
+            } else {
+                // If document is not an object, create a new object with _id
+                document_with_id = serde_json::json!({
+                    "_id": doc_id.as_str(),
+                    "data": document
+                });
+            }
+        }
+
         // Parse JSON into Tantivy document
-        let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document)?;
+        let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document_with_id)?;
 
         // Spawn blocking for Tantivy operations
         let index = self.index.clone();
@@ -156,8 +173,14 @@ impl DocumentStore {
         tokio::task::spawn_blocking(move || {
             let mut writer = index.writer(50_000_000)?;
 
-            // Tantivy doesn't have native document ID, we'll add it as a field if schema has "_id"
-            // For now, just add the document
+            // If schema has _id field, delete any existing document with same ID first
+            let schema = index.schema();
+            if let Ok(id_field) = schema.get_field("_id") {
+                // Delete existing document with same ID (if any)
+                let term = tantivy::Term::from_field_text(id_field, doc_id_clone.as_str());
+                writer.delete_term(term);
+            }
+
             writer
                 .add_document(tantivy_doc)
                 .map_err(|e| Error::Config(format!("Failed to add document: {e}")))?;
@@ -193,11 +216,38 @@ impl DocumentStore {
     }
 
     /// Delete a document by ID
-    pub async fn delete_document(&self, _doc_id: &DocumentId) -> Result<()> {
-        // Will implement with proper ID field support
-        Err(Error::Config(
-            "delete_document requires schema with _id field - not yet implemented".to_string(),
-        ))
+    ///
+    /// Requires the schema to have an "_id" field (keyword or text type).
+    pub async fn delete_document(&self, doc_id: &DocumentId) -> Result<()> {
+        let schema = self.index.schema();
+        let index = self.index.clone();
+        let doc_id_str = doc_id.as_str().to_string();
+
+        // Check if schema has _id field
+        let id_field = schema.get_field("_id").map_err(|_| {
+            Error::Config(
+                "delete_document requires schema with _id field. Please add an _id field (keyword or text type) to your schema.".to_string(),
+            )
+        })?;
+
+        tokio::task::spawn_blocking(move || {
+            let mut writer = index.writer(50_000_000)?;
+
+            // Delete document by term matching the _id field
+            let term = tantivy::Term::from_field_text(id_field, &doc_id_str);
+            writer.delete_term(term);
+
+            writer
+                .commit()
+                .map_err(|e| Error::Config(format!("Failed to commit delete operation: {e}")))?;
+
+            tracing::debug!(doc_id = %doc_id_str, "Document deleted");
+            Ok::<(), Error>(())
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
+
+        Ok(())
     }
 
     /// Bulk operations for multiple documents
@@ -234,6 +284,7 @@ impl DocumentStore {
         let schema = self.index.schema();
         let index = self.index.clone();
 
+        let start_time = std::time::Instant::now();
         let result = tokio::task::spawn_blocking(move || {
             let mut writer = index.writer(50_000_000)?;
             let mut results = Vec::new();
@@ -330,19 +381,38 @@ impl DocumentStore {
                             }
                         }
                     }
-                    BulkOperation::Delete { index, id } => {
-                        // For now, delete is not implemented
-                        let error_msg = "Delete operation not yet implemented".to_string();
-                        errors.push(BulkError {
-                            operation_index: i,
-                            error: error_msg.clone(),
-                        });
-                        results.push(BulkOperationResult::Delete {
-                            index: index.clone(),
-                            id: id.clone(),
-                            success: false,
-                            error: Some(error_msg),
-                        });
+                    BulkOperation::Delete { index: index_name, id } => {
+                        // Check if schema has _id field
+                        match schema.get_field("_id") {
+                            Ok(id_field) => {
+                                let doc_id_str = id.as_str().to_string();
+                                let term = tantivy::Term::from_field_text(id_field, &doc_id_str);
+
+                                // delete_term doesn't return a Result, it just marks the term for deletion
+                                writer.delete_term(term);
+
+                                results.push(BulkOperationResult::Delete {
+                                    index: index_name.clone(),
+                                    id: id.clone(),
+                                    success: true,
+                                    error: None,
+                                });
+                                tracing::debug!(doc_id = %id, "Bulk deleted document");
+                            }
+                            Err(_) => {
+                                let error_msg = "Delete operation requires schema with _id field. Please add an _id field (keyword or text type) to your schema.".to_string();
+                                errors.push(BulkError {
+                                    operation_index: i,
+                                    error: error_msg.clone(),
+                                });
+                                results.push(BulkOperationResult::Delete {
+                                    index: index_name.clone(),
+                                    id: id.clone(),
+                                    success: false,
+                                    error: Some(error_msg),
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -353,7 +423,7 @@ impl DocumentStore {
                 .map_err(|e| Error::Config(format!("Failed to commit bulk operations: {e}")))?;
 
             Ok::<BulkResult, Error>(BulkResult {
-                took: 0, // TODO: Implement timing
+                took: start_time.elapsed().as_millis() as u64,
                 errors: !errors.is_empty(),
                 items: results,
                 errors_details: errors,
@@ -502,6 +572,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_document() {
         let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("_id", TEXT | STORED);
         schema_builder.add_text_field("title", TEXT | STORED);
         let schema = schema_builder.build();
 
@@ -525,19 +596,13 @@ mod tests {
             .await
             .unwrap();
 
-        // Update document - this will fail because delete_document is not implemented
+        // Update document - should work now with _id field
         let updated_doc = serde_json::json!({
             "title": "Updated Title"
         });
 
         let result = store.update_document(&doc_id, updated_doc).await;
-        assert!(result.is_err()); // Should fail because delete_document is not implemented
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("not yet implemented")
-        );
+        assert!(result.is_ok()); // Should succeed now with _id field
     }
 
     #[tokio::test]
@@ -567,7 +632,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_delete_document_not_implemented() {
+    async fn test_delete_document_without_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
         let schema = schema_builder.build();
@@ -588,8 +653,39 @@ mod tests {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("not yet implemented")
+                .contains("requires schema with _id field")
         );
+    }
+
+    #[tokio::test]
+    async fn test_delete_document_with_id_field() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("_id", TEXT | STORED);
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+        let doc_id = DocumentId::new("test_doc");
+
+        // Add document first
+        let doc = serde_json::json!({
+            "title": "Test Document"
+        });
+        store
+            .add_document_with_id(doc_id.clone(), doc)
+            .await
+            .unwrap();
+
+        // Delete document - should succeed with _id field
+        let result = store.delete_document(&doc_id).await;
+        assert!(result.is_ok());
     }
 
     #[tokio::test]
@@ -681,7 +777,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_bulk_operations_delete() {
+    async fn test_bulk_operations_delete_without_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
         let schema = schema_builder.build();
@@ -705,14 +801,68 @@ mod tests {
 
         let bulk_result = result.unwrap();
         assert_eq!(bulk_result.items.len(), 1);
-        assert!(bulk_result.errors); // Delete should fail as not implemented
+        assert!(bulk_result.errors); // Delete should fail without _id field
         assert_eq!(bulk_result.errors_details.len(), 1);
 
         match &bulk_result.items[0] {
             BulkOperationResult::Delete { success, error, .. } => {
                 assert!(!success);
                 assert!(error.is_some());
-                assert!(error.as_ref().unwrap().contains("not yet implemented"));
+                assert!(
+                    error
+                        .as_ref()
+                        .unwrap()
+                        .contains("requires schema with _id field")
+                );
+            }
+            _ => panic!("Expected Delete result"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_bulk_operations_delete_with_id_field() {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("_id", TEXT | STORED);
+        schema_builder.add_text_field("title", TEXT | STORED);
+        let schema = schema_builder.build();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        // Add a document first
+        let add_ops = vec![BulkOperation::Index {
+            index: "test_index".to_string(),
+            id: DocumentId::new("doc1"),
+            document: serde_json::json!({
+                "title": "Document 1"
+            }),
+        }];
+        store.bulk_operations(add_ops).await.unwrap();
+
+        // Now delete it
+        let operations = vec![BulkOperation::Delete {
+            index: "test_index".to_string(),
+            id: DocumentId::new("doc1"),
+        }];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 1);
+        assert!(!bulk_result.errors); // Delete should succeed with _id field
+        assert_eq!(bulk_result.errors_details.len(), 0);
+
+        match &bulk_result.items[0] {
+            BulkOperationResult::Delete { success, error, .. } => {
+                assert!(success);
+                assert!(error.is_none());
             }
             _ => panic!("Expected Delete result"),
         }
@@ -759,7 +909,8 @@ mod tests {
 
         let bulk_result = result.unwrap();
         assert_eq!(bulk_result.items.len(), 3);
-        assert!(bulk_result.errors); // Should have errors due to delete
+        // Delete will fail without _id field, so there should be an error
+        assert!(bulk_result.errors);
         assert_eq!(bulk_result.errors_details.len(), 1);
     }
 

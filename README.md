@@ -88,20 +88,20 @@ lexum repl
 
 ```bash
 # Health check
-curl http://localhost:9200/health
+curl http://localhost:17000/health
 
 # Create index
-curl -X PUT http://localhost:9200/api/v1/indices/products \
+curl -X PUT http://localhost:17000/api/v1/indices/products \
   -H "Content-Type: application/json" \
   -d '{"fields": [{"name": "title", "type": "text"}], "settings": {}}'
 
 # Search
-curl -X POST http://localhost:9200/api/v1/indices/products/search \
+curl -X POST http://localhost:17000/api/v1/indices/products/search \
   -H "Content-Type: application/json" \
   -d '{"query": {"match": {"field": "title", "query": "laptop"}}, "limit": 10}'
 
 # Swagger UI
-open http://localhost:9200/swagger-ui
+open http://localhost:17000/swagger-ui
 ```
 
 ## Current State
@@ -304,9 +304,27 @@ Total: 129 Rust files, ~93,000 LOC
 - Cargo
 - Optional: cargo-llvm-cov for coverage
 
+### Platform Requirements
+
+⚠️ **Important**: Due to Tantivy/WSL compatibility limitations, all builds, tests, and development operations **MUST** be performed in **PowerShell (Windows native)**, **NOT** in WSL.
+
+**Why?**
+- Tantivy has filesystem compatibility issues with WSL's `9p` protocol when accessing Windows-mounted drives
+- This causes `Invalid argument (os error 22)` errors during index creation
+- See [WSL_TANTIVY_CONFLICT.md](docs/WSL_TANTIVY_CONFLICT.md) for technical details
+
+**Solutions:**
+1. **Use Windows Native (Recommended)**: Run all commands in PowerShell with Windows paths (`C:\Users\...`)
+2. **Use Linux Native Paths in WSL**: Store data in WSL's native filesystem (`~/.lexum/data`) instead of `/mnt/f/...`
+3. **Use Docker**: Run Lexum in a Docker container for better filesystem isolation
+
+See [WINDOWS_NATIVE.md](docs/WINDOWS_NATIVE.md) for Windows setup instructions.
+
 ### Building
 
-```bash
+**⚠️ Run these commands in PowerShell (Windows native), not WSL:**
+
+```powershell
 # Clone repository
 git clone https://github.com/hivellm/lexum.git
 cd lexum
@@ -324,9 +342,16 @@ cargo llvm-cov --html
 cargo bench
 ```
 
+**Note**: If you're using WSL, ensure data directories use Linux native paths (e.g., `~/.lexum/data`) instead of Windows-mounted drives (`/mnt/f/...`).
+
 ### Running
 
-```bash
+**⚠️ Run these commands in PowerShell (Windows native), not WSL:**
+
+```powershell
+# Set data directory to Windows native path (if needed)
+$env:LEXUM_DATA_DIR = "C:\Users\YourUser\lexum-data"
+
 # Start server
 cargo run --bin lexum-server
 
@@ -336,6 +361,8 @@ cargo run --bin lexum-cli -- server start
 # Interactive mode
 cargo run --bin lexum-cli repl
 ```
+
+**Troubleshooting**: If you encounter `Invalid argument (os error 22)` errors, see [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for solutions.
 
 ## Contributing
 

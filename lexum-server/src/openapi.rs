@@ -152,7 +152,7 @@ use utoipa_swagger_ui::SwaggerUi;
         )
     ),
     servers(
-        (url = "http://localhost:9200", description = "Development server"),
+        (url = "http://localhost:17000", description = "Development server"),
         (url = "https://api.lexum.dev", description = "Production server"),
         (url = "https://staging-api.lexum.dev", description = "Staging server")
     ),

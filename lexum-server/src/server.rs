@@ -25,7 +25,7 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
-            bind_addr: "127.0.0.1:9200".parse().unwrap(),
+            bind_addr: "127.0.0.1:17000".parse().unwrap(),
             data_dir: "./data".to_string(),
             config_path: None,
         }
@@ -188,8 +188,8 @@ node:
   roles: ["data", "master"]
 network:
   host: "127.0.0.1"
-  http_port: 9200
-  transport_port: 9300
+  http_port: 17000
+  transport_port: 17300
 path:
   data: "./data"
   logs: "./logs"
@@ -206,7 +206,7 @@ snapshots:
         std::fs::write(&config_path, test_config).unwrap();
 
         let config = ServerConfig {
-            bind_addr: "127.0.0.1:9201".parse().unwrap(),
+            bind_addr: "127.0.0.1:17001".parse().unwrap(),
             data_dir: temp_dir.path().join("data").to_string_lossy().to_string(),
             config_path: Some(config_path.to_string_lossy().to_string()),
         };

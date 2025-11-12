@@ -183,14 +183,14 @@ async fn test_comprehensive_api_functionality() {
     );
     test_endpoint!(
         "GET",
-        &format!("/api/v1/indices/{}", test_index),
+        &format!("/api/v1/indices/{test_index}"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Get index info"
     );
     test_endpoint!(
         "GET",
-        &format!("/api/v1/indices/{}/stats", test_index),
+        &format!("/api/v1/indices/{test_index}/stats"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Get index stats"
@@ -208,7 +208,7 @@ async fn test_comprehensive_api_functionality() {
     // Add document and get ID
     let add_request = Request::builder()
         .method("POST")
-        .uri(&format!("/api/v1/indices/{}/documents", test_index))
+        .uri(format!("/api/v1/indices/{test_index}/documents"))
         .header("Content-Type", "application/json")
         .body(Body::from(serde_json::to_string(&add_doc).unwrap()))
         .unwrap();
@@ -242,7 +242,7 @@ async fn test_comprehensive_api_functionality() {
 
     test_endpoint!(
         "POST",
-        &format!("/api/v1/indices/{}/search", test_index),
+        &format!("/api/v1/indices/{test_index}/search"),
         Some(search_post),
         StatusCode::OK,
         "POST search"
@@ -251,7 +251,7 @@ async fn test_comprehensive_api_functionality() {
     // GET search
     test_endpoint!(
         "GET",
-        &format!("/api/v1/indices/{}/search?q=Test", test_index),
+        &format!("/api/v1/indices/{test_index}/search?q=Test"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "GET search with query string"
@@ -277,7 +277,7 @@ async fn test_comprehensive_api_functionality() {
 
     test_endpoint!(
         "POST",
-        &format!("/api/v1/indices/{}/search", test_index),
+        &format!("/api/v1/indices/{test_index}/search"),
         Some(search_with_filter),
         StatusCode::OK,
         "Search with filter"
@@ -335,14 +335,14 @@ async fn test_comprehensive_api_functionality() {
 
     test_endpoint!(
         "PUT",
-        &format!("/_snapshot/{}", test_repo),
+        &format!("/_snapshot/{test_repo}"),
         Some(repo_config),
         StatusCode::OK,
         "Create snapshot repository"
     );
     test_endpoint!(
         "GET",
-        &format!("/_snapshot/{}", test_repo),
+        &format!("/_snapshot/{test_repo}"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Get snapshot repository"
@@ -372,28 +372,28 @@ async fn test_comprehensive_api_functionality() {
 
     test_endpoint!(
         "PUT",
-        &format!("/_snapshot/{}/{}", test_repo, test_snapshot),
+        &format!("/_snapshot/{test_repo}/{test_snapshot}"),
         Some(snapshot_config),
         StatusCode::OK,
         "Create snapshot"
     );
     test_endpoint!(
         "GET",
-        &format!("/_snapshot/{}/{}", test_repo, test_snapshot),
+        &format!("/_snapshot/{test_repo}/{test_snapshot}"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Get snapshot"
     );
     test_endpoint!(
         "GET",
-        &format!("/_snapshot/{}/_all", test_repo),
+        &format!("/_snapshot/{test_repo}/_all"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "List snapshots"
     );
     test_endpoint!(
         "GET",
-        &format!("/_snapshot/{}/_stats", test_repo),
+        &format!("/_snapshot/{test_repo}/_stats"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Get snapshot stats"
@@ -431,14 +431,14 @@ async fn test_comprehensive_api_functionality() {
 
     test_endpoint!(
         "PUT",
-        &format!("/_template/{}", test_template),
+        &format!("/_template/{test_template}"),
         Some(template_config),
         StatusCode::OK,
         "Create template"
     );
     test_endpoint!(
         "GET",
-        &format!("/_template/{}", test_template),
+        &format!("/_template/{test_template}"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Get template"
@@ -457,7 +457,7 @@ async fn test_comprehensive_api_functionality() {
     let index_exists = {
         let check_request = Request::builder()
             .method("GET")
-            .uri(&format!("/api/v1/indices/{}", test_index))
+            .uri(format!("/api/v1/indices/{test_index}"))
             .body(Body::empty())
             .unwrap();
         let check_response = app.clone().oneshot(check_request).await.unwrap();
@@ -500,7 +500,7 @@ async fn test_comprehensive_api_functionality() {
         );
         test_endpoint!(
             "GET",
-            &format!("/{}/_alias", test_index),
+            &format!("/{test_index}/_alias"),
             None::<serde_json::Value>,
             StatusCode::OK,
             "Get index aliases"
@@ -567,7 +567,7 @@ async fn test_comprehensive_api_functionality() {
     if index_exists {
         test_endpoint!(
             "GET",
-            &format!("/api/v1/indices/{}/_rollover", test_index),
+            &format!("/api/v1/indices/{test_index}/_rollover"),
             None::<serde_json::Value>,
             StatusCode::OK,
             "Get rollover conditions"
@@ -582,7 +582,7 @@ async fn test_comprehensive_api_functionality() {
 
         test_endpoint!(
             "PUT",
-            &format!("/api/v1/indices/{}/_rollover", test_index),
+            &format!("/api/v1/indices/{test_index}/_rollover"),
             Some(rollover_config),
             StatusCode::OK,
             "Update rollover conditions"
@@ -596,21 +596,21 @@ async fn test_comprehensive_api_functionality() {
     println!("\n=== Cleanup ===");
     test_endpoint!(
         "DELETE",
-        &format!("/_template/{}", test_template),
+        &format!("/_template/{test_template}"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Delete template"
     );
     test_endpoint!(
         "DELETE",
-        &format!("/_snapshot/{}/{}", test_repo, test_snapshot),
+        &format!("/_snapshot/{test_repo}/{test_snapshot}"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Delete snapshot"
     );
     test_endpoint!(
         "DELETE",
-        &format!("/api/v1/indices/{}", test_index),
+        &format!("/api/v1/indices/{test_index}"),
         None::<serde_json::Value>,
         StatusCode::OK,
         "Delete test index"
@@ -620,14 +620,14 @@ async fn test_comprehensive_api_functionality() {
     println!("\n==========================================");
     println!("Test Summary");
     println!("==========================================");
-    println!("Passed: {}", passed);
-    println!("Failed: {}", failed);
+    println!("Passed: {passed}");
+    println!("Failed: {failed}");
     println!("Total: {}", passed + failed);
 
     if failed == 0 {
         println!("\n✅ All tests passed!");
     } else {
         println!("\n❌ Some tests failed!");
-        panic!("{} tests failed", failed);
+        panic!("{failed} tests failed");
     }
 }

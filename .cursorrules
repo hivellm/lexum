@@ -11,6 +11,15 @@ CRITICAL RULES:
 4. Update docs/ when implementing features
 5. Follow strict documentation structure
 
+PLATFORM REQUIREMENT:
+Due to Tantivy/WSL compatibility limitations (see docs/WSL_TANTIVY_CONFLICT.md), all builds, tests, and development operations MUST be performed in PowerShell (Windows native), NOT in WSL. This includes:
+- Running `cargo build`, `cargo test`, `cargo clippy`
+- Executing integration tests
+- Running the server for testing
+- Any filesystem operations that interact with Tantivy indices
+
+Use Windows native paths (e.g., `C:\Users\...`) instead of WSL paths (`/mnt/f/...`) for data directories.
+
 Language-specific rules are in @AGENTS.md.
 Module-specific patterns are in @AGENTS.md.
 

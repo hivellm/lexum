@@ -29,6 +29,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/indices", get(index::list_indices))
         .route("/api/v1/indices/{name}", get(index::get_index))
         .route("/api/v1/indices/{name}", delete(index::delete_index))
+        .route("/api/v1/indices/{name}/stats", get(index::get_index_stats))
+        .route("/api/v1/indices/{name}/refresh", post(index::refresh_index))
+        .route("/api/v1/indices/{name}/flush", post(index::flush_index))
         // Document operations
         .route(
             "/api/v1/indices/{index}/documents",

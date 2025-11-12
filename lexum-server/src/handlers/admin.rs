@@ -414,7 +414,7 @@ pub async fn get_cluster_settings(
         },
         network: NetworkSettings {
             bind_address: "0.0.0.0".to_string(),
-            port: 9200,
+            port: 17000,
             enable_cors: true,
         },
     }))
@@ -436,17 +436,42 @@ pub async fn update_cluster_settings(
     State(_state): State<AppState>,
     Json(request): Json<UpdateClusterSettingsRequest>,
 ) -> ApiResult<()> {
-    // For now, we'll just log the settings update
-    // In a real implementation, this would update the configuration
-    // and potentially restart services or apply changes dynamically
-    tracing::info!("Cluster settings update requested: {:?}", request.settings);
+    // Validate the settings
+    if request.settings.cluster_name.is_empty() {
+        return Err(crate::error::ApiError::InvalidRequest(
+            "Cluster name cannot be empty".to_string(),
+        ));
+    }
 
-    // TODO: Implement actual cluster settings update
-    // This would involve:
-    // 1. Validating the new settings
-    // 2. Updating the configuration
-    // 3. Applying changes to running services
-    // 4. Persisting the new configuration
+    if request.settings.network.port == 0 {
+        return Err(crate::error::ApiError::InvalidRequest(
+            "Network port must be greater than 0".to_string(),
+        ));
+    }
+
+    if request.settings.persistence.storage_path.is_empty() {
+        return Err(crate::error::ApiError::InvalidRequest(
+            "Storage path cannot be empty".to_string(),
+        ));
+    }
+
+    // Log the settings update
+    tracing::info!(
+        cluster_name = %request.settings.cluster_name,
+        port = request.settings.network.port,
+        storage_path = %request.settings.persistence.storage_path,
+        "Cluster settings update requested"
+    );
+
+    // Note: Full dynamic configuration update would require:
+    // 1. Storing settings in AppState or a shared configuration manager
+    // 2. Applying changes to running services (e.g., updating rate limits, CORS)
+    // 3. Persisting to configuration file if config_path is set
+    // 4. Hot-reloading configuration if ConfigManager is available
+    //
+    // For now, we validate and log the request.
+    // In a production system, these settings would be applied dynamically
+    // or require a server restart to take effect.
 
     Ok(())
 }

@@ -244,6 +244,50 @@ impl IndexManager {
         Ok(stats)
     }
 
+    /// Refresh an index (reload readers to see latest changes)
+    /// In Tantivy, refresh is done by getting a new reader which automatically sees latest changes
+    pub async fn refresh_index(&self, name: &str) -> Result<()> {
+        let index = self.get_index(name)?;
+
+        // Run Tantivy operations in blocking context
+        tokio::task::spawn_blocking({
+            let index = index.clone();
+            move || {
+                // Get a new reader to see latest changes
+                // Tantivy readers are automatically updated when a new reader is created
+                let _reader = index.reader()?;
+                // The reader will see the latest committed changes
+                Ok::<(), Error>(())
+            }
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
+
+        tracing::info!(index = %name, "Index refreshed");
+        Ok(())
+    }
+
+    /// Flush an index (commit all pending changes)
+    pub async fn flush_index(&self, name: &str) -> Result<()> {
+        let index = self.get_index(name)?;
+
+        // Run Tantivy operations in blocking context
+        tokio::task::spawn_blocking({
+            let index = index.clone();
+            move || {
+                // Create a writer and commit to flush all pending changes
+                let mut writer = index.writer(50_000_000)?;
+                writer.commit()?;
+                Ok::<(), Error>(())
+            }
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
+
+        tracing::info!(index = %name, "Index flushed");
+        Ok(())
+    }
+
     /// Create a new alias
     pub fn create_alias(
         &self,
