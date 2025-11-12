@@ -417,9 +417,9 @@ impl E2ETestRunner {
         }
         results.total_operations += 1;
 
-        // Cleanup
-        self.delete_test_index(source_index).await?;
-        self.delete_test_index(dest_index).await?;
+        // Cleanup (ignore errors)
+        let _ = self.delete_test_index(source_index).await;
+        let _ = self.delete_test_index(dest_index).await;
 
         results.test_duration = start_time.elapsed();
         results.success_rate = if results.total_operations > 0 {
