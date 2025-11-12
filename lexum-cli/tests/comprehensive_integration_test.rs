@@ -152,13 +152,20 @@ async fn test_cli_error_handling() -> Result<()> {
 
 #[tokio::test]
 async fn test_cli_global_options() -> Result<()> {
-    // Test with custom URL
-    let output = run_cli_command(&["--url", "http://localhost:9999", "index", "list"])?;
+    // Test with custom URL (using port that doesn't have server)
+    let output = run_cli_command(&["--url", "http://localhost:65535", "index", "list"])?;
     // This should fail due to no server, but should parse arguments correctly
     assert!(!output.status.success(), "Should fail with invalid URL");
 
     // Test with custom format
-    let output = run_cli_command(&["--format", "json", "index", "list"])?;
+    let output = run_cli_command(&[
+        "--url",
+        "http://localhost:65535",
+        "--format",
+        "json",
+        "index",
+        "list",
+    ])?;
     // This should fail due to no server, but should parse arguments correctly
     assert!(!output.status.success(), "Should fail with no server");
 
@@ -340,7 +347,7 @@ async fn test_cli_server_operations() -> Result<()> {
 #[tokio::test]
 async fn test_cli_snapshot_operations() -> Result<()> {
     // Test snapshot list-repos
-    let output = run_cli_command(&["snapshot", "list-repos"])?;
+    let output = run_cli_command(&["--url", "http://localhost:65535", "snapshot", "list-repos"])?;
     assert!(
         !output.status.success(),
         "Snapshot list-repos should fail without server"
@@ -427,7 +434,14 @@ async fn test_cli_output_formats() -> Result<()> {
     let formats = ["json", "table", "json-pretty"];
 
     for format in &formats {
-        let output = run_cli_command(&["--format", format, "index", "list"])?;
+        let output = run_cli_command(&[
+            "--url",
+            "http://localhost:65535",
+            "--format",
+            format,
+            "index",
+            "list",
+        ])?;
 
         // This should fail due to no server, but should parse format correctly
         assert!(
