@@ -31,7 +31,7 @@ async fn test_create_index_success() {
 
     // This will fail because there's no server, but we can test the file reading part
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         schema_file.to_str().unwrap(),
     )
@@ -64,7 +64,7 @@ async fn test_create_index_invalid_yaml() {
     fs::write(&schema_file, "invalid yaml content").unwrap();
 
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         schema_file.to_str().unwrap(),
     )
@@ -89,7 +89,7 @@ async fn test_create_index_minimal_schema() {
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         schema_file.to_str().unwrap(),
     )
@@ -154,7 +154,7 @@ async fn test_create_index_complex_schema() {
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         schema_file.to_str().unwrap(),
     )
@@ -170,7 +170,7 @@ async fn test_create_index_complex_schema() {
 
 #[tokio::test]
 async fn test_list_indices() {
-    let result = index::list("http://localhost:9200").await;
+    let result = index::list("http://localhost:65535").await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -182,7 +182,7 @@ async fn test_list_indices() {
 
 #[tokio::test]
 async fn test_get_index() {
-    let result = index::get("http://localhost:9200", "test_index").await;
+    let result = index::get("http://localhost:65535", "test_index").await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -194,7 +194,7 @@ async fn test_get_index() {
 
 #[tokio::test]
 async fn test_get_index_stats() {
-    let result = index::stats("http://localhost:9200", "test_index").await;
+    let result = index::stats("http://localhost:65535", "test_index").await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -206,7 +206,7 @@ async fn test_get_index_stats() {
 
 #[tokio::test]
 async fn test_delete_index() {
-    let result = index::delete("http://localhost:9200", "test_index").await;
+    let result = index::delete("http://localhost:65535", "test_index").await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -229,7 +229,7 @@ async fn test_create_index_with_special_characters() {
 
     let special_name = "test-index_123@example.com";
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         special_name,
         schema_file.to_str().unwrap(),
     )
@@ -252,7 +252,7 @@ async fn test_create_index_with_empty_schema() {
     fs::write(&schema_file, "").unwrap();
 
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         schema_file.to_str().unwrap(),
     )
@@ -276,7 +276,7 @@ async fn test_create_index_with_malformed_schema() {
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         schema_file.to_str().unwrap(),
     )
@@ -289,7 +289,7 @@ async fn test_create_index_with_malformed_schema() {
 #[tokio::test]
 async fn test_get_index_with_special_characters() {
     let special_name = "test-index_123@example.com";
-    let result = index::get("http://localhost:9200", special_name).await;
+    let result = index::get("http://localhost:65535", special_name).await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -302,7 +302,7 @@ async fn test_get_index_with_special_characters() {
 #[tokio::test]
 async fn test_get_index_stats_with_special_characters() {
     let special_name = "test-index_123@example.com";
-    let result = index::stats("http://localhost:9200", special_name).await;
+    let result = index::stats("http://localhost:65535", special_name).await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -315,7 +315,7 @@ async fn test_get_index_stats_with_special_characters() {
 #[tokio::test]
 async fn test_delete_index_with_special_characters() {
     let special_name = "test-index_123@example.com";
-    let result = index::delete("http://localhost:9200", special_name).await;
+    let result = index::delete("http://localhost:65535", special_name).await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -371,7 +371,7 @@ async fn test_create_index_with_all_field_types() {
     fs::write(&schema_file, schema).unwrap();
 
     let result = index::create(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         schema_file.to_str().unwrap(),
     )

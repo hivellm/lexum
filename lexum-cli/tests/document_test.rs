@@ -19,7 +19,7 @@ async fn test_add_document_success() {
 
     // This will fail because there's no server, but we can test the file reading part
     let result = document::add(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -52,7 +52,7 @@ async fn test_add_document_invalid_json() {
     fs::write(&file_path, "invalid json content").unwrap();
 
     let result = document::add(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -108,7 +108,7 @@ async fn test_bulk_operations_success() {
 
     // This will fail because there's no server, but we can test the file reading part
     let result = document::bulk(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -141,7 +141,7 @@ async fn test_bulk_operations_invalid_json() {
     fs::write(&file_path, "invalid json content").unwrap();
 
     let result = document::bulk(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -162,7 +162,7 @@ async fn test_bulk_operations_empty_array() {
     fs::write(&file_path, "[]").unwrap();
 
     let result = document::bulk(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -189,7 +189,7 @@ async fn test_bulk_operations_single_document() {
     fs::write(&file_path, serde_json::to_string(&doc).unwrap()).unwrap();
 
     let result = document::bulk(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -220,7 +220,7 @@ async fn test_bulk_operations_large_dataset() {
     fs::write(&file_path, serde_json::to_string(&docs).unwrap()).unwrap();
 
     let result = document::bulk(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -257,7 +257,7 @@ async fn test_add_document_with_complex_json() {
     fs::write(&file_path, serde_json::to_string(&doc).unwrap()).unwrap();
 
     let result = document::add(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )
@@ -323,7 +323,7 @@ async fn test_bulk_operations_with_mixed_document_types() {
     fs::write(&file_path, serde_json::to_string(&docs).unwrap()).unwrap();
 
     let result = document::bulk(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         file_path.to_str().unwrap(),
     )

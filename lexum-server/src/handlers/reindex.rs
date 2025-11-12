@@ -600,10 +600,21 @@ pub async fn reindex(
             .create_index(&request.dest.index, schema, settings)
             .await
             .map_err(|e| {
-                ApiError::Validation(format!(
-                    "Failed to create destination index '{}': {}",
-                    request.dest.index, e
-                ))
+                let error_msg = e.to_string();
+                // Check if this is a Tantivy/WSL compatibility issue
+                if error_msg.contains("Invalid argument") || error_msg.contains("os error 22") {
+                    ApiError::InvalidRequest(format!(
+                        "Failed to create destination index '{}': Tantivy filesystem compatibility issue detected. \
+                        This may be due to WSL filesystem limitations. \
+                        Error: {error_msg}",
+                        request.dest.index
+                    ))
+                } else {
+                    ApiError::Validation(format!(
+                        "Failed to create destination index '{}': {error_msg}",
+                        request.dest.index
+                    ))
+                }
             })?
     };
 

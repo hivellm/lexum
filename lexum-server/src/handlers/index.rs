@@ -173,7 +173,21 @@ pub async fn create_index(
     let index = state
         .index_manager
         .create_index(&request.name, schema, request.settings)
-        .await?;
+        .await
+        .map_err(|e| {
+            let error_msg = e.to_string();
+            // Check if this is a Tantivy/WSL compatibility issue
+            if error_msg.contains("Invalid argument") || error_msg.contains("os error 22") {
+                ApiError::InvalidRequest(format!(
+                    "Failed to create index '{}': Tantivy filesystem compatibility issue detected. \
+                    This may be due to WSL filesystem limitations. \
+                    Error: {}",
+                    request.name, error_msg
+                ))
+            } else {
+                ApiError::Core(e)
+            }
+        })?;
 
     Ok((
         StatusCode::CREATED,

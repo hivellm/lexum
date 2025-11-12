@@ -6,7 +6,7 @@ use tempfile::TempDir;
 
 #[tokio::test]
 async fn test_search_basic() {
-    let result = search::search("http://localhost:9200", "test_index", "hello world", 10).await;
+    let result = search::search("http://localhost:65535", "test_index", "hello world", 10).await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -24,7 +24,7 @@ async fn test_search_advanced_with_sorting() {
     ]);
 
     let result = search::search_advanced(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -46,7 +46,7 @@ async fn test_search_advanced_with_fields() {
     let fields = Some(vec!["title".to_string(), "content".to_string()]);
 
     let result = search::search_advanced(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -69,7 +69,7 @@ async fn test_search_advanced_with_all_options() {
     let fields = Some(vec!["title".to_string(), "content".to_string()]);
 
     let result = search::search_advanced(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -92,7 +92,7 @@ async fn test_search_advanced_with_options() {
     let fields = Some(vec!["title".to_string(), "content".to_string()]);
 
     let result = search::search_advanced_with_options(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         20,
@@ -122,7 +122,7 @@ async fn test_search_from_file() {
     fs::write(&query_file, "hello world").unwrap();
 
     let result = search::search_from_file(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         query_file.to_str().unwrap(),
         10,
@@ -158,7 +158,7 @@ async fn test_search_from_file_empty() {
     fs::write(&query_file, "").unwrap();
 
     let result = search::search_from_file(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         query_file.to_str().unwrap(),
         10,
@@ -178,7 +178,7 @@ async fn test_search_from_file_advanced() {
     fs::write(&query_file, "hello world").unwrap();
 
     let result = search::search_from_file_advanced(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         query_file.to_str().unwrap(),
         10,
@@ -213,7 +213,7 @@ async fn test_search_from_files() {
     ];
 
     let result =
-        search::search_from_files("http://localhost:9200", "test_index", file_paths, 10).await;
+        search::search_from_files("http://localhost:65535", "test_index", file_paths, 10).await;
 
     // This function doesn't return an error, it just prints error messages
     // So we just verify it completes without panicking
@@ -224,7 +224,7 @@ async fn test_search_from_files() {
 async fn test_search_with_special_characters() {
     let special_query = "hello world & special chars @#$%";
 
-    let result = search::search("http://localhost:9200", "test_index", special_query, 10).await;
+    let result = search::search("http://localhost:65535", "test_index", special_query, 10).await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -238,7 +238,7 @@ async fn test_search_with_special_characters() {
 async fn test_search_with_unicode() {
     let unicode_query = "hello 世界 🌍";
 
-    let result = search::search("http://localhost:9200", "test_index", unicode_query, 10).await;
+    let result = search::search("http://localhost:65535", "test_index", unicode_query, 10).await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -250,7 +250,7 @@ async fn test_search_with_unicode() {
 
 #[tokio::test]
 async fn test_search_with_large_limit() {
-    let result = search::search("http://localhost:9200", "test_index", "hello world", 10000).await;
+    let result = search::search("http://localhost:65535", "test_index", "hello world", 10000).await;
 
     // Should fail due to server connection
     assert!(result.is_err());
@@ -273,7 +273,7 @@ async fn test_search_with_many_fields() {
     ]);
 
     let result = search::search_advanced(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -300,7 +300,7 @@ async fn test_search_with_many_sort_options() {
     ]);
 
     let result = search::search_advanced(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -320,7 +320,7 @@ async fn test_search_with_many_sort_options() {
 #[tokio::test]
 async fn test_search_with_high_min_score() {
     let result = search::search_advanced_with_options(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -344,7 +344,7 @@ async fn test_search_with_high_min_score() {
 #[tokio::test]
 async fn test_search_with_zero_min_score() {
     let result = search::search_advanced_with_options(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -368,7 +368,7 @@ async fn test_search_with_zero_min_score() {
 #[tokio::test]
 async fn test_search_with_negative_min_score() {
     let result = search::search_advanced_with_options(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         "hello world",
         10,
@@ -398,7 +398,7 @@ async fn test_search_from_file_with_whitespace() {
     fs::write(&query_file, "  \n  hello world  \n  ").unwrap();
 
     let result = search::search_from_file(
-        "http://localhost:9200",
+        "http://localhost:65535",
         "test_index",
         query_file.to_str().unwrap(),
         10,
@@ -415,7 +415,7 @@ async fn test_search_from_file_with_whitespace() {
 
 #[tokio::test]
 async fn test_search_with_empty_query() {
-    let result = search::search("http://localhost:9200", "test_index", "", 10).await;
+    let result = search::search("http://localhost:65535", "test_index", "", 10).await;
 
     // Should fail due to empty query or server connection
     assert!(result.is_err());
@@ -425,7 +425,7 @@ async fn test_search_with_empty_query() {
 async fn test_search_with_very_long_query() {
     let long_query = "hello world ".repeat(1000);
 
-    let result = search::search("http://localhost:9200", "test_index", &long_query, 10).await;
+    let result = search::search("http://localhost:65535", "test_index", &long_query, 10).await;
 
     // Should fail due to server connection
     assert!(result.is_err());

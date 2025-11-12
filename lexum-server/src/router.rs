@@ -160,14 +160,22 @@ pub fn build_router(state: AppState) -> Router {
         .layer(CorsLayer::permissive())
         .layer(
             TraceLayer::new_for_http()
-                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
-                    tracing::debug!("Request: {} {}", request.method(), request.uri());
+                .on_request(|request: &axum::http::Request<_>, span: &tracing::Span| {
+                    let method = request.method();
+                    let uri = request.uri();
+                    tracing::info!(method = %method, uri = %uri, "Incoming request");
+                    span.record("http.method", method.as_str());
+                    span.record("http.uri", uri.to_string());
                 })
                 .on_failure(
                     |error: ServerErrorsFailureClass,
-                     _latency: std::time::Duration,
+                     latency: std::time::Duration,
                      _span: &tracing::Span| {
-                        tracing::error!("Request failed: {:?}", error);
+                        tracing::error!(
+                            latency_ms = latency.as_millis(),
+                            error = ?error,
+                            "Request failed with 500 error - check logs above for request details"
+                        );
                     },
                 ),
         )

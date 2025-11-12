@@ -315,7 +315,19 @@ async fn perform_rollover(
         .index_manager
         .create_index(new_index, schema, settings)
         .await
-        .map_err(|e| ApiError::InvalidRequest(e.to_string()))?;
+        .map_err(|e| {
+            let error_msg = e.to_string();
+            // Check if this is a Tantivy/WSL compatibility issue
+            if error_msg.contains("Invalid argument") || error_msg.contains("os error 22") {
+                    ApiError::InvalidRequest(format!(
+                        "Failed to create rollover index '{new_index}': Tantivy filesystem compatibility issue detected. \
+                        This may be due to WSL filesystem limitations. \
+                        Error: {error_msg}"
+                    ))
+            } else {
+                ApiError::Core(e)
+            }
+        })?;
 
     // Copy all documents from old index to new index
     copy_documents(state, old_index, new_index).await?;
