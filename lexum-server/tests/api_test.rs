@@ -108,7 +108,9 @@ async fn test_search_with_filters() {
 
     let response = app.oneshot(request).await.unwrap();
     // Will fail because index doesn't exist, but validates filter structure is accepted
-    assert!(response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::BAD_REQUEST);
+    assert!(
+        response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::BAD_REQUEST
+    );
 }
 
 #[tokio::test]
@@ -136,7 +138,9 @@ async fn test_search_without_filters() {
 
     let response = app.oneshot(request).await.unwrap();
     // Will fail because index doesn't exist, but validates request structure
-    assert!(response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::BAD_REQUEST);
+    assert!(
+        response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::BAD_REQUEST
+    );
 }
 
 #[tokio::test]

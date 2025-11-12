@@ -567,11 +567,11 @@ impl E2ETestRunner {
         // Create a bool query with match query and term filter
         let match_query = QueryBuilder::match_query("title", "Test Document");
         let filter_query = Query::Term(TermQuery::new("user_id", "0"));
-        
+
         let mut bool_query = BoolQuery::new();
         bool_query = bool_query.must(match_query);
         bool_query = bool_query.filter(filter_query);
-        
+
         let query = Query::Bool(bool_query);
         let index = self.app_state.index_manager.get_index(index_name)?;
         let search_executor = SearchExecutor::new(Arc::new(index));
@@ -584,7 +584,7 @@ impl E2ETestRunner {
                 assert_eq!(user_id.as_i64(), Some(0), "Filter not applied correctly");
             }
         }
-        
+
         Ok(())
     }
 
@@ -788,7 +788,11 @@ mod tests {
 
         // Test search with filters
         let result = runner.search_with_filters(index_name).await;
-        assert!(result.is_ok(), "Search with filters failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "Search with filters failed: {:?}",
+            result.err()
+        );
 
         // Cleanup
         runner.delete_test_index(index_name).await.unwrap();

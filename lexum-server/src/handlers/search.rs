@@ -510,13 +510,13 @@ mod tests {
 
     #[test]
     fn test_search_request_with_filters() {
-        use lexum_core::{TermQuery, RangeQuery};
+        use lexum_core::{RangeQuery, TermQuery};
 
         let query = Query::Match(MatchQuery::new(
             "title".to_string(),
             "test query".to_string(),
         ));
-        
+
         let filters = vec![
             Query::Term(TermQuery::new("status", "active")),
             Query::Range(RangeQuery::new("age").gte(serde_json::json!(18))),
@@ -537,7 +537,7 @@ mod tests {
 
         assert!(request.filter.is_some());
         assert_eq!(request.filter.as_ref().unwrap().len(), 2);
-        
+
         // Test serialization
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
@@ -549,13 +549,10 @@ mod tests {
     fn test_search_request_filter_serialization() {
         use lexum_core::TermQuery;
 
-        let query = Query::Match(MatchQuery::new(
-            "content".to_string(),
-            "search".to_string(),
-        ));
-        
+        let query = Query::Match(MatchQuery::new("content".to_string(), "search".to_string()));
+
         let filter = vec![Query::Term(TermQuery::new("category", "tech"))];
-        
+
         let request = SearchRequest {
             query: query.clone(),
             filter: Some(filter),
@@ -572,17 +569,14 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("filter"));
         assert!(json.contains("category"));
-        
+
         let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
         assert!(deserialized.filter.is_some());
     }
 
     #[test]
     fn test_search_request_without_filters() {
-        let query = Query::Match(MatchQuery::new(
-            "title".to_string(),
-            "test".to_string(),
-        ));
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test".to_string()));
 
         let request = SearchRequest {
             query,
@@ -598,7 +592,7 @@ mod tests {
         };
 
         assert!(request.filter.is_none());
-        
+
         // Test serialization without filters
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
