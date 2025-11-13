@@ -128,8 +128,16 @@ pub async fn put_template(
         order: request.order,
     };
 
+    // Validate template before storing
+    template
+        .validate()
+        .map_err(|e| ApiError::InvalidRequest(format!("Template validation failed: {e}")))?;
+
     // Store the template
-    state.template_manager.put_template(template)?;
+    state
+        .template_manager
+        .put_template(template)
+        .map_err(|e| ApiError::Internal(format!("Failed to store template: {e}")))?;
 
     Ok(Json(TemplateResponse {
         name,
