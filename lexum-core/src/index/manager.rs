@@ -508,22 +508,52 @@ mod tests {
     }
 
     // Helper function to create a test directory that works in both WSL and Windows
+    // Uses Linux native paths in WSL to avoid filesystem issues with Windows-mounted drives
     fn create_test_dir() -> PathBuf {
         use std::env;
         use std::time::{SystemTime, UNIX_EPOCH};
-        let mut temp_path = env::temp_dir();
+
+        // Detect if we're in WSL by checking if CARGO_MANIFEST_DIR is a Windows-mounted path
+        let is_wsl_mounted = env::var("CARGO_MANIFEST_DIR")
+            .map(|p| p.starts_with("/mnt/"))
+            .unwrap_or(false);
+
+        let workspace_test_dir = if is_wsl_mounted {
+            // In WSL with Windows-mounted drive: use Linux native temp directory
+            // This avoids 9p filesystem protocol issues
+            let mut linux_temp = PathBuf::from("/tmp");
+            linux_temp.push("lexum-test-data");
+            linux_temp
+        } else if let Ok(workspace_root) = env::var("CARGO_MANIFEST_DIR") {
+            // Native Windows or Linux: use workspace-relative path
+            PathBuf::from(workspace_root)
+                .join("target")
+                .join("test-data")
+        } else {
+            // Fallback: use current directory + target/test-data
+            env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
+                .join("target")
+                .join("test-data")
+        };
+
+        // Create base test-data directory
+        std::fs::create_dir_all(&workspace_test_dir).ok();
+
+        // Create unique subdirectory with timestamp
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        temp_path.push(format!("lexum_test_{timestamp}"));
-        std::fs::create_dir_all(&temp_path).unwrap();
-        temp_path
+        let mut test_path = workspace_test_dir;
+        test_path.push(format!("lexum_test_{timestamp}"));
+        std::fs::create_dir_all(&test_path).unwrap();
+        test_path
     }
 
     #[tokio::test]
     async fn test_create_index() {
-        // Use std::env::temp_dir() which works better with WSL/Windows compatibility
+        // create_test_dir() automatically detects WSL and uses Linux native paths
         let temp_dir = create_test_dir();
         let manager = IndexManager::new(&temp_dir);
 
