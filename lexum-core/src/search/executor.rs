@@ -3,6 +3,7 @@
 use crate::error::{Error, Result};
 use crate::index::Index;
 use crate::query::Query;
+use crate::search::filter_cache::FilterCache;
 use crate::search::optimizer::QueryOptimizer;
 use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
 use crate::types::{DocumentId, Score};
@@ -26,6 +27,8 @@ pub struct SearchExecutor {
     cache: Arc<DashMap<CacheKey, SearchResult>>,
     /// Whether caching is enabled
     cache_enabled: bool,
+    /// Filter cache for bitset caching
+    filter_cache: Arc<FilterCache>,
 }
 
 impl SearchExecutor {
@@ -35,6 +38,7 @@ impl SearchExecutor {
             index,
             cache: Arc::new(DashMap::new()),
             cache_enabled: true,
+            filter_cache: Arc::new(FilterCache::new()),
         }
     }
 
@@ -44,7 +48,18 @@ impl SearchExecutor {
             index,
             cache: Arc::new(DashMap::new()),
             cache_enabled: false,
+            filter_cache: Arc::new(FilterCache::disabled()),
         }
+    }
+
+    /// Get filter cache reference
+    pub fn filter_cache(&self) -> &Arc<FilterCache> {
+        &self.filter_cache
+    }
+
+    /// Clear the filter cache
+    pub fn clear_filter_cache(&self) {
+        self.filter_cache.clear();
     }
 
     /// Clear the query cache
