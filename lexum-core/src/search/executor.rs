@@ -3,6 +3,7 @@
 use crate::error::{Error, Result};
 use crate::index::Index;
 use crate::query::Query;
+use crate::search::field_cache::FieldCache;
 use crate::search::filter_cache::FilterCache;
 use crate::search::optimizer::QueryOptimizer;
 use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
@@ -29,6 +30,8 @@ pub struct SearchExecutor {
     cache_enabled: bool,
     /// Filter cache for bitset caching
     filter_cache: Arc<FilterCache>,
+    /// Field cache for sorting and aggregations
+    field_cache: Arc<FieldCache>,
 }
 
 impl SearchExecutor {
@@ -39,6 +42,7 @@ impl SearchExecutor {
             cache: Arc::new(DashMap::new()),
             cache_enabled: true,
             filter_cache: Arc::new(FilterCache::new()),
+            field_cache: Arc::new(FieldCache::new()),
         }
     }
 
@@ -49,6 +53,7 @@ impl SearchExecutor {
             cache: Arc::new(DashMap::new()),
             cache_enabled: false,
             filter_cache: Arc::new(FilterCache::disabled()),
+            field_cache: Arc::new(FieldCache::disabled()),
         }
     }
 
@@ -60,6 +65,16 @@ impl SearchExecutor {
     /// Clear the filter cache
     pub fn clear_filter_cache(&self) {
         self.filter_cache.clear();
+    }
+
+    /// Get field cache reference
+    pub fn field_cache(&self) -> &Arc<FieldCache> {
+        &self.field_cache
+    }
+
+    /// Clear the field cache
+    pub fn clear_field_cache(&self) {
+        self.field_cache.clear();
     }
 
     /// Clear the query cache
@@ -186,29 +201,102 @@ impl SearchExecutor {
             // Apply efficient in-memory sorting if requested
             if let Some(sort_opt) = sort_clone {
                 if sort_opt.field != "_score" {
-                    // Sort by custom field value
-                    hits.sort_by(|a, b| {
-                        let a_val = a.source.get(&sort_opt.field);
-                        let b_val = b.source.get(&sort_opt.field);
+                    // Try to use field cache for faster sorting
+                    let index_name = self.index.name();
+                    let field_name = &sort_opt.field;
 
-                        let cmp = match (a_val, b_val) {
-                            (Some(a), Some(b)) => {
-                                // Try numeric comparison first
-                                if let (Some(a_num), Some(b_num)) = (a.as_i64(), b.as_i64()) {
-                                    a_num.cmp(&b_num)
-                                } else if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64())
-                                {
-                                    a_num
-                                        .partial_cmp(&b_num)
-                                        .unwrap_or(std::cmp::Ordering::Equal)
-                                } else {
-                                    // Fallback to string comparison
-                                    a.to_string().cmp(&b.to_string())
+                    // Pre-populate field cache if enabled
+                    if self.field_cache.is_enabled() {
+                        for hit in &hits {
+                            let doc_id = hit.id.value();
+                            // Check if value is already cached
+                            if self.field_cache.get(index_name, field_name, doc_id).is_none() {
+                                // Extract value from source and cache it
+                                if let Some(val) = hit.source.get(field_name) {
+                                    let field_value = if let Some(i) = val.as_i64() {
+                                        crate::search::field_cache::FieldValue::I64(i)
+                                    } else if let Some(f) = val.as_f64() {
+                                        crate::search::field_cache::FieldValue::F64(f)
+                                    } else {
+                                        crate::search::field_cache::FieldValue::String(
+                                            val.to_string(),
+                                        )
+                                    };
+                                    self.field_cache.put(index_name, field_name, doc_id, field_value);
                                 }
                             }
+                        }
+                    }
+
+                    // Sort by custom field value (using cache if available)
+                    hits.sort_by(|a, b| {
+                        let a_val = if self.field_cache.is_enabled() {
+                            self.field_cache
+                                .get(index_name, field_name, a.id.value())
+                                .or_else(|| {
+                                    a.source.get(field_name).map(|v| {
+                                        if let Some(i) = v.as_i64() {
+                                            crate::search::field_cache::FieldValue::I64(i)
+                                        } else if let Some(f) = v.as_f64() {
+                                            crate::search::field_cache::FieldValue::F64(f)
+                                        } else {
+                                            crate::search::field_cache::FieldValue::String(
+                                                v.to_string(),
+                                            )
+                                        }
+                                    })
+                                })
+                        } else {
+                            None
+                        };
+
+                        let b_val = if self.field_cache.is_enabled() {
+                            self.field_cache
+                                .get(index_name, field_name, b.id.value())
+                                .or_else(|| {
+                                    b.source.get(field_name).map(|v| {
+                                        if let Some(i) = v.as_i64() {
+                                            crate::search::field_cache::FieldValue::I64(i)
+                                        } else if let Some(f) = v.as_f64() {
+                                            crate::search::field_cache::FieldValue::F64(f)
+                                        } else {
+                                            crate::search::field_cache::FieldValue::String(
+                                                v.to_string(),
+                                            )
+                                        }
+                                    })
+                                })
+                        } else {
+                            None
+                        };
+
+                        let cmp = match (a_val, b_val) {
+                            (Some(a), Some(b)) => a.compare(&b),
                             (Some(_), None) => std::cmp::Ordering::Less,
                             (None, Some(_)) => std::cmp::Ordering::Greater,
-                            (None, None) => std::cmp::Ordering::Equal,
+                            (None, None) => {
+                                // Fallback to source comparison
+                                let a_val = a.source.get(field_name);
+                                let b_val = b.source.get(field_name);
+                                match (a_val, b_val) {
+                                    (Some(a), Some(b)) => {
+                                        if let (Some(a_num), Some(b_num)) = (a.as_i64(), b.as_i64()) {
+                                            a_num.cmp(&b_num)
+                                        } else if let (Some(a_num), Some(b_num)) =
+                                            (a.as_f64(), b.as_f64())
+                                        {
+                                            a_num
+                                                .partial_cmp(&b_num)
+                                                .unwrap_or(std::cmp::Ordering::Equal)
+                                        } else {
+                                            a.to_string().cmp(&b.to_string())
+                                        }
+                                    }
+                                    (Some(_), None) => std::cmp::Ordering::Less,
+                                    (None, Some(_)) => std::cmp::Ordering::Greater,
+                                    (None, None) => std::cmp::Ordering::Equal,
+                                }
+                            }
                         };
 
                         match sort_opt.order {
