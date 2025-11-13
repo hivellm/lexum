@@ -230,6 +230,62 @@ impl QueryCache {
     pub fn default_ttl(&self) -> Duration {
         self.default_ttl
     }
+
+    /// Warm up cache with pre-computed results
+    ///
+    /// This method allows pre-loading the cache with common queries and their results.
+    /// Useful for improving initial performance by caching frequently used queries.
+    ///
+    /// # Arguments
+    /// * `entries` - Vector of (cache_key, search_result) pairs to pre-load
+    ///
+    /// # Returns
+    /// Number of entries successfully added to cache
+    pub fn warm_up(&self, entries: Vec<(String, SearchResult)>) -> usize {
+        if !self.enabled {
+            return 0;
+        }
+
+        let mut cache = self.cache.lock();
+        let mut added = 0;
+
+        for (key, result) in entries {
+            let entry = CacheEntry::new(result, self.default_ttl);
+            cache.put(key, entry);
+            added += 1;
+        }
+
+        added
+    }
+
+    /// Warm up cache with pre-computed results and custom TTL
+    ///
+    /// Similar to `warm_up()` but allows specifying custom TTL for each entry.
+    ///
+    /// # Arguments
+    /// * `entries` - Vector of (cache_key, search_result, ttl) tuples to pre-load
+    ///
+    /// # Returns
+    /// Number of entries successfully added to cache
+    pub fn warm_up_with_ttl(&self, entries: Vec<(String, SearchResult, Duration)>) -> usize {
+        if !self.enabled {
+            return 0;
+        }
+
+        let mut cache = self.cache.lock();
+        let mut added = 0;
+
+        for (key, result, ttl) in entries {
+            if ttl.is_zero() {
+                continue;
+            }
+            let entry = CacheEntry::new(result, ttl);
+            cache.put(key, entry);
+            added += 1;
+        }
+
+        added
+    }
 }
 
 impl Default for QueryCache {
@@ -384,6 +440,67 @@ mod tests {
 
         cache.put("key1".to_string(), result);
         assert!(cache.get("key1").is_none());
+        assert_eq!(cache.len(), 0);
+    }
+
+    #[test]
+    fn test_query_cache_warm_up() {
+        let cache = QueryCache::with_capacity_and_ttl(10, Duration::from_secs(60));
+        let result1 = create_test_result();
+        let result2 = create_test_result();
+
+        let entries = vec![
+            ("key1".to_string(), result1.clone()),
+            ("key2".to_string(), result2.clone()),
+        ];
+
+        let added = cache.warm_up(entries);
+        assert_eq!(added, 2);
+        assert_eq!(cache.len(), 2);
+
+        assert!(cache.get("key1").is_some());
+        assert!(cache.get("key2").is_some());
+    }
+
+    #[test]
+    fn test_query_cache_warm_up_with_ttl() {
+        let cache = QueryCache::with_capacity_and_ttl(10, Duration::from_secs(60));
+        let result1 = create_test_result();
+        let result2 = create_test_result();
+
+        let entries = vec![
+            ("key1".to_string(), result1.clone(), Duration::from_secs(30)),
+            (
+                "key2".to_string(),
+                result2.clone(),
+                Duration::from_secs(120),
+            ),
+        ];
+
+        let added = cache.warm_up_with_ttl(entries);
+        assert_eq!(added, 2);
+        assert_eq!(cache.len(), 2);
+    }
+
+    #[test]
+    fn test_query_cache_warm_up_disabled() {
+        let cache = QueryCache::disabled();
+        let result = create_test_result();
+
+        let entries = vec![("key1".to_string(), result)];
+        let added = cache.warm_up(entries);
+        assert_eq!(added, 0);
+        assert_eq!(cache.len(), 0);
+    }
+
+    #[test]
+    fn test_query_cache_warm_up_zero_ttl() {
+        let cache = QueryCache::with_capacity_and_ttl(10, Duration::from_secs(60));
+        let result = create_test_result();
+
+        let entries = vec![("key1".to_string(), result, Duration::ZERO)];
+        let added = cache.warm_up_with_ttl(entries);
+        assert_eq!(added, 0);
         assert_eq!(cache.len(), 0);
     }
 }

@@ -118,6 +118,49 @@ impl SearchExecutor {
         self.cache.evict_expired()
     }
 
+    /// Warm up query cache with pre-computed results
+    ///
+    /// This method allows pre-loading the cache with common queries and their results.
+    /// Useful for improving initial performance by caching frequently used queries.
+    ///
+    /// # Arguments
+    /// * `entries` - Vector of (query, result) pairs to pre-load
+    ///
+    /// # Returns
+    /// Number of entries successfully added to cache
+    pub fn warm_up_cache(&self, entries: Vec<(Query, SearchResult)>) -> usize {
+        let cache_entries: Vec<(String, SearchResult)> = entries
+            .into_iter()
+            .map(|(query, result)| {
+                let key = Self::cache_key(&query, 10, 0, &None);
+                (key, result)
+            })
+            .collect();
+
+        self.cache.warm_up(cache_entries)
+    }
+
+    /// Preload field cache for efficient sorting and aggregations
+    ///
+    /// This method allows pre-loading field values for fields that are frequently
+    /// used for sorting or aggregation operations.
+    ///
+    /// # Arguments
+    /// * `field_name` - Field name to preload
+    /// * `values` - Vector of (doc_id, field_value) pairs to cache
+    ///
+    /// # Returns
+    /// Number of values successfully cached
+    pub fn preload_field_cache(
+        &self,
+        field_name: &str,
+        values: Vec<(u64, crate::search::field_cache::FieldValue)>,
+    ) -> usize {
+        let index_name = self.index.name().as_str();
+        self.field_cache
+            .preload_field(index_name, field_name, values)
+    }
+
     /// Generate cache key from query parameters
     fn cache_key(query: &Query, limit: usize, offset: usize, sort: &Option<SortOption>) -> String {
         use std::collections::hash_map::DefaultHasher;

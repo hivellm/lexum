@@ -356,6 +356,52 @@ impl FieldCache {
             Vec::new()
         }
     }
+
+    /// Preload field values for all documents in an index
+    ///
+    /// This method allows pre-loading field values for efficient sorting and aggregations.
+    /// Useful for fields that are frequently used for sorting or aggregation operations.
+    ///
+    /// # Arguments
+    /// * `index_name` - Index name
+    /// * `field_name` - Field name to preload
+    /// * `values` - Vector of (doc_id, field_value) pairs to cache
+    ///
+    /// # Returns
+    /// Number of values successfully cached
+    pub fn preload_field(
+        &self,
+        index_name: &str,
+        field_name: &str,
+        values: Vec<(u64, FieldValue)>,
+    ) -> usize {
+        if !self.enabled {
+            return 0;
+        }
+
+        let key = Self::cache_key(index_name, field_name);
+
+        // Evict oldest field cache if we exceed max_fields
+        if self.cache.len() >= self.max_fields && !self.cache.contains_key(&key) {
+            if let Some(entry) = self.cache.iter().next() {
+                self.cache.remove(entry.key());
+            }
+        }
+
+        let field_cache = self
+            .cache
+            .entry(key)
+            .or_insert_with(|| Arc::new(DashMap::new()))
+            .clone();
+
+        let mut cached = 0;
+        for (doc_id, value) in values {
+            field_cache.insert(doc_id, value);
+            cached += 1;
+        }
+
+        cached
+    }
 }
 
 impl Default for FieldCache {
@@ -610,5 +656,72 @@ mod tests {
         assert_eq!(frequencies[0].1, 2);
         assert_eq!(frequencies[1].0, "inactive");
         assert_eq!(frequencies[1].1, 1);
+    }
+
+    #[test]
+    fn test_field_cache_preload_field() {
+        let cache = FieldCache::new();
+        let values = vec![
+            (1, FieldValue::I64(100)),
+            (2, FieldValue::I64(200)),
+            (3, FieldValue::I64(300)),
+        ];
+
+        let cached = cache.preload_field("test-index", "price", values);
+        assert_eq!(cached, 3);
+
+        assert_eq!(
+            cache.get("test-index", "price", 1),
+            Some(FieldValue::I64(100))
+        );
+        assert_eq!(
+            cache.get("test-index", "price", 2),
+            Some(FieldValue::I64(200))
+        );
+        assert_eq!(
+            cache.get("test-index", "price", 3),
+            Some(FieldValue::I64(300))
+        );
+    }
+
+    #[test]
+    fn test_field_cache_preload_field_disabled() {
+        let cache = FieldCache::disabled();
+        let values = vec![(1, FieldValue::I64(100))];
+
+        let cached = cache.preload_field("test-index", "price", values);
+        assert_eq!(cached, 0);
+        assert_eq!(cache.get("test-index", "price", 1), None);
+    }
+
+    #[test]
+    fn test_field_cache_preload_field_mixed_types() {
+        let cache = FieldCache::new();
+        let values = vec![
+            (1, FieldValue::I64(100)),
+            (2, FieldValue::F64(2.5)),
+            (3, FieldValue::String("test".to_string())),
+            (4, FieldValue::Missing),
+        ];
+
+        let cached = cache.preload_field("test-index", "mixed", values);
+        assert_eq!(cached, 4);
+
+        assert_eq!(
+            cache.get("test-index", "mixed", 1),
+            Some(FieldValue::I64(100))
+        );
+        assert_eq!(
+            cache.get("test-index", "mixed", 2),
+            Some(FieldValue::F64(2.5))
+        );
+        assert_eq!(
+            cache.get("test-index", "mixed", 3),
+            Some(FieldValue::String("test".to_string()))
+        );
+        assert_eq!(
+            cache.get("test-index", "mixed", 4),
+            Some(FieldValue::Missing)
+        );
     }
 }
