@@ -36,6 +36,9 @@ async fn test_full_workflow() -> Result<()> {
         template_manager: Arc::new(TemplateManager::new()),
         task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
         progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
+        auth_state: lexum_server::middleware::auth::AuthState::new(
+            lexum_server::middleware::auth::AuthConfig::default(),
+        ),
     };
 
     // Test 1: Create an index
@@ -76,6 +79,9 @@ async fn test_server_integration() -> Result<()> {
         template_manager: Arc::new(TemplateManager::new()),
         task_manager: Arc::new(lexum_server::handlers::reindex::TaskManager::new()),
         progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
+        auth_state: lexum_server::middleware::auth::AuthState::new(
+            lexum_server::middleware::auth::AuthConfig::default(),
+        ),
     };
 
     // Test that we can create the app state

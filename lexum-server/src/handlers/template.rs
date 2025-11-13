@@ -234,6 +234,9 @@ mod tests {
             template_manager: Arc::new(TemplateManager::new()),
             task_manager: Arc::new(crate::handlers::reindex::TaskManager::new()),
             progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
+            auth_state: crate::middleware::auth::AuthState::new(
+                crate::middleware::auth::AuthConfig::default(),
+            ),
         }
     }
 

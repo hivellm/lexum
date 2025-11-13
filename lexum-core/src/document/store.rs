@@ -1012,7 +1012,7 @@ mod tests {
         for i in 0..100 {
             operations.push(BulkOperation::Index {
                 index: "test_index".to_string(),
-                id: DocumentId::new(format!("doc_{}", i)),
+                id: DocumentId::new(format!("doc_{i}")),
                 document: serde_json::json!({
                     "title": format!("Document {}", i),
                     "value": i

@@ -14,6 +14,7 @@ use tokio::sync::RwLock;
 use utoipa::ToSchema;
 
 use crate::handlers::reindex::TaskManager;
+use crate::middleware::auth::AuthState;
 
 /// Application state
 #[derive(Clone)]
@@ -28,6 +29,8 @@ pub struct AppState {
     pub task_manager: Arc<TaskManager>,
     /// Progress tracker for long-running operations
     pub progress_tracker: Arc<ProgressTracker>,
+    /// Authentication state
+    pub auth_state: AuthState,
 }
 
 impl Default for AppState {
@@ -61,6 +64,7 @@ impl Default for AppState {
             template_manager: Arc::new(TemplateManager::new()),
             task_manager: Arc::new(TaskManager::new()),
             progress_tracker: Arc::new(ProgressTracker::new()),
+            auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
         }
     }
 }
@@ -499,6 +503,7 @@ mod tests {
             template_manager: Arc::new(TemplateManager::new()),
             task_manager: Arc::new(TaskManager::new()),
             progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
+            auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
         }
     }
 

@@ -41,6 +41,9 @@ async fn create_test_state() -> AppState {
         template_manager,
         task_manager,
         progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
+        auth_state: crate::middleware::auth::AuthState::new(
+            crate::middleware::auth::AuthConfig::default(),
+        ),
     }
 }
 

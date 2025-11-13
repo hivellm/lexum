@@ -2,6 +2,7 @@
 
 pub mod admin;
 pub mod alias;
+pub mod auth;
 pub mod cluster;
 pub mod document;
 pub mod health;

@@ -96,6 +96,9 @@ impl Server {
             template_manager: Arc::new(TemplateManager::new()),
             task_manager: Arc::new(crate::handlers::reindex::TaskManager::new()),
             progress_tracker: Arc::new(ProgressTracker::new()),
+            auth_state: crate::middleware::auth::AuthState::new(
+                crate::middleware::auth::AuthConfig::from_env(),
+            ),
         };
 
         let app = build_router(state);

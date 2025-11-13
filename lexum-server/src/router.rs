@@ -2,11 +2,13 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{
-    admin, alias, document, health, index, progress, progress_bulk, reindex, rollover, search,
-    snapshot, template,
+    admin, alias, auth, document, health, index, progress, progress_bulk, reindex, rollover,
+    search, snapshot, template,
 };
+use crate::middleware::rate_limit::{RateLimitConfig, RateLimitLayer};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
+use tower::ServiceBuilder;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
@@ -157,9 +159,14 @@ pub fn build_router(state: AppState) -> Router {
             post(progress::resume_progress),
         )
         .route("/api/v1/progress/cleanup", post(progress::cleanup_progress))
+        // Authentication endpoints
+        .route("/api/v1/auth/keys", post(auth::generate_api_key))
+        .route("/api/v1/auth/keys", get(auth::list_api_keys))
+        .route("/api/v1/auth/keys", delete(auth::revoke_api_key))
         // OpenAPI documentation (temporarily disabled due to version conflicts)
         // .merge(create_swagger_ui())
         // Middleware (rate limiting implemented, ready for full Tower integration)
+        .layer(ServiceBuilder::new().layer(RateLimitLayer::new(RateLimitConfig::default())))
         .layer(CorsLayer::permissive())
         .layer(
             TraceLayer::new_for_http()

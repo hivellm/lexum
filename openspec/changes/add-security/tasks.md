@@ -1,6 +1,6 @@
 # Security Implementation Tasks
 
-## Status: 🟡 IN PROGRESS (~15% Complete)
+## Status: 🟡 IN PROGRESS (~25% Complete)
 
 ## 1. TLS Implementation
 - [ ] 1.1 Add rustls dependency
@@ -14,14 +14,15 @@
 ## 2. API Key Authentication
 - [x] 2.1 Implement API key storage (HashSet in AuthConfig)
 - [x] 2.2 Add API key validation middleware (auth_middleware)
-- [ ] 2.3 Implement key generation (API endpoint)
-- [x] 2.4 Add key revocation (remove_api_key method exists)
-- [ ] 2.5 Implement key rotation (automatic rotation not implemented)
-- [x] 2.6 Test API key auth (unit tests exist)
-- [x] 2.7 Support X-API-Key header
-- [x] 2.8 Support Authorization Bearer token
-- [x] 2.9 Configurable anonymous endpoints
-- [x] 2.10 Environment variable configuration
+- [x] 2.3 Implement key generation (API endpoint) - /api/v1/auth/keys POST
+- [x] 2.4 Add key revocation (remove_api_key method exists) - /api/v1/auth/keys DELETE
+- [x] 2.5 List API keys endpoint - /api/v1/auth/keys GET
+- [ ] 2.6 Implement key rotation (automatic rotation not implemented)
+- [x] 2.7 Test API key auth (unit tests exist)
+- [x] 2.8 Support X-API-Key header
+- [x] 2.9 Support Authorization Bearer token
+- [x] 2.10 Configurable anonymous endpoints
+- [x] 2.11 Environment variable configuration
 
 ## 3. OAuth 2.0 Integration
 - [ ] 3.1 Add OAuth 2.0 client
@@ -67,7 +68,7 @@
 - [ ] 8.4 Test encrypted storage
 
 ## 9. Security Hardening
-- [x] 9.1 Implement rate limiting per user (RateLimitLayer structure exists, needs full implementation)
+- [x] 9.1 Implement rate limiting per user (RateLimitLayer fully implemented with Tower)
 - [ ] 9.2 Add request size limits
 - [ ] 9.3 Implement query complexity limits
 - [ ] 9.4 Add IP whitelisting/blacklisting
@@ -81,8 +82,16 @@
 - [ ] 10.5 Security audit
 
 ## Summary
-- **Completed**: API Key Authentication (basic), Rate Limiting (structure), Documentation
-- **In Progress**: Rate Limiting (full implementation)
+- **Completed**: API Key Authentication (full with endpoints), Rate Limiting (fully implemented with Tower), Documentation
+- **In Progress**: Request size limits, Query complexity limits
 - **Not Started**: TLS, OAuth, RBAC, Document/Field Security, Audit Logging, Encryption at Rest
-- **Progress**: ~15% (9/60+ tasks)
+- **Progress**: ~25% (15/60+ tasks)
+
+## Recent Changes
+- ✅ Implemented full Rate Limiting middleware with Tower Layer integration
+- ✅ Created API key generation endpoint (POST /api/v1/auth/keys)
+- ✅ Created API key revocation endpoint (DELETE /api/v1/auth/keys)
+- ✅ Created API key listing endpoint (GET /api/v1/auth/keys)
+- ✅ Integrated AuthState into AppState
+- ✅ Added rate limiting headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset)
 
