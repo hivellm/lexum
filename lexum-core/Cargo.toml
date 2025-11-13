@@ -65,6 +65,7 @@ criterion = { workspace = true }
 proptest = { workspace = true }
 tokio-test = "0.4"
 tempfile = { workspace = true }
+rand = "0.8"
 
 [[bench]]
 name = "search_bench"
@@ -74,6 +75,21 @@ harness = false
 [[bench]]
 name = "simple_bench"
 path = "benchmark/simple_bench.rs"
+harness = false
+
+[[bench]]
+name = "cache_effectiveness_bench"
+path = "benchmark/cache_effectiveness_bench.rs"
+harness = false
+
+[[bench]]
+name = "compression_bench"
+path = "benchmark/compression_bench.rs"
+harness = false
+
+[[bench]]
+name = "regression_test"
+path = "benchmark/regression_test.rs"
 harness = false
 
 [features]

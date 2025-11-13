@@ -2,7 +2,7 @@
 
 use crate::error::{Error, Result};
 use crate::index::Index;
-use crate::memory::{BufferPool, StringBufferPool};
+use crate::memory::{BufferPool, QueryPool, StringBufferPool};
 use crate::query::Query;
 use crate::search::field_cache::FieldCache;
 use crate::search::filter_cache::FilterCache;
@@ -32,6 +32,8 @@ pub struct SearchExecutor {
     buffer_pool: Arc<BufferPool<SearchHit>>,
     /// String buffer pool for reusing String buffers
     string_pool: Arc<StringBufferPool>,
+    /// Query pool for reusing query objects
+    query_pool: Arc<QueryPool>,
 }
 
 impl SearchExecutor {
@@ -48,6 +50,7 @@ impl SearchExecutor {
             field_cache: Arc::new(FieldCache::new()),
             buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
             string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
+            query_pool: Arc::new(QueryPool::new()),
         }
     }
 
@@ -72,6 +75,7 @@ impl SearchExecutor {
             field_cache: Arc::new(FieldCache::new()),
             buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
             string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
+            query_pool: Arc::new(QueryPool::new()),
         }
     }
 
@@ -84,6 +88,7 @@ impl SearchExecutor {
             field_cache: Arc::new(FieldCache::disabled()),
             buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
             string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
+            query_pool: Arc::new(QueryPool::new()),
         }
     }
 
@@ -105,6 +110,16 @@ impl SearchExecutor {
     /// Clear the field cache
     pub fn clear_field_cache(&self) {
         self.field_cache.clear();
+    }
+
+    /// Get query pool reference
+    pub fn query_pool(&self) -> &Arc<QueryPool> {
+        &self.query_pool
+    }
+
+    /// Clear the query pool
+    pub fn clear_query_pool(&self) {
+        self.query_pool.clear();
     }
 
     /// Clear the query cache
