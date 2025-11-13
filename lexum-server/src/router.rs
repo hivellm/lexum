@@ -13,6 +13,7 @@ use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower::ServiceBuilder;
 use tower_http::classify::ServerErrorsFailureClass;
+use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
@@ -179,6 +180,8 @@ pub fn build_router(state: AppState) -> Router {
                 )),
         )
         .layer(CorsLayer::permissive())
+        // Compression layer - compresses response bodies (gzip, deflate, br)
+        .layer(CompressionLayer::new())
         .layer(
             TraceLayer::new_for_http()
                 .on_request(|request: &axum::http::Request<_>, span: &tracing::Span| {
