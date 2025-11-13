@@ -191,8 +191,6 @@ impl SearchExecutor {
                 let source = serde_json::from_str(&doc.to_json(&schema))
                     .map_err(|e| Error::Config(format!("Failed to parse document JSON: {e}")))?;
 
-                // Use doc_address.doc_id as the numeric ID for field cache
-                let doc_id_num = doc_address.doc_id;
                 hits.push(SearchHit {
                     id: DocumentId::new(format!("doc_{}", doc_address.segment_ord)),
                     score: Score::new(*score),
@@ -204,7 +202,7 @@ impl SearchExecutor {
             if let Some(sort_opt) = sort_clone {
                 if sort_opt.field != "_score" {
                     // Try to use field cache for faster sorting
-                    let index_name = self.index.name();
+                    let index_name = self.index.name().as_str();
                     let field_name = &sort_opt.field;
 
                     // Pre-populate field cache if enabled
