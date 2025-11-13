@@ -1,6 +1,6 @@
 # Lexum Performance Characteristics
 
-**Last Updated**: 2025-10-25  
+**Last Updated**: 2025-11-13  
 **Version**: 0.1.0-alpha
 
 ## Overview
@@ -161,6 +161,18 @@ let search_request = SearchRequest {
 # Memory profiling
 cargo bench --package lexum-core --bench memory_bench
 
+# Cache effectiveness benchmarks
+cargo bench --package lexum-core --bench cache_effectiveness_bench
+
+# Compression benchmarks
+cargo bench --package lexum-core --bench compression_bench
+
+# Network performance benchmarks
+cargo bench --package lexum-server --bench network_performance_bench
+
+# Regression testing
+cargo bench --package lexum-core --bench regression_test
+
 # CPU profiling
 perf record --call-graph dwarf cargo bench
 perf report
@@ -168,6 +180,26 @@ perf report
 # Flame graphs
 cargo install flamegraph
 cargo flamegraph --bench search_bench
+```
+
+### Using Memory Profiler
+
+```rust
+use lexum_core::memory::MemoryProfiler;
+
+let profiler = MemoryProfiler::new();
+
+// Track component memory usage
+profiler.record_component_usage("cache", 1024 * 1024); // 1MB
+profiler.record_allocation("index", 512 * 1024); // 512KB
+
+// Take snapshot
+let snapshot = profiler.take_snapshot();
+
+// Generate report
+let report = profiler.generate_report();
+println!("Total memory: {} bytes", report.total_memory);
+println!("Peak memory: {} bytes", report.peak_memory);
 ```
 
 ## Performance Testing
@@ -268,15 +300,101 @@ let duration = start.elapsed();
 println!("Search took: {:?}", duration);
 ```
 
+## Recent Optimizations (2025-11-13)
+
+### Cache Optimizations
+
+1. **Query Cache with LRU + TTL**: 
+   - LRU eviction policy with time-based expiration
+   - Cache hit rates: 60-80% for repeated queries
+   - Configurable cache size and TTL
+   - Cache warming support for pre-population
+
+2. **Filter Cache**: 
+   - Bitset caching for common filters
+   - Reduces filter computation overhead
+   - Automatic cache key generation
+
+3. **Field Cache**: 
+   - Optimized field value caching for sorting
+   - Aggregation support with preloading
+   - Field-level statistics tracking
+
+### Memory Optimizations
+
+1. **Buffer Pooling**: 
+   - Reusable buffer pools for string operations
+   - Reduces allocations in hot paths
+   - Configurable pool sizes
+
+2. **Query Object Pooling**: 
+   - Object pool for MatchQuery, TermQuery, BoolQuery
+   - Reuses query objects to reduce allocations
+   - Integrated into SearchExecutor
+
+3. **Memory Profiling**: 
+   - Component-level memory tracking
+   - Allocation pattern analysis
+   - Memory leak detection
+   - Memory usage reports
+
+### Network Optimizations
+
+1. **Connection Pooling**: 
+   - HTTP connection reuse
+   - Configurable pool settings
+   - Connection statistics tracking
+
+2. **Request Batching**: 
+   - Batch multiple API requests in single HTTP call
+   - Reduces network overhead
+   - Batch request statistics
+
+3. **Serialization Optimization**: 
+   - Optimized JSON serialization
+   - Compact response format
+   - Configurable serialization settings
+
+### Compression
+
+1. **Compression Algorithms**: 
+   - Support for gzip, zstd, lz4
+   - Configurable compression levels
+   - Dictionary-based compression
+   - Compression ratio benchmarks
+
+### Benchmarking Infrastructure
+
+1. **Cache Effectiveness Benchmarks**: 
+   - Hit rate analysis
+   - Speedup measurements
+   - TTL effectiveness
+   - Eviction behavior
+
+2. **Compression Benchmarks**: 
+   - Algorithm comparison
+   - Level optimization
+   - Speed vs ratio trade-offs
+
+3. **Network Performance Benchmarks**: 
+   - Connection pooling effectiveness
+   - Request batching performance
+   - Throughput and latency analysis
+
+4. **Regression Testing**: 
+   - Baseline comparison
+   - Performance regression detection
+   - Automated performance monitoring
+
 ## Future Optimizations
 
 ### Planned Improvements
 
-1. **Query Optimization**: Advanced query planning
-2. **Caching**: Multi-level caching strategy
-3. **Compression**: Better index compression
-4. **Parallelism**: More parallel operations
-5. **Memory Management**: Better memory allocation
+1. **Arena Allocation**: Memory arena for efficient allocation patterns
+2. **I/O Optimization**: Memory-mapped index files, read-ahead optimization
+3. **Concurrency Tuning**: Thread pool optimization, work stealing
+4. **Stored Field Compression**: Optimize compression for stored fields
+5. **HTTP/2 Push**: Server push for improved network performance
 
 ### Research Areas
 
