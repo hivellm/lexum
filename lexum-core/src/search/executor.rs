@@ -202,7 +202,7 @@ impl SearchExecutor {
             if let Some(sort_opt) = sort_clone {
                 if sort_opt.field != "_score" {
                     // Try to use field cache for faster sorting
-                    let index_name = self.index.name().as_str();
+                    let index_name = self.index.name().as_str().to_string();
                     let field_name = &sort_opt.field;
 
                     // Pre-populate field cache if enabled
