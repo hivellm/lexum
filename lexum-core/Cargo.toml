@@ -92,6 +92,11 @@ name = "regression_test"
 path = "benchmark/regression_test.rs"
 harness = false
 
+[[bench]]
+name = "verify_targets"
+path = "benchmark/verify_targets.rs"
+harness = false
+
 [features]
 default = []
 # Enable slow tests that may take longer or require special conditions
