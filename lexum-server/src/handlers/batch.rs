@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use crate::handlers::document;
 
 /// Batch request item
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BatchRequestItem {
     /// HTTP method
     pub method: String,
@@ -28,14 +28,14 @@ pub struct BatchRequestItem {
 }
 
 /// Batch request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BatchRequest {
     /// List of requests to execute
     pub requests: Vec<BatchRequestItem>,
 }
 
 /// Response for a single batched request
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BatchResponseItem {
     /// HTTP status code
     pub status: u16,
@@ -47,7 +47,7 @@ pub struct BatchResponseItem {
 }
 
 /// Batch response
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct BatchResponse {
     /// Responses for each request in order
     pub responses: Vec<BatchResponseItem>,
@@ -154,7 +154,7 @@ async fn execute_batch_item(
             // Add document
             if let Some(index_name) = extract_index_name(path) {
                 if let Some(body) = item.body {
-                    match document::add_document_internal(state, &index_name, body).await {
+                    match add_document_internal(state, &index_name, body).await {
                         Ok(response) => Ok((StatusCode::CREATED, serde_json::json!(response))),
                         Err(e) => Err(e),
                     }
