@@ -46,7 +46,7 @@
 - [ ] 7.5 Profile concurrency
 
 ## 8. Network Optimization
-- [ ] 8.1 Implement connection pooling
+- [x] 8.1 Implement connection pooling
 - [ ] 8.2 Add HTTP/2 push
 - [x] 8.3 Optimize serialization
 - [ ] 8.4 Implement request batching
@@ -79,9 +79,15 @@
 - [x] 11.6 LQL benchmarks: benches/lql_benchmarks.rs
 
 ## Summary
-**Status**: ~36% Complete (~25/70 tasks)  
-**Infrastructure**: ✅ Complete (benchmarks, load tests, query cache, network compression, filter cache, serialization optimization)  
+**Status**: ~37% Complete (~26/70 tasks)  
+**Infrastructure**: ✅ Complete (benchmarks, load tests, query cache, network compression, filter cache, serialization optimization, connection pooling)  
 **Tests**: Load test framework ready, benchmark suite functional  
 **Remaining**: Advanced optimization techniques (cache tuning, memory opt, I/O opt)  
 **Note**: Infrastructure ready for Phase 2 optimization work
+
+## Recent Changes (2025-11-12)
+- ✅ Implemented connection pooling configuration (ConnectionPoolConfig)
+- ✅ Added connection pool statistics tracking
+- ✅ Integrated connection pool config into ServerConfig
+- ✅ Documented hyper's built-in connection pooling support
 

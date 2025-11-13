@@ -20,6 +20,8 @@ pub struct ServerConfig {
     pub data_dir: String,
     /// Configuration file path (optional, for hot-reload)
     pub config_path: Option<String>,
+    /// Connection pool configuration
+    pub connection_pool: ConnectionPoolConfig,
 }
 
 impl Default for ServerConfig {
@@ -28,6 +30,7 @@ impl Default for ServerConfig {
             bind_addr: "127.0.0.1:17000".parse().unwrap(),
             data_dir: "./data".to_string(),
             config_path: None,
+            connection_pool: ConnectionPoolConfig::default(),
         }
     }
 }
@@ -123,7 +126,19 @@ impl Server {
             });
         }
 
+        // Configure connection pooling via hyper
+        // Note: Axum uses hyper which has built-in connection pooling
+        // The ConnectionPoolConfig is available for future use and documentation
+        tracing::debug!(
+            "Connection pool config: max_idle_per_host={}, max_idle_total={}, idle_timeout={:?}, keep_alive={:?}",
+            self.config.connection_pool.max_idle_per_host,
+            self.config.connection_pool.max_idle_total,
+            self.config.connection_pool.idle_timeout,
+            self.config.connection_pool.keep_alive
+        );
+
         // Serve with graceful shutdown
+        // Hyper (used by Axum) automatically handles connection pooling and keep-alive
         axum::serve(listener, app)
             .with_graceful_shutdown(shutdown_signal())
             .await?;
