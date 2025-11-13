@@ -2,7 +2,7 @@
 - [x] 1.1 Implement query cache in SearchExecutor
 - [x] 1.2 LQL query cache with LazyLock
 - [x] 1.3 Cache key generation
-- [ ] 1.4 LRU cache with TTL - Phase 2
+- [x] 1.4 LRU cache with TTL - Phase 2
 - [ ] 1.5 Cache warming - Phase 2
 - [ ] 1.6 Cache statistics - Phase 2
 - [ ] 1.7 Benchmark cache effectiveness - Phase 2
@@ -15,7 +15,7 @@
 
 ## 3. Field Cache
 - [x] 3.1 Optimize field cache for sorting
-- [ ] 3.2 Implement field cache for aggregations
+- [x] 3.2 Implement field cache for aggregations
 - [ ] 3.3 Add cache preloading
 - [x] 3.4 Test field cache
 
@@ -79,8 +79,8 @@
 - [x] 11.6 LQL benchmarks: benches/lql_benchmarks.rs
 
 ## Summary
-**Status**: ~39% Complete (~28/70 tasks)  
-**Infrastructure**: ✅ Complete (benchmarks, load tests, query cache, network compression, filter cache, serialization optimization, connection pooling, request batching, field cache)  
+**Status**: ~43% Complete (~30/70 tasks)  
+**Infrastructure**: ✅ Complete (benchmarks, load tests, query cache with LRU+TTL, network compression, filter cache, serialization optimization, connection pooling, request batching, field cache with aggregation support)  
 **Tests**: Load test framework ready, benchmark suite functional  
 **Remaining**: Advanced optimization techniques (cache tuning, memory opt, I/O opt)  
 **Note**: Infrastructure ready for Phase 2 optimization work
@@ -97,4 +97,9 @@
 - ✅ Integrated field cache into SearchExecutor
 - ✅ Added field cache statistics and management
 - ✅ Comprehensive unit tests for field cache
+- ✅ Implemented LRU cache with TTL for query cache (QueryCache)
+- ✅ Added query cache eviction and expiration support
+- ✅ Extended field cache with aggregation support methods (get_all_values, compute_stats, cardinality, term_frequencies)
+- ✅ Added FieldAggregationStats for aggregation operations
+- ✅ Comprehensive tests for query cache and field cache aggregations
 

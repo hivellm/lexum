@@ -96,10 +96,7 @@ pub async fn batch_requests(
 }
 
 /// Execute a single batch request item
-async fn execute_batch_item(
-    state: &AppState,
-    item: BatchRequestItem,
-) -> BatchResponseItem {
+async fn execute_batch_item(state: &AppState, item: BatchRequestItem) -> BatchResponseItem {
     // Parse method
     let method = match item.method.as_str() {
         "GET" => Method::GET,
@@ -119,7 +116,10 @@ async fn execute_batch_item(
 
     // Route to appropriate handler based on path
     let result = match item.path.as_str() {
-        path if path.starts_with("/api/v1/indices") && method == Method::GET && path.ends_with("/stats") => {
+        path if path.starts_with("/api/v1/indices")
+            && method == Method::GET
+            && path.ends_with("/stats") =>
+        {
             // Get index stats
             if let Some(index_name) = extract_index_name(path) {
                 match state.index_manager.get_index_stats(&index_name).await {
@@ -148,9 +148,15 @@ async fn execute_batch_item(
                     }));
                 }
             }
-            Ok((StatusCode::OK, serde_json::json!({ "indices": index_infos })))
+            Ok((
+                StatusCode::OK,
+                serde_json::json!({ "indices": index_infos }),
+            ))
         }
-        path if path.starts_with("/api/v1/indices/") && path.ends_with("/documents") && method == Method::POST => {
+        path if path.starts_with("/api/v1/indices/")
+            && path.ends_with("/documents")
+            && method == Method::POST =>
+        {
             // Add document
             if let Some(index_name) = extract_index_name(path) {
                 if let Some(body) = item.body {
@@ -244,4 +250,3 @@ mod tests {
         assert_eq!(extract_index_name("/invalid/path"), None);
     }
 }
-

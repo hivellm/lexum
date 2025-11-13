@@ -5,14 +5,14 @@
 //! (column-oriented fields) to avoid repeated field value lookups.
 
 use dashmap::DashMap;
+use std::fmt;
 use std::sync::Arc;
-use tantivy::schema::Field;
 
 /// Field cache key (index name + field name)
 type FieldCacheKey = String;
 
 /// Cached field values for a document
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FieldValue {
     /// Integer value
     I64(i64),
@@ -37,17 +37,18 @@ impl FieldValue {
             (FieldValue::Missing, _) => std::cmp::Ordering::Less,
             (_, FieldValue::Missing) => std::cmp::Ordering::Greater,
             // Type mismatch - compare as strings
-            _ => self.to_string().cmp(&other.to_string()),
+            _ => format!("{self}").cmp(&format!("{other}")),
         }
     }
+}
 
-    /// Convert to string representation
-    pub fn to_string(&self) -> String {
+impl fmt::Display for FieldValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FieldValue::I64(v) => v.to_string(),
-            FieldValue::F64(v) => v.to_string(),
-            FieldValue::String(v) => v.clone(),
-            FieldValue::Missing => String::new(),
+            FieldValue::I64(v) => write!(f, "{v}"),
+            FieldValue::F64(v) => write!(f, "{v}"),
+            FieldValue::String(v) => write!(f, "{v}"),
+            FieldValue::Missing => write!(f, ""),
         }
     }
 }
@@ -93,7 +94,7 @@ impl FieldCache {
 
     /// Generate cache key from index and field name
     fn cache_key(index_name: &str, field_name: &str) -> FieldCacheKey {
-        format!("{}:{}", index_name, field_name)
+        format!("{index_name}:{field_name}")
     }
 
     /// Get field value for a document
@@ -109,13 +110,7 @@ impl FieldCache {
     }
 
     /// Put field value for a document
-    pub fn put(
-        &self,
-        index_name: &str,
-        field_name: &str,
-        doc_id: u64,
-        value: FieldValue,
-    ) {
+    pub fn put(&self, index_name: &str, field_name: &str, doc_id: u64, value: FieldValue) {
         if !self.enabled {
             return;
         }
@@ -125,8 +120,8 @@ impl FieldCache {
         // Evict oldest field cache if we exceed max_fields
         if self.cache.len() >= self.max_fields && !self.cache.contains_key(&key) {
             // Simple eviction: remove first entry (FIFO-like)
-            if let Some((old_key, _)) = self.cache.iter().next() {
-                self.cache.remove(old_key.key());
+            if let Some(entry) = self.cache.iter().next() {
+                self.cache.remove(entry.key());
             }
         }
 
@@ -169,6 +164,198 @@ impl FieldCache {
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }
+
+    /// Get all cached values for a field (for aggregations)
+    ///
+    /// # Arguments
+    /// * `index_name` - Index name
+    /// * `field_name` - Field name
+    ///
+    /// # Returns
+    /// Vector of (doc_id, field_value) pairs
+    pub fn get_all_values(&self, index_name: &str, field_name: &str) -> Vec<(u64, FieldValue)> {
+        if !self.enabled {
+            return Vec::new();
+        }
+
+        let key = Self::cache_key(index_name, field_name);
+        if let Some(field_cache) = self.cache.get(&key) {
+            field_cache
+                .iter()
+                .map(|entry| (*entry.key(), entry.value().clone()))
+                .collect()
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Get values for multiple documents (for aggregations)
+    ///
+    /// # Arguments
+    /// * `index_name` - Index name
+    /// * `field_name` - Field name
+    /// * `doc_ids` - Document IDs to retrieve
+    ///
+    /// # Returns
+    /// Vector of field values (in same order as doc_ids, None for missing)
+    pub fn get_values_for_docs(
+        &self,
+        index_name: &str,
+        field_name: &str,
+        doc_ids: &[u64],
+    ) -> Vec<Option<FieldValue>> {
+        if !self.enabled {
+            return vec![None; doc_ids.len()];
+        }
+
+        let key = Self::cache_key(index_name, field_name);
+        if let Some(field_cache) = self.cache.get(&key) {
+            doc_ids
+                .iter()
+                .map(|doc_id| field_cache.get(doc_id).map(|v| v.clone()))
+                .collect()
+        } else {
+            vec![None; doc_ids.len()]
+        }
+    }
+
+    /// Compute statistics for numeric field values (for aggregations)
+    ///
+    /// # Arguments
+    /// * `index_name` - Index name
+    /// * `field_name` - Field name
+    ///
+    /// # Returns
+    /// Aggregation stats (min, max, sum, avg, count) for numeric values
+    pub fn compute_stats(
+        &self,
+        index_name: &str,
+        field_name: &str,
+    ) -> Option<FieldAggregationStats> {
+        if !self.enabled {
+            return None;
+        }
+
+        let values = self.get_all_values(index_name, field_name);
+        if values.is_empty() {
+            return None;
+        }
+
+        let mut count = 0;
+        let mut sum_i64 = 0i64;
+        let mut sum_f64 = 0.0f64;
+        let mut min_i64: Option<i64> = None;
+        let mut max_i64: Option<i64> = None;
+        let mut min_f64: Option<f64> = None;
+        let mut max_f64: Option<f64> = None;
+        let mut has_i64 = false;
+        let mut has_f64 = false;
+
+        for (_, value) in values {
+            match value {
+                FieldValue::I64(v) => {
+                    count += 1;
+                    has_i64 = true;
+                    sum_i64 += v;
+                    min_i64 = Some(min_i64.map_or(v, |m| m.min(v)));
+                    max_i64 = Some(max_i64.map_or(v, |m| m.max(v)));
+                }
+                FieldValue::F64(v) => {
+                    count += 1;
+                    has_f64 = true;
+                    sum_f64 += v;
+                    min_f64 = Some(min_f64.map_or(v, |m| m.min(v)));
+                    max_f64 = Some(max_f64.map_or(v, |m| m.max(v)));
+                }
+                FieldValue::String(_) | FieldValue::Missing => {
+                    // Skip non-numeric values for stats
+                }
+            }
+        }
+
+        if count == 0 {
+            return None;
+        }
+
+        Some(FieldAggregationStats {
+            count,
+            min_i64,
+            max_i64,
+            sum_i64: if has_i64 { Some(sum_i64) } else { None },
+            avg_i64: if has_i64 && count > 0 {
+                Some(sum_i64 / count as i64)
+            } else {
+                None
+            },
+            min_f64,
+            max_f64,
+            sum_f64: if has_f64 { Some(sum_f64) } else { None },
+            avg_f64: if has_f64 && count > 0 {
+                Some(sum_f64 / count as f64)
+            } else {
+                None
+            },
+        })
+    }
+
+    /// Get unique values count (for cardinality aggregation)
+    ///
+    /// # Arguments
+    /// * `index_name` - Index name
+    /// * `field_name` - Field name
+    ///
+    /// # Returns
+    /// Number of unique values (approximate for large datasets)
+    pub fn cardinality(&self, index_name: &str, field_name: &str) -> usize {
+        if !self.enabled {
+            return 0;
+        }
+
+        let key = Self::cache_key(index_name, field_name);
+        if let Some(field_cache) = self.cache.get(&key) {
+            // For now, use a simple HashSet approach
+            // In the future, this could use HyperLogLog for better memory efficiency
+            use std::collections::HashSet;
+            let mut unique_values = HashSet::new();
+            for entry in field_cache.iter() {
+                unique_values.insert(entry.value().to_string());
+            }
+            unique_values.len()
+        } else {
+            0
+        }
+    }
+
+    /// Get term frequencies (for terms aggregation)
+    ///
+    /// # Arguments
+    /// * `index_name` - Index name
+    /// * `field_name` - Field name
+    ///
+    /// # Returns
+    /// Vector of (term, count) pairs sorted by count descending
+    pub fn term_frequencies(&self, index_name: &str, field_name: &str) -> Vec<(String, usize)> {
+        if !self.enabled {
+            return Vec::new();
+        }
+
+        let key = Self::cache_key(index_name, field_name);
+        if let Some(field_cache) = self.cache.get(&key) {
+            use std::collections::HashMap;
+            let mut frequencies: HashMap<String, usize> = HashMap::new();
+
+            for entry in field_cache.iter() {
+                let term = entry.value().to_string();
+                *frequencies.entry(term).or_insert(0) += 1;
+            }
+
+            let mut result: Vec<(String, usize)> = frequencies.into_iter().collect();
+            result.sort_by(|a, b| b.1.cmp(&a.1)); // Sort by count descending
+            result
+        } else {
+            Vec::new()
+        }
+    }
 }
 
 impl Default for FieldCache {
@@ -188,6 +375,29 @@ pub struct FieldCacheStats {
     pub max_fields: usize,
     /// Whether caching is enabled
     pub enabled: bool,
+}
+
+/// Aggregation statistics for a field
+#[derive(Debug, Clone)]
+pub struct FieldAggregationStats {
+    /// Total count of numeric values
+    pub count: usize,
+    /// Minimum i64 value (if any)
+    pub min_i64: Option<i64>,
+    /// Maximum i64 value (if any)
+    pub max_i64: Option<i64>,
+    /// Sum of i64 values (if any)
+    pub sum_i64: Option<i64>,
+    /// Average of i64 values (if any)
+    pub avg_i64: Option<i64>,
+    /// Minimum f64 value (if any)
+    pub min_f64: Option<f64>,
+    /// Maximum f64 value (if any)
+    pub max_f64: Option<f64>,
+    /// Sum of f64 values (if any)
+    pub sum_f64: Option<f64>,
+    /// Average of f64 values (if any)
+    pub avg_f64: Option<f64>,
 }
 
 #[cfg(test)]
@@ -229,7 +439,12 @@ mod tests {
         let cache = FieldCache::new();
         cache.put("test-index", "price", 1, FieldValue::I64(100));
         cache.put("test-index", "rating", 1, FieldValue::F64(4.5));
-        cache.put("test-index", "name", 1, FieldValue::String("test".to_string()));
+        cache.put(
+            "test-index",
+            "name",
+            1,
+            FieldValue::String("test".to_string()),
+        );
 
         assert_eq!(
             cache.get("test-index", "price", 1),
@@ -299,5 +514,101 @@ mod tests {
         cache.put("test-index", "price", 1, FieldValue::I64(100));
         assert_eq!(cache.get("test-index", "price", 1), None);
     }
-}
 
+    #[test]
+    fn test_field_cache_get_all_values() {
+        let cache = FieldCache::new();
+        cache.put("test-index", "price", 1, FieldValue::I64(100));
+        cache.put("test-index", "price", 2, FieldValue::I64(200));
+        cache.put("test-index", "price", 3, FieldValue::I64(300));
+
+        let values = cache.get_all_values("test-index", "price");
+        assert_eq!(values.len(), 3);
+    }
+
+    #[test]
+    fn test_field_cache_get_values_for_docs() {
+        let cache = FieldCache::new();
+        cache.put("test-index", "price", 1, FieldValue::I64(100));
+        cache.put("test-index", "price", 2, FieldValue::I64(200));
+
+        let values = cache.get_values_for_docs("test-index", "price", &[1, 2, 3]);
+        assert_eq!(values.len(), 3);
+        assert_eq!(values[0], Some(FieldValue::I64(100)));
+        assert_eq!(values[1], Some(FieldValue::I64(200)));
+        assert_eq!(values[2], None);
+    }
+
+    #[test]
+    fn test_field_cache_compute_stats() {
+        let cache = FieldCache::new();
+        cache.put("test-index", "price", 1, FieldValue::I64(100));
+        cache.put("test-index", "price", 2, FieldValue::I64(200));
+        cache.put("test-index", "price", 3, FieldValue::I64(300));
+
+        let stats = cache.compute_stats("test-index", "price");
+        assert!(stats.is_some());
+        let stats = stats.unwrap();
+        assert_eq!(stats.count, 3);
+        assert_eq!(stats.min_i64, Some(100));
+        assert_eq!(stats.max_i64, Some(300));
+        assert_eq!(stats.sum_i64, Some(600));
+        assert_eq!(stats.avg_i64, Some(200));
+    }
+
+    #[test]
+    fn test_field_cache_cardinality() {
+        let cache = FieldCache::new();
+        cache.put(
+            "test-index",
+            "status",
+            1,
+            FieldValue::String("active".to_string()),
+        );
+        cache.put(
+            "test-index",
+            "status",
+            2,
+            FieldValue::String("active".to_string()),
+        );
+        cache.put(
+            "test-index",
+            "status",
+            3,
+            FieldValue::String("inactive".to_string()),
+        );
+
+        let cardinality = cache.cardinality("test-index", "status");
+        assert_eq!(cardinality, 2); // "active" and "inactive"
+    }
+
+    #[test]
+    fn test_field_cache_term_frequencies() {
+        let cache = FieldCache::new();
+        cache.put(
+            "test-index",
+            "status",
+            1,
+            FieldValue::String("active".to_string()),
+        );
+        cache.put(
+            "test-index",
+            "status",
+            2,
+            FieldValue::String("active".to_string()),
+        );
+        cache.put(
+            "test-index",
+            "status",
+            3,
+            FieldValue::String("inactive".to_string()),
+        );
+
+        let frequencies = cache.term_frequencies("test-index", "status");
+        assert_eq!(frequencies.len(), 2);
+        assert_eq!(frequencies[0].0, "active");
+        assert_eq!(frequencies[0].1, 2);
+        assert_eq!(frequencies[1].0, "inactive");
+        assert_eq!(frequencies[1].1, 1);
+    }
+}

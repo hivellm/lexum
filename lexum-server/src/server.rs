@@ -230,6 +230,7 @@ snapshots:
             bind_addr: "127.0.0.1:17001".parse().unwrap(),
             data_dir: temp_dir.path().join("data").to_string_lossy().to_string(),
             config_path: Some(config_path.to_string_lossy().to_string()),
+            connection_pool: ConnectionPoolConfig::default(),
         };
 
         let server = Server::new_with_hot_reload(config).await;

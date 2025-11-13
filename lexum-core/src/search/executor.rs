@@ -6,9 +6,9 @@ use crate::query::Query;
 use crate::search::field_cache::FieldCache;
 use crate::search::filter_cache::FilterCache;
 use crate::search::optimizer::QueryOptimizer;
+use crate::search::query_cache::QueryCache;
 use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
 use crate::types::{DocumentId, Score};
-use dashmap::DashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tantivy::TantivyDocument;
@@ -18,16 +18,11 @@ use tantivy::query::{
 };
 use tantivy::schema::*;
 
-/// Cache key for query results
-type CacheKey = String;
-
 /// Search executor for running queries
 pub struct SearchExecutor {
     index: Arc<Index>,
-    /// Query cache (key: query hash, value: cached result)
-    cache: Arc<DashMap<CacheKey, SearchResult>>,
-    /// Whether caching is enabled
-    cache_enabled: bool,
+    /// Query cache with LRU and TTL
+    cache: Arc<QueryCache>,
     /// Filter cache for bitset caching
     filter_cache: Arc<FilterCache>,
     /// Field cache for sorting and aggregations
@@ -36,11 +31,36 @@ pub struct SearchExecutor {
 
 impl SearchExecutor {
     /// Create new search executor with caching enabled
+    ///
+    /// Uses default cache settings:
+    /// - Capacity: 1000 entries
+    /// - TTL: 5 minutes
     pub fn new(index: Arc<Index>) -> Self {
         Self {
             index,
-            cache: Arc::new(DashMap::new()),
-            cache_enabled: true,
+            cache: Arc::new(QueryCache::new()),
+            filter_cache: Arc::new(FilterCache::new()),
+            field_cache: Arc::new(FieldCache::new()),
+        }
+    }
+
+    /// Create new search executor with custom cache settings
+    ///
+    /// # Arguments
+    /// * `cache_capacity` - Maximum number of cache entries
+    /// * `cache_ttl_secs` - Cache TTL in seconds
+    pub fn with_cache_settings(
+        index: Arc<Index>,
+        cache_capacity: usize,
+        cache_ttl_secs: u64,
+    ) -> Self {
+        use std::time::Duration;
+        Self {
+            index,
+            cache: Arc::new(QueryCache::with_capacity_and_ttl(
+                cache_capacity,
+                Duration::from_secs(cache_ttl_secs),
+            )),
             filter_cache: Arc::new(FilterCache::new()),
             field_cache: Arc::new(FieldCache::new()),
         }
@@ -50,8 +70,7 @@ impl SearchExecutor {
     pub fn without_cache(index: Arc<Index>) -> Self {
         Self {
             index,
-            cache: Arc::new(DashMap::new()),
-            cache_enabled: false,
+            cache: Arc::new(QueryCache::disabled()),
             filter_cache: Arc::new(FilterCache::disabled()),
             field_cache: Arc::new(FieldCache::disabled()),
         }
@@ -85,6 +104,18 @@ impl SearchExecutor {
     /// Get cache size
     pub fn cache_size(&self) -> usize {
         self.cache.len()
+    }
+
+    /// Get cache statistics
+    pub fn cache_stats(&self) -> crate::search::query_cache::QueryCacheStats {
+        self.cache.stats()
+    }
+
+    /// Evict expired cache entries
+    ///
+    /// Returns the number of expired entries removed
+    pub fn evict_expired_cache(&self) -> usize {
+        self.cache.evict_expired()
     }
 
     /// Generate cache key from query parameters
@@ -150,16 +181,16 @@ impl SearchExecutor {
         }
 
         // Check cache first if enabled
-        if self.cache_enabled {
-            let key = Self::cache_key(&optimized_query, limit, offset, &sort);
-            if let Some(cached) = self.cache.get(&key) {
-                tracing::debug!(cache_key = %key, "Cache hit");
-                return Ok(cached.clone());
-            }
+        let key = Self::cache_key(&optimized_query, limit, offset, &sort);
+        if let Some(cached) = self.cache.get(&key) {
+            tracing::debug!(cache_key = %key, "Cache hit");
+            return Ok(cached);
         }
 
         let schema = self.index.schema();
         let index = self.index.clone();
+        let index_name = self.index.name().as_str().to_string();
+        let field_cache = self.field_cache.clone();
         let query_clone = optimized_query.clone();
         let sort_clone = sort.clone();
 
@@ -202,18 +233,17 @@ impl SearchExecutor {
             if let Some(sort_opt) = sort_clone {
                 if sort_opt.field != "_score" {
                     // Try to use field cache for faster sorting
-                    let index_name = self.index.name().as_str().to_string();
                     let field_name = &sort_opt.field;
 
                     // Pre-populate field cache if enabled
                     // Note: We use a hash of the document ID string as the cache key
                     // since DocumentId doesn't expose a numeric value directly
-                    if self.field_cache.is_enabled() {
+                    if field_cache.is_enabled() {
                         for (idx, hit) in hits.iter().enumerate() {
                             // Use index as doc_id for cache (simple approach)
                             let doc_id = idx as u64;
                             // Check if value is already cached
-                            if self.field_cache.get(&index_name, field_name, doc_id).is_none() {
+                            if field_cache.get(&index_name, field_name, doc_id).is_none() {
                                 // Extract value from source and cache it
                                 if let Some(val) = hit.source.get(field_name) {
                                     let field_value = if let Some(i) = val.as_i64() {
@@ -225,7 +255,7 @@ impl SearchExecutor {
                                             val.to_string(),
                                         )
                                     };
-                                    self.field_cache.put(&index_name, field_name, doc_id, field_value);
+                                    field_cache.put(&index_name, field_name, doc_id, field_value);
                                 }
                             }
                         }
@@ -284,11 +314,9 @@ impl SearchExecutor {
         result.took_ms = start.elapsed().as_millis() as u64;
 
         // Store in cache if enabled
-        if self.cache_enabled {
-            let key = Self::cache_key(&optimized_query, limit, offset, &sort);
-            self.cache.insert(key.clone(), result.clone());
-            tracing::debug!(cache_key = %key, cache_size = self.cache.len(), "Cached result");
-        }
+        let key = Self::cache_key(&optimized_query, limit, offset, &sort);
+        self.cache.put(key.clone(), result.clone());
+        tracing::debug!(cache_key = %key, cache_size = self.cache.len(), "Cached result");
 
         Ok(result)
     }
@@ -567,7 +595,7 @@ mod tests {
 
         let executor = SearchExecutor::new(Arc::new(index));
         assert_eq!(executor.cache_size(), 0);
-        assert!(executor.cache_enabled);
+        assert!(executor.cache.is_enabled());
     }
 
     #[test]
@@ -586,7 +614,7 @@ mod tests {
 
         let executor = SearchExecutor::without_cache(Arc::new(index));
         assert_eq!(executor.cache_size(), 0);
-        assert!(!executor.cache_enabled);
+        assert!(!executor.cache.is_enabled());
     }
 
     #[test]

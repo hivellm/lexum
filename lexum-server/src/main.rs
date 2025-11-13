@@ -17,6 +17,7 @@ async fn main() -> anyhow::Result<()> {
         bind_addr: "127.0.0.1:17000".parse().unwrap(),
         data_dir: env::var("LEXUM_DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
         config_path,
+        connection_pool: Default::default(),
     };
 
     // Create server with or without hot-reload

@@ -60,7 +60,7 @@ impl ConnectionPoolConfig {
 }
 
 /// Connection pool statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ConnectionPoolStats {
     /// Current number of idle connections
     pub idle_connections: usize,
@@ -72,18 +72,6 @@ pub struct ConnectionPoolStats {
     pub pool_hits: usize,
     /// Connection pool misses (new connections)
     pub pool_misses: usize,
-}
-
-impl Default for ConnectionPoolStats {
-    fn default() -> Self {
-        Self {
-            idle_connections: 0,
-            active_connections: 0,
-            total_connections: 0,
-            pool_hits: 0,
-            pool_misses: 0,
-        }
-    }
 }
 
 #[cfg(test)]

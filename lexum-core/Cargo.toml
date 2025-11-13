@@ -37,6 +37,7 @@ parking_lot = { workspace = true }
 dashmap = { workspace = true }
 once_cell = { workspace = true }
 async-trait = { workspace = true }
+lru = "0.12"
 
 # Search engine
 tantivy = { workspace = true }
