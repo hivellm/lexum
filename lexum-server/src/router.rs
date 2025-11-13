@@ -5,7 +5,9 @@ use crate::handlers::{
     admin, alias, auth, document, health, index, progress, progress_bulk, reindex, rollover,
     search, snapshot, template,
 };
+use crate::middleware::query_complexity::{QueryComplexityLimitConfig, QueryComplexityLimitLayer};
 use crate::middleware::rate_limit::{RateLimitConfig, RateLimitLayer};
+use crate::middleware::request_size::{RequestSizeLimitConfig, RequestSizeLimitLayer};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
 use tower::ServiceBuilder;
@@ -165,8 +167,15 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/auth/keys", delete(auth::revoke_api_key))
         // OpenAPI documentation (temporarily disabled due to version conflicts)
         // .merge(create_swagger_ui())
-        // Middleware (rate limiting implemented, ready for full Tower integration)
-        .layer(ServiceBuilder::new().layer(RateLimitLayer::new(RateLimitConfig::default())))
+        // Middleware (security layers)
+        .layer(
+            ServiceBuilder::new()
+                .layer(RateLimitLayer::new(RateLimitConfig::default()))
+                .layer(RequestSizeLimitLayer::new(RequestSizeLimitConfig::default()))
+                .layer(QueryComplexityLimitLayer::new(
+                    QueryComplexityLimitConfig::default(),
+                )),
+        )
         .layer(CorsLayer::permissive())
         .layer(
             TraceLayer::new_for_http()

@@ -237,6 +237,8 @@ mod tests {
             auth_state: crate::middleware::auth::AuthState::new(
                 crate::middleware::auth::AuthConfig::default(),
             ),
+            query_complexity_config:
+                crate::middleware::query_complexity::QueryComplexityLimitConfig::default(),
         }
     }
 

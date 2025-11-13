@@ -69,8 +69,8 @@
 
 ## 9. Security Hardening
 - [x] 9.1 Implement rate limiting per user (RateLimitLayer fully implemented with Tower)
-- [ ] 9.2 Add request size limits
-- [ ] 9.3 Implement query complexity limits
+- [x] 9.2 Add request size limits
+- [x] 9.3 Implement query complexity limits
 - [ ] 9.4 Add IP whitelisting/blacklisting
 - [ ] 9.5 Test security hardening
 
@@ -82,10 +82,10 @@
 - [ ] 10.5 Security audit
 
 ## Summary
-- **Completed**: API Key Authentication (full with endpoints), Rate Limiting (fully implemented with Tower), Documentation
-- **In Progress**: Request size limits, Query complexity limits
-- **Not Started**: TLS, OAuth, RBAC, Document/Field Security, Audit Logging, Encryption at Rest
-- **Progress**: ~25% (15/60+ tasks)
+- **Completed**: API Key Authentication (full with endpoints), Rate Limiting (fully implemented with Tower), Request Size Limits, Query Complexity Limits, Documentation
+- **In Progress**: None
+- **Not Started**: TLS, OAuth, RBAC, Document/Field Security, Audit Logging, Encryption at Rest, IP Whitelisting/Blacklisting
+- **Progress**: ~30% (18/60+ tasks)
 
 ## Recent Changes
 - ✅ Implemented full Rate Limiting middleware with Tower Layer integration
@@ -94,4 +94,8 @@
 - ✅ Created API key listing endpoint (GET /api/v1/auth/keys)
 - ✅ Integrated AuthState into AppState
 - ✅ Added rate limiting headers (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset)
+- ✅ Implemented Request Size Limit middleware (body, headers, URL length)
+- ✅ Implemented Query Complexity Limit middleware (depth, clauses, terms, query length)
+- ✅ Integrated query complexity validation in search handler
+- ✅ Added query complexity configuration to AppState
 

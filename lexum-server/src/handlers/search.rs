@@ -2,10 +2,12 @@
 
 use crate::error::{ApiError, ApiResult};
 use crate::handlers::index::AppState;
+use crate::middleware::query_complexity::QueryComplexityLimitLayer;
 use axum::Json;
 use axum::extract::{Path, State};
 use lexum_core::{Query, SearchExecutor, SearchResult, SortOption};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::sync::Arc;
 
 /// Search request
@@ -100,6 +102,35 @@ pub async fn search(
     } else {
         request.query
     };
+
+    // Validate query complexity
+    if state.query_complexity_config.enabled {
+        let query_json: Value = serde_json::to_value(&query)
+            .map_err(|e| ApiError::InvalidRequest(format!("Failed to serialize query: {e}")))?;
+        let complexity_layer =
+            QueryComplexityLimitLayer::new(state.query_complexity_config.clone());
+        if let Err(e) = complexity_layer.analyze_query_json(&query_json) {
+            return Err(ApiError::InvalidRequest(format!(
+                "Query complexity limit exceeded: {}",
+                e.message()
+            )));
+        }
+
+        // Validate filters if present
+        if let Some(ref filters) = request.filter {
+            for filter in filters {
+                let filter_json: Value = serde_json::to_value(filter).map_err(|e| {
+                    ApiError::InvalidRequest(format!("Failed to serialize filter: {e}"))
+                })?;
+                if let Err(e) = complexity_layer.analyze_query_json(&filter_json) {
+                    return Err(ApiError::InvalidRequest(format!(
+                        "Filter complexity limit exceeded: {}",
+                        e.message()
+                    )));
+                }
+            }
+        }
+    }
 
     // Apply filters if provided (wrap query in bool query with filter clause)
     let final_query = if let Some(ref filters) = request.filter {

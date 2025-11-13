@@ -39,6 +39,8 @@ async fn test_full_workflow() -> Result<()> {
         auth_state: lexum_server::middleware::auth::AuthState::new(
             lexum_server::middleware::auth::AuthConfig::default(),
         ),
+        query_complexity_config:
+            lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
     };
 
     // Test 1: Create an index
@@ -82,6 +84,8 @@ async fn test_server_integration() -> Result<()> {
         auth_state: lexum_server::middleware::auth::AuthState::new(
             lexum_server::middleware::auth::AuthConfig::default(),
         ),
+        query_complexity_config:
+            lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
     };
 
     // Test that we can create the app state

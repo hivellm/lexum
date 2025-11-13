@@ -99,6 +99,8 @@ impl Server {
             auth_state: crate::middleware::auth::AuthState::new(
                 crate::middleware::auth::AuthConfig::from_env(),
             ),
+            query_complexity_config:
+                crate::middleware::query_complexity::QueryComplexityLimitConfig::default(),
         };
 
         let app = build_router(state);

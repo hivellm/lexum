@@ -15,6 +15,7 @@ use utoipa::ToSchema;
 
 use crate::handlers::reindex::TaskManager;
 use crate::middleware::auth::AuthState;
+use crate::middleware::query_complexity::QueryComplexityLimitConfig;
 
 /// Application state
 #[derive(Clone)]
@@ -31,6 +32,8 @@ pub struct AppState {
     pub progress_tracker: Arc<ProgressTracker>,
     /// Authentication state
     pub auth_state: AuthState,
+    /// Query complexity limit configuration
+    pub query_complexity_config: QueryComplexityLimitConfig,
 }
 
 impl Default for AppState {
@@ -65,6 +68,7 @@ impl Default for AppState {
             task_manager: Arc::new(TaskManager::new()),
             progress_tracker: Arc::new(ProgressTracker::new()),
             auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
+            query_complexity_config: QueryComplexityLimitConfig::default(),
         }
     }
 }
@@ -504,6 +508,7 @@ mod tests {
             task_manager: Arc::new(TaskManager::new()),
             progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
             auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
+            query_complexity_config: QueryComplexityLimitConfig::default(),
         }
     }
 

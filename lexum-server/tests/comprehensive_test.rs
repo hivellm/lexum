@@ -46,6 +46,8 @@ async fn setup_test_server() -> (AppState, TempDir) {
         auth_state: lexum_server::middleware::auth::AuthState::new(
             lexum_server::middleware::auth::AuthConfig::default(),
         ),
+        query_complexity_config:
+            lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
     };
     (state, temp_dir)
 }

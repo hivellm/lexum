@@ -100,6 +100,8 @@ impl E2ETestRunner {
             auth_state: lexum_server::middleware::auth::AuthState::new(
                 lexum_server::middleware::auth::AuthConfig::default(),
             ),
+            query_complexity_config:
+                lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
         };
 
         Ok(Self {
