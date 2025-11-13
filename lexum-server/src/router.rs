@@ -5,6 +5,7 @@ use crate::handlers::{
     admin, alias, auth, document, health, index, progress, progress_bulk, reindex, rollover,
     search, snapshot, template,
 };
+use crate::middleware::ip_filter::{IpFilterConfig, IpFilterLayer};
 use crate::middleware::query_complexity::{QueryComplexityLimitConfig, QueryComplexityLimitLayer};
 use crate::middleware::rate_limit::{RateLimitConfig, RateLimitLayer};
 use crate::middleware::request_size::{RequestSizeLimitConfig, RequestSizeLimitLayer};
@@ -170,6 +171,7 @@ pub fn build_router(state: AppState) -> Router {
         // Middleware (security layers)
         .layer(
             ServiceBuilder::new()
+                .layer(IpFilterLayer::new(IpFilterConfig::default()))
                 .layer(RateLimitLayer::new(RateLimitConfig::default()))
                 .layer(RequestSizeLimitLayer::new(RequestSizeLimitConfig::default()))
                 .layer(QueryComplexityLimitLayer::new(

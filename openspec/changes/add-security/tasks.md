@@ -71,7 +71,7 @@
 - [x] 9.1 Implement rate limiting per user (RateLimitLayer fully implemented with Tower)
 - [x] 9.2 Add request size limits
 - [x] 9.3 Implement query complexity limits
-- [ ] 9.4 Add IP whitelisting/blacklisting
+- [x] 9.4 Add IP whitelisting/blacklisting
 - [ ] 9.5 Test security hardening
 
 ## 10. Documentation & Testing
@@ -82,10 +82,10 @@
 - [ ] 10.5 Security audit
 
 ## Summary
-- **Completed**: API Key Authentication (full with endpoints), Rate Limiting (fully implemented with Tower), Request Size Limits, Query Complexity Limits, Documentation
+- **Completed**: API Key Authentication (full with endpoints), Rate Limiting (fully implemented with Tower), Request Size Limits, Query Complexity Limits, IP Whitelisting/Blacklisting, Documentation
 - **In Progress**: None
-- **Not Started**: TLS, OAuth, RBAC, Document/Field Security, Audit Logging, Encryption at Rest, IP Whitelisting/Blacklisting
-- **Progress**: ~30% (18/60+ tasks)
+- **Not Started**: TLS, OAuth, RBAC, Document/Field Security, Audit Logging, Encryption at Rest
+- **Progress**: ~32% (19/60+ tasks)
 
 ## Recent Changes
 - ✅ Implemented full Rate Limiting middleware with Tower Layer integration
@@ -98,4 +98,6 @@
 - ✅ Implemented Query Complexity Limit middleware (depth, clauses, terms, query length)
 - ✅ Integrated query complexity validation in search handler
 - ✅ Added query complexity configuration to AppState
+- ✅ Implemented IP Whitelisting/Blacklisting middleware (supports X-Forwarded-For, X-Real-IP, CF-Connecting-IP headers)
+- ✅ Integrated IP filter middleware in router
 
