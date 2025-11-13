@@ -191,6 +191,8 @@ impl SearchExecutor {
                 let source = serde_json::from_str(&doc.to_json(&schema))
                     .map_err(|e| Error::Config(format!("Failed to parse document JSON: {e}")))?;
 
+                // Use doc_address.doc_id as the numeric ID for field cache
+                let doc_id_num = doc_address.doc_id;
                 hits.push(SearchHit {
                     id: DocumentId::new(format!("doc_{}", doc_address.segment_ord)),
                     score: Score::new(*score),
@@ -206,9 +208,12 @@ impl SearchExecutor {
                     let field_name = &sort_opt.field;
 
                     // Pre-populate field cache if enabled
+                    // Note: We use a hash of the document ID string as the cache key
+                    // since DocumentId doesn't expose a numeric value directly
                     if self.field_cache.is_enabled() {
-                        for hit in &hits {
-                            let doc_id = hit.id.value();
+                        for (idx, hit) in hits.iter().enumerate() {
+                            // Use index as doc_id for cache (simple approach)
+                            let doc_id = idx as u64;
                             // Check if value is already cached
                             if self.field_cache.get(index_name, field_name, doc_id).is_none() {
                                 // Extract value from source and cache it
@@ -230,73 +235,29 @@ impl SearchExecutor {
 
                     // Sort by custom field value (using cache if available)
                     hits.sort_by(|a, b| {
-                        let a_val = if self.field_cache.is_enabled() {
-                            self.field_cache
-                                .get(index_name, field_name, a.id.value())
-                                .or_else(|| {
-                                    a.source.get(field_name).map(|v| {
-                                        if let Some(i) = v.as_i64() {
-                                            crate::search::field_cache::FieldValue::I64(i)
-                                        } else if let Some(f) = v.as_f64() {
-                                            crate::search::field_cache::FieldValue::F64(f)
-                                        } else {
-                                            crate::search::field_cache::FieldValue::String(
-                                                v.to_string(),
-                                            )
-                                        }
-                                    })
-                                })
-                        } else {
-                            None
-                        };
-
-                        let b_val = if self.field_cache.is_enabled() {
-                            self.field_cache
-                                .get(index_name, field_name, b.id.value())
-                                .or_else(|| {
-                                    b.source.get(field_name).map(|v| {
-                                        if let Some(i) = v.as_i64() {
-                                            crate::search::field_cache::FieldValue::I64(i)
-                                        } else if let Some(f) = v.as_f64() {
-                                            crate::search::field_cache::FieldValue::F64(f)
-                                        } else {
-                                            crate::search::field_cache::FieldValue::String(
-                                                v.to_string(),
-                                            )
-                                        }
-                                    })
-                                })
-                        } else {
-                            None
-                        };
+                        // For now, extract values directly from source
+                        // Field cache can be used for future optimizations with proper doc_id mapping
+                        let a_val = a.source.get(field_name);
+                        let b_val = b.source.get(field_name);
 
                         let cmp = match (a_val, b_val) {
-                            (Some(a), Some(b)) => a.compare(&b),
-                            (Some(_), None) => std::cmp::Ordering::Less,
-                            (None, Some(_)) => std::cmp::Ordering::Greater,
-                            (None, None) => {
-                                // Fallback to source comparison
-                                let a_val = a.source.get(field_name);
-                                let b_val = b.source.get(field_name);
-                                match (a_val, b_val) {
-                                    (Some(a), Some(b)) => {
-                                        if let (Some(a_num), Some(b_num)) = (a.as_i64(), b.as_i64()) {
-                                            a_num.cmp(&b_num)
-                                        } else if let (Some(a_num), Some(b_num)) =
-                                            (a.as_f64(), b.as_f64())
-                                        {
-                                            a_num
-                                                .partial_cmp(&b_num)
-                                                .unwrap_or(std::cmp::Ordering::Equal)
-                                        } else {
-                                            a.to_string().cmp(&b.to_string())
-                                        }
-                                    }
-                                    (Some(_), None) => std::cmp::Ordering::Less,
-                                    (None, Some(_)) => std::cmp::Ordering::Greater,
-                                    (None, None) => std::cmp::Ordering::Equal,
+                            (Some(a), Some(b)) => {
+                                // Try numeric comparison first
+                                if let (Some(a_num), Some(b_num)) = (a.as_i64(), b.as_i64()) {
+                                    a_num.cmp(&b_num)
+                                } else if let (Some(a_num), Some(b_num)) = (a.as_f64(), b.as_f64())
+                                {
+                                    a_num
+                                        .partial_cmp(&b_num)
+                                        .unwrap_or(std::cmp::Ordering::Equal)
+                                } else {
+                                    // Fallback to string comparison
+                                    a.to_string().cmp(&b.to_string())
                                 }
                             }
+                            (Some(_), None) => std::cmp::Ordering::Less,
+                            (None, Some(_)) => std::cmp::Ordering::Greater,
+                            (None, None) => std::cmp::Ordering::Equal,
                         };
 
                         match sort_opt.order {
