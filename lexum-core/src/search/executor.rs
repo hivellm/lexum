@@ -213,7 +213,7 @@ impl SearchExecutor {
                             // Use index as doc_id for cache (simple approach)
                             let doc_id = idx as u64;
                             // Check if value is already cached
-                            if self.field_cache.get(index_name, field_name, doc_id).is_none() {
+                            if self.field_cache.get(&index_name, field_name, doc_id).is_none() {
                                 // Extract value from source and cache it
                                 if let Some(val) = hit.source.get(field_name) {
                                     let field_value = if let Some(i) = val.as_i64() {
@@ -225,7 +225,7 @@ impl SearchExecutor {
                                             val.to_string(),
                                         )
                                     };
-                                    self.field_cache.put(index_name, field_name, doc_id, field_value);
+                                    self.field_cache.put(&index_name, field_name, doc_id, field_value);
                                 }
                             }
                         }
