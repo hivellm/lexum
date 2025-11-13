@@ -40,6 +40,32 @@ impl Index {
         self.inner.schema()
     }
 
+    /// Get all text field names from the schema (excluding keyword fields)
+    /// Returns field names that are indexed and searchable
+    /// Note: This includes all indexed string fields except _id (which is typically a keyword)
+    pub fn get_text_field_names(&self) -> Vec<String> {
+        let schema = self.schema();
+        schema
+            .fields()
+            .filter_map(|(_, field_entry)| {
+                // Check if field is a string type and indexed
+                if matches!(field_entry.field_type(), tantivy::schema::FieldType::Str(_))
+                    && field_entry.is_indexed()
+                {
+                    let field_name = field_entry.name();
+                    // Skip _id fields as they're typically keywords
+                    if field_name == "_id" {
+                        None
+                    } else {
+                        Some(field_name.to_string())
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     /// Create an index writer
     pub fn writer(&self, heap_size: usize) -> Result<IndexWriter> {
         self.inner

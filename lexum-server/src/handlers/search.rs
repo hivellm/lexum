@@ -97,8 +97,30 @@ pub async fn search(
 
     // Handle simple query string if provided
     let query = if let Some(ref q) = request.q {
-        // Convert simple query string to match query
-        lexum_core::Query::Match(lexum_core::MatchQuery::new("_all", q.clone()))
+        // Get index to find text fields
+        let index = state
+            .index_manager
+            .get_index(target_indices[0].as_str())
+            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+
+        let text_fields = index.get_text_field_names();
+
+        if text_fields.is_empty() {
+            // No text fields found, use MatchAll
+            lexum_core::Query::MatchAll
+        } else if text_fields.len() == 1 {
+            // Single text field, use simple match
+            lexum_core::Query::Match(lexum_core::MatchQuery::new(&text_fields[0], q.clone()))
+        } else {
+            // Multiple text fields, create bool query with should clauses
+            let mut bool_query = lexum_core::BoolQuery::new();
+            for field in text_fields {
+                bool_query = bool_query.should(lexum_core::Query::Match(
+                    lexum_core::MatchQuery::new(&field, q.clone()),
+                ));
+            }
+            lexum_core::Query::Bool(bool_query)
+        }
     } else {
         request.query
     };
@@ -275,7 +297,30 @@ pub async fn search_get(
 
     // Build query from parameters
     let base_query = if let Some(ref q) = params.q {
-        lexum_core::Query::Match(lexum_core::MatchQuery::new("_all", q.clone()))
+        // Get index to find text fields
+        let index = state
+            .index_manager
+            .get_index(target_indices[0].as_str())
+            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+
+        let text_fields = index.get_text_field_names();
+
+        if text_fields.is_empty() {
+            // No text fields found, use MatchAll
+            lexum_core::Query::MatchAll
+        } else if text_fields.len() == 1 {
+            // Single text field, use simple match
+            lexum_core::Query::Match(lexum_core::MatchQuery::new(&text_fields[0], q.clone()))
+        } else {
+            // Multiple text fields, create bool query with should clauses
+            let mut bool_query = lexum_core::BoolQuery::new();
+            for field in text_fields {
+                bool_query = bool_query.should(lexum_core::Query::Match(
+                    lexum_core::MatchQuery::new(&field, q.clone()),
+                ));
+            }
+            lexum_core::Query::Bool(bool_query)
+        }
     } else {
         lexum_core::Query::MatchAll
     };

@@ -91,6 +91,9 @@ impl DocumentStore {
 
     /// Add a document with auto-generated ID
     ///
+    /// If the document already contains an "_id" field and the schema has an "_id" field,
+    /// that ID will be used instead of generating a new one.
+    ///
     /// # Examples
     ///
     /// ```rust,no_run
@@ -113,7 +116,33 @@ impl DocumentStore {
     /// # });
     /// ```
     pub async fn add_document(&self, document: JsonValue) -> Result<DocumentId> {
-        let doc_id = DocumentId::new(Uuid::new_v4().to_string());
+        let schema = self.index.schema();
+
+        // Check if document already has an _id field and schema supports it
+        let doc_id = if let Some(obj) = document.as_object() {
+            if let Some(id_value) = obj.get("_id") {
+                if let Some(id_str) = id_value.as_str() {
+                    // Verify schema has _id field
+                    if schema.get_field("_id").is_ok() {
+                        // Use the provided ID
+                        DocumentId::new(id_str.to_string())
+                    } else {
+                        // Schema doesn't have _id field, generate new one
+                        DocumentId::new(Uuid::new_v4().to_string())
+                    }
+                } else {
+                    // _id is not a string, generate new one
+                    DocumentId::new(Uuid::new_v4().to_string())
+                }
+            } else {
+                // No _id field, generate new one
+                DocumentId::new(Uuid::new_v4().to_string())
+            }
+        } else {
+            // Document is not an object, generate new ID
+            DocumentId::new(Uuid::new_v4().to_string())
+        };
+
         self.add_document_with_id(doc_id.clone(), document).await?;
         Ok(doc_id)
     }
