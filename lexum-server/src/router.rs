@@ -2,7 +2,7 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{
-    admin, alias, auth, document, health, index, progress, progress_bulk, reindex, rollover,
+    admin, alias, auth, batch, document, health, index, progress, progress_bulk, reindex, rollover,
     search, snapshot, template,
 };
 use crate::middleware::ip_filter::{IpFilterConfig, IpFilterLayer};
@@ -61,6 +61,8 @@ pub fn build_router(state: AppState) -> Router {
             "/api/v1/bulk/progress",
             post(progress_bulk::bulk_operations_with_progress),
         )
+        // Batch requests
+        .route("/api/v1/_batch", post(batch::batch_requests))
         .route(
             "/api/v1/bulk/progress/{progress_id}",
             get(progress_bulk::get_bulk_progress),
