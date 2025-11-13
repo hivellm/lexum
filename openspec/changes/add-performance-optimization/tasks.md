@@ -35,7 +35,7 @@
 ## 6. Compression
 - [ ] 6.1 Optimize stored field compression
 - [x] 6.2 Implement network compression
-- [ ] 6.3 Add zstd compression option
+- [x] 6.3 Add zstd compression option (implemented in snapshot compression)
 - [ ] 6.4 Benchmark compression ratios
 
 ## 7. Concurrency
