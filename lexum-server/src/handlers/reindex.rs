@@ -708,7 +708,7 @@ pub async fn get_task(
         .task_manager
         .get_task(&task_id)
         .await
-        .ok_or_else(|| ApiError::InvalidRequest(format!("Task {task_id} not found")))?;
+        .ok_or(ApiError::TaskNotFound(task_id.clone()))?;
 
     let running_time = if let Some(end_time) = task.end_time {
         ((end_time.timestamp_millis() - task.start_time.timestamp_millis()) * 1_000_000) as u64
@@ -757,9 +757,7 @@ pub async fn cancel_task(
             "acknowledged": true
         })))
     } else {
-        Err(ApiError::InvalidRequest(format!(
-            "Task {task_id} not found"
-        )))
+        Err(ApiError::TaskNotFound(task_id))
     }
 }
 
@@ -952,8 +950,8 @@ mod tests {
             .body(Body::empty())
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        // Should return 400 because task doesn't exist
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        // Should return 404 because task doesn't exist
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]
@@ -965,8 +963,8 @@ mod tests {
             .body(Body::empty())
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        // Should return 400 because task doesn't exist
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        // Should return 404 because task doesn't exist
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]

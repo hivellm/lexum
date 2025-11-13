@@ -309,7 +309,13 @@ $testResults += Test-Route -Method "GET" -Path "/api/v1/progress/stats"
 # 13. Reindex
 Write-Host "[13/13] Testando Reindex..." -ForegroundColor White
 $testResults += Test-Route -Method "GET" -Path "/_tasks"
-$testResults += Test-Route -Method "GET" -Path "/_tasks/nonexistent"
+# Test task not found - 404 is expected behavior
+$taskNotFoundResult = Test-Route -Method "GET" -Path "/_tasks/nonexistent"
+if ($taskNotFoundResult.StatusCode -eq 404) {
+    $taskNotFoundResult.Status = "SUCCESS"
+    $taskNotFoundResult.Error = ""
+}
+$testResults += $taskNotFoundResult
 
 # Limpar recursos
 Write-Host "`nLimpando recursos..." -ForegroundColor Yellow

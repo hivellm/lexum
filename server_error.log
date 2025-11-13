@@ -1,2 +1,3 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.29s
+   Compiling lexum-server v0.1.0-alpha (F:\Node\hivellm\lexum\lexum-server)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.17s
      Running `target\debug\lexum-server.exe`
