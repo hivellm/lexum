@@ -4,12 +4,9 @@
 //! including response caching and buffer reuse.
 
 use axum::body::Body;
-use axum::extract::Request;
-use axum::http::{header, HeaderValue, Response, StatusCode};
+use axum::http::{HeaderValue, Response, StatusCode, header};
 use axum::response::IntoResponse;
 use serde::Serialize;
-use std::sync::Arc;
-use tower::Service;
 
 /// Serialization configuration
 #[derive(Debug, Clone)]
@@ -96,7 +93,7 @@ where
                 response
             }
             Err(err) => {
-                let error_body = format!(r#"{{"error":"Serialization failed: {}"}}"#, err);
+                let error_body = format!(r#"{{"error":"Serialization failed: {err}"}}"#);
                 let mut response = Response::new(Body::from(error_body));
                 *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
                 response.headers_mut().insert(
@@ -154,4 +151,3 @@ mod tests {
         );
     }
 }
-
