@@ -52,6 +52,9 @@ pub mod index;
 /// Logging and tracing setup
 pub mod logging;
 
+/// Memory optimization utilities
+pub mod memory;
+
 /// Performance monitoring and regression detection
 pub mod performance;
 

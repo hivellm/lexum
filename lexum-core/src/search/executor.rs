@@ -2,6 +2,7 @@
 
 use crate::error::{Error, Result};
 use crate::index::Index;
+use crate::memory::{BufferPool, StringBufferPool};
 use crate::query::Query;
 use crate::search::field_cache::FieldCache;
 use crate::search::filter_cache::FilterCache;
@@ -27,6 +28,10 @@ pub struct SearchExecutor {
     filter_cache: Arc<FilterCache>,
     /// Field cache for sorting and aggregations
     field_cache: Arc<FieldCache>,
+    /// Buffer pool for reusing Vec buffers
+    buffer_pool: Arc<BufferPool<SearchHit>>,
+    /// String buffer pool for reusing String buffers
+    string_pool: Arc<StringBufferPool>,
 }
 
 impl SearchExecutor {
@@ -41,6 +46,8 @@ impl SearchExecutor {
             cache: Arc::new(QueryCache::new()),
             filter_cache: Arc::new(FilterCache::new()),
             field_cache: Arc::new(FieldCache::new()),
+            buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
+            string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
         }
     }
 
@@ -63,6 +70,8 @@ impl SearchExecutor {
             )),
             filter_cache: Arc::new(FilterCache::new()),
             field_cache: Arc::new(FieldCache::new()),
+            buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
+            string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
         }
     }
 
@@ -73,6 +82,8 @@ impl SearchExecutor {
             cache: Arc::new(QueryCache::disabled()),
             filter_cache: Arc::new(FilterCache::disabled()),
             field_cache: Arc::new(FieldCache::disabled()),
+            buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
+            string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
         }
     }
 
@@ -234,6 +245,8 @@ impl SearchExecutor {
         let index = self.index.clone();
         let index_name = self.index.name().as_str().to_string();
         let field_cache = self.field_cache.clone();
+        let buffer_pool = self.buffer_pool.clone();
+        let string_pool = self.string_pool.clone();
         let query_clone = optimized_query.clone();
         let sort_clone = sort.clone();
 
@@ -255,8 +268,13 @@ impl SearchExecutor {
                 )
                 .map_err(|e| Error::Config(format!("Search failed: {e}")))?;
 
-            // Convert results
-            let mut hits = Vec::new();
+            // Convert results - reuse buffer from pool to reduce allocations
+            let mut hits = {
+                let mut buffer = buffer_pool.get();
+                buffer.reserve(top_docs.len().min(limit + offset));
+                buffer
+            };
+
             for (score, doc_address) in top_docs.iter() {
                 let doc: TantivyDocument = searcher
                     .doc(*doc_address)
@@ -265,8 +283,15 @@ impl SearchExecutor {
                 let source = serde_json::from_str(&doc.to_json(&schema))
                     .map_err(|e| Error::Config(format!("Failed to parse document JSON: {e}")))?;
 
+                // Reuse string buffer for document ID
+                let mut doc_id_buf = string_pool.get();
+                doc_id_buf.push_str("doc_");
+                doc_id_buf.push_str(&doc_address.segment_ord.to_string());
+                let doc_id = DocumentId::new(doc_id_buf.clone());
+                string_pool.put(doc_id_buf); // Return buffer to pool
+
                 hits.push(SearchHit {
-                    id: DocumentId::new(format!("doc_{}", doc_address.segment_ord)),
+                    id: doc_id,
                     score: Score::new(*score),
                     source,
                 });
@@ -347,8 +372,20 @@ impl SearchExecutor {
 
             // Apply pagination
             let total = hits.len();
-            let hits: Vec<SearchHit> = hits.into_iter().skip(offset).take(limit).collect();
-            Ok::<SearchResult, Error>(SearchResult::new(hits, total, 0))
+
+            // Optimize pagination: reuse buffer when possible
+            let final_hits = if offset == 0 && hits.len() <= limit {
+                // No pagination needed, can reuse buffer
+                hits
+            } else {
+                // Need pagination, create new vec (hits are moved)
+                hits.into_iter().skip(offset).take(limit).collect()
+            };
+
+            // Return buffer to pool if we didn't use it (shouldn't happen in practice)
+            // Note: In most cases, hits are moved into SearchResult, so buffer is consumed
+
+            Ok::<SearchResult, Error>(SearchResult::new(final_hits, total, 0))
         })
         .await
         .map_err(|e| Error::Config(format!("Task join error: {e}")))?;

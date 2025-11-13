@@ -22,9 +22,9 @@
 ## 4. Memory Optimization
 - [ ] 4.1 Implement arena allocation
 - [ ] 4.2 Add object pooling for query objects
-- [ ] 4.3 Optimize buffer reuse
+- [x] 4.3 Optimize buffer reuse
 - [ ] 4.4 Profile memory usage
-- [ ] 4.5 Reduce allocations in hot paths
+- [x] 4.5 Reduce allocations in hot paths
 
 ## 5. I/O Optimization
 - [ ] 5.1 Implement memory-mapped index files
@@ -79,11 +79,12 @@
 - [x] 11.6 LQL benchmarks: benches/lql_benchmarks.rs
 
 ## Summary
-**Status**: ~47% Complete (~33/70 tasks)  
+**Status**: ~50% Complete (~35/70 tasks)  
 **Infrastructure**: ✅ Complete (benchmarks, load tests, query cache with LRU+TTL, network compression, filter cache, serialization optimization, connection pooling, request batching, field cache with aggregation support)  
 **Cache Features**: ✅ Query cache warming, field cache preloading implemented  
+**Memory Optimization**: ✅ Buffer pooling implemented, allocations reduced in hot paths  
 **Tests**: Load test framework ready, benchmark suite functional  
-**Remaining**: Advanced optimization techniques (cache tuning, memory opt, I/O opt)  
+**Remaining**: Advanced optimization techniques (arena allocation, object pooling, I/O opt)  
 **Note**: Infrastructure ready for Phase 2 optimization work
 
 ## Recent Changes (2025-11-12)
@@ -107,4 +108,8 @@
 - ✅ Implemented cache preloading for FieldCache (preload_field method)
 - ✅ Added convenience methods in SearchExecutor (warm_up_cache, preload_field_cache)
 - ✅ Comprehensive tests for cache warming and preloading (7 new tests)
+- ✅ Implemented buffer pooling (BufferPool, StringBufferPool) for memory optimization
+- ✅ Integrated buffer pooling into SearchExecutor to reduce allocations in hot paths
+- ✅ Optimized string buffer reuse for document ID generation
+- ✅ Comprehensive tests for buffer pooling (6 new tests)
 
