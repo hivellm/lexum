@@ -507,14 +507,25 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // Helper function to create a test directory that works in both WSL and Windows
+    fn create_test_dir() -> PathBuf {
+        use std::env;
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let mut temp_path = env::temp_dir();
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        temp_path.push(format!("lexum_test_{timestamp}"));
+        std::fs::create_dir_all(&temp_path).unwrap();
+        temp_path
+    }
+
     #[tokio::test]
     async fn test_create_index() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        // Use std::env::temp_dir() which works better with WSL/Windows compatibility
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -531,12 +542,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_duplicate_index() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -558,12 +565,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_index() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -581,12 +584,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_indices() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -616,12 +615,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_index() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -643,12 +638,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_index_stats() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -667,8 +658,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_index_stats_nonexistent() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let result = manager.get_index_stats("nonexistent").await;
         assert!(result.is_err());
@@ -676,12 +667,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_alias() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -704,8 +691,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_alias_nonexistent_index() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let indices = vec![IndexName::new("nonexistent")];
         let result = manager.create_alias("my_alias", indices);
@@ -715,12 +702,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_name_index() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -741,12 +724,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_name_alias() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -770,8 +749,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_resolve_name_nonexistent() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let result = manager.resolve_name("nonexistent");
         assert!(result.is_err());
@@ -780,12 +759,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_indices_to_alias() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
@@ -814,12 +789,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove_indices_from_alias() {
-        // Set test mode to enable in-memory fallback for WSL compatibility
-        // Note: We can't use std::env::set_var in tests due to unsafe_code deny
-        // Instead, we'll rely on cfg!(test) which is always true in test builds
-
-        let temp_dir = tempfile::tempdir().unwrap();
-        let manager = IndexManager::new(temp_dir.path());
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
 
         let mut schema_builder = tantivy::schema::Schema::builder();
         schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
