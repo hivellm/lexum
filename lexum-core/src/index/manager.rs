@@ -513,17 +513,20 @@ mod tests {
         use std::env;
         use std::time::{SystemTime, UNIX_EPOCH};
 
-        // Detect if we're in WSL by checking if CARGO_MANIFEST_DIR is a Windows-mounted path
-        let is_wsl_mounted = env::var("CARGO_MANIFEST_DIR")
-            .map(|p| p.starts_with("/mnt/"))
-            .unwrap_or(false);
+        // Detect WSL by checking multiple indicators
+        let cargo_manifest = env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+        let current_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let is_wsl_mounted = cargo_manifest.contains("/mnt/")
+            || current_dir.to_string_lossy().contains("/mnt/")
+            || env::var("WSL_DISTRO_NAME").is_ok();
 
         let workspace_test_dir = if is_wsl_mounted {
-            // In WSL with Windows-mounted drive: use Linux native temp directory
-            // This avoids 9p filesystem protocol issues
-            let mut linux_temp = PathBuf::from("/tmp");
-            linux_temp.push("lexum-test-data");
-            linux_temp
+            // In WSL: use HOME directory which is always native Linux filesystem
+            // This completely avoids 9p filesystem protocol issues
+            let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            let mut linux_path = PathBuf::from(home);
+            linux_path.push(".lexum-test-data");
+            linux_path
         } else if let Ok(workspace_root) = env::var("CARGO_MANIFEST_DIR") {
             // Native Windows or Linux: use workspace-relative path
             PathBuf::from(workspace_root)
@@ -531,10 +534,7 @@ mod tests {
                 .join("test-data")
         } else {
             // Fallback: use current directory + target/test-data
-            env::current_dir()
-                .unwrap_or_else(|_| PathBuf::from("."))
-                .join("target")
-                .join("test-data")
+            current_dir.join("target").join("test-data")
         };
 
         // Create base test-data directory
