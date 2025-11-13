@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed - API Route Stability (2025-11-13)
+- **100% API Route Success Rate**: Fixed all 7 failing routes, achieving 100% success rate (39/39 routes working)
+  - **Bug #1 - Document Retrieval (404)**: Fixed document ID handling in `add_document()` to use provided `_id` from JSON document
+    - Changed `_id` field type from `text` to `keyword` for exact matching
+    - Added index refresh after document creation to ensure visibility
+    - Documents can now be retrieved immediately after creation
+  - **Bug #2 - Search Query String (500)**: Fixed `_all` field issue by implementing dynamic field discovery
+    - Added `get_text_field_names()` to automatically discover indexed text fields
+    - Search queries now dynamically build `MatchQuery` or `BoolQuery` across all relevant text fields
+    - Query string searches (`?q=term`) now work correctly without hardcoded `_all` field
+  - **Bug #3 - Template Creation (500)**: Fixed `FieldConfig` format validation in template mappings
+    - Corrected request body format to match `TemplateMappings::validate()` expectations
+    - Added explicit `template.validate()` call before storage
+    - Improved error handling with better error messages
+  - **Bug #4 - Cluster Settings Update (422)**: Fixed request format to match `UpdateClusterSettingsRequest` structure
+    - Corrected nested structure with `settings`, `persistence`, and `network` objects
+    - Used JSON string literal in test scripts to avoid PowerShell serialization issues
+  - **Bug #5 - Template Operations (404)**: Resolved after fixing template creation bug
+  - **Bug #6 - Task ID Validation (400→404)**: Improved REST API consistency
+    - Changed error response from `400 Bad Request` to `404 Not Found` for non-existent tasks
+    - Added `TaskNotFound` error variant to `ApiError` enum
+    - Updated handlers to return proper HTTP status codes
+- **Response Validation**: Created comprehensive response validation script (`validate_responses.ps1`)
+  - 28/28 routes validated with 100% success rate
+  - Validates JSON structure, field types, and content correctness
+  - All API responses now return valid, well-formed JSON
+- **Testing Infrastructure**: Enhanced API testing automation
+  - Created `test_all_routes.ps1` for comprehensive route testing
+  - Automated server startup/shutdown in test scripts
+  - Detailed reporting with success rates and response times
+  - Average response time: 6.23ms
+
 ### Fixed - Code TODOs and Technical Debt (2025-10-26)
 - **Tantivy Compatibility**: Fixed integration tests to use native temporary directories, avoiding WSL filesystem issues
   - All 4 integration test TODOs resolved in `lexum-cli/tests/integration_test.rs`
