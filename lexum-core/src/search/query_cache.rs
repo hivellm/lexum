@@ -45,6 +45,23 @@ pub struct QueryCache {
     default_ttl: Duration,
     /// Whether caching is enabled
     enabled: bool,
+    /// Statistics tracking
+    stats: Arc<Mutex<CacheStats>>,
+}
+
+/// Internal cache statistics
+#[derive(Debug, Default)]
+struct CacheStats {
+    /// Number of cache hits
+    hits: u64,
+    /// Number of cache misses
+    misses: u64,
+    /// Number of entries evicted due to LRU
+    lru_evictions: u64,
+    /// Number of entries evicted due to expiration
+    expired_evictions: u64,
+    /// Number of entries added to cache
+    inserts: u64,
 }
 
 impl QueryCache {
@@ -68,6 +85,7 @@ impl QueryCache {
             cache: Arc::new(Mutex::new(LruCache::new(capacity))),
             default_ttl: ttl,
             enabled: true,
+            stats: Arc::new(Mutex::new(CacheStats::default())),
         }
     }
 
@@ -77,6 +95,7 @@ impl QueryCache {
             cache: Arc::new(Mutex::new(LruCache::new(NonZeroUsize::new(1).unwrap()))),
             default_ttl: Duration::ZERO,
             enabled: false,
+            stats: Arc::new(Mutex::new(CacheStats::default())),
         }
     }
 
@@ -94,6 +113,7 @@ impl QueryCache {
         }
 
         let mut cache = self.cache.lock();
+        let mut stats = self.stats.lock();
 
         // Try to get entry
         if let Some(entry) = cache.get(key) {
@@ -101,12 +121,17 @@ impl QueryCache {
             if entry.is_expired() {
                 // Remove expired entry
                 cache.pop(key);
+                stats.misses += 1;
+                stats.expired_evictions += 1;
                 return None;
             }
-            // Return cached result
+            // Cache hit
+            stats.hits += 1;
             return Some(entry.result.clone());
         }
 
+        // Cache miss
+        stats.misses += 1;
         None
     }
 
@@ -131,8 +156,21 @@ impl QueryCache {
         }
 
         let mut cache = self.cache.lock();
+        let mut stats = self.stats.lock();
+
+        // Check if we're replacing an existing entry (LRU eviction)
+        let was_full = cache.len() >= cache.cap().get();
+        let had_entry = cache.contains(&key);
+
         let entry = CacheEntry::new(result, ttl);
         cache.put(key, entry);
+
+        stats.inserts += 1;
+
+        // Track LRU evictions (when cache was full and we added a new key)
+        if was_full && !had_entry {
+            stats.lru_evictions += 1;
+        }
     }
 
     /// Remove entry from cache
@@ -178,6 +216,7 @@ impl QueryCache {
         }
 
         let mut cache = self.cache.lock();
+        let mut stats = self.stats.lock();
         let mut evicted = 0;
 
         // Collect expired keys
@@ -196,6 +235,7 @@ impl QueryCache {
         for key in expired_keys {
             cache.pop(&key);
             evicted += 1;
+            stats.expired_evictions += 1;
         }
 
         evicted
@@ -204,6 +244,7 @@ impl QueryCache {
     /// Get cache statistics
     pub fn stats(&self) -> QueryCacheStats {
         let cache = self.cache.lock();
+        let stats = self.stats.lock();
         let mut expired_count = 0;
 
         for entry in cache.iter() {
@@ -212,13 +253,32 @@ impl QueryCache {
             }
         }
 
+        let total_requests = stats.hits + stats.misses;
+        let hit_rate = if total_requests > 0 {
+            stats.hits as f64 / total_requests as f64
+        } else {
+            0.0
+        };
+
         QueryCacheStats {
             size: cache.len(),
             capacity: cache.cap().get(),
             expired_entries: expired_count,
             enabled: self.enabled,
             default_ttl_secs: self.default_ttl.as_secs(),
+            hits: stats.hits,
+            misses: stats.misses,
+            hit_rate,
+            lru_evictions: stats.lru_evictions,
+            expired_evictions: stats.expired_evictions,
+            total_inserts: stats.inserts,
         }
+    }
+
+    /// Reset cache statistics
+    pub fn reset_stats(&self) {
+        let mut stats = self.stats.lock();
+        *stats = CacheStats::default();
     }
 
     /// Check if caching is enabled
@@ -247,12 +307,14 @@ impl QueryCache {
         }
 
         let mut cache = self.cache.lock();
+        let mut stats = self.stats.lock();
         let mut added = 0;
 
         for (key, result) in entries {
             let entry = CacheEntry::new(result, self.default_ttl);
             cache.put(key, entry);
             added += 1;
+            stats.inserts += 1;
         }
 
         added
@@ -273,6 +335,7 @@ impl QueryCache {
         }
 
         let mut cache = self.cache.lock();
+        let mut stats = self.stats.lock();
         let mut added = 0;
 
         for (key, result, ttl) in entries {
@@ -282,6 +345,7 @@ impl QueryCache {
             let entry = CacheEntry::new(result, ttl);
             cache.put(key, entry);
             added += 1;
+            stats.inserts += 1;
         }
 
         added
@@ -307,6 +371,18 @@ pub struct QueryCacheStats {
     pub enabled: bool,
     /// Default TTL in seconds
     pub default_ttl_secs: u64,
+    /// Number of cache hits
+    pub hits: u64,
+    /// Number of cache misses
+    pub misses: u64,
+    /// Cache hit rate (0.0 to 1.0)
+    pub hit_rate: f64,
+    /// Number of entries evicted due to LRU
+    pub lru_evictions: u64,
+    /// Number of entries evicted due to expiration
+    pub expired_evictions: u64,
+    /// Total number of entries inserted
+    pub total_inserts: u64,
 }
 
 #[cfg(test)]
@@ -431,6 +507,80 @@ mod tests {
         assert_eq!(stats.expired_entries, 0);
         assert!(stats.enabled);
         assert_eq!(stats.default_ttl_secs, 300);
+        assert_eq!(stats.total_inserts, 1);
+    }
+
+    #[test]
+    fn test_query_cache_hit_miss_stats() {
+        let cache = QueryCache::with_capacity_and_ttl(10, Duration::from_secs(60));
+        let result = create_test_result();
+
+        // Insert and retrieve
+        cache.put("key1".to_string(), result.clone());
+        assert!(cache.get("key1").is_some());
+
+        let stats = cache.stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.misses, 0);
+        assert_eq!(stats.hit_rate, 1.0);
+        assert_eq!(stats.total_inserts, 1);
+
+        // Miss
+        assert!(cache.get("key2").is_none());
+        let stats = cache.stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.misses, 1);
+        assert_eq!(stats.hit_rate, 0.5);
+    }
+
+    #[test]
+    fn test_query_cache_eviction_stats() {
+        let cache = QueryCache::with_capacity_and_ttl(2, Duration::from_secs(60));
+        let result = create_test_result();
+
+        cache.put("key1".to_string(), result.clone());
+        cache.put("key2".to_string(), result.clone());
+        cache.put("key3".to_string(), result.clone()); // Should evict key1
+
+        let stats = cache.stats();
+        assert_eq!(stats.lru_evictions, 1);
+        assert_eq!(stats.total_inserts, 3);
+    }
+
+    #[test]
+    fn test_query_cache_expired_eviction_stats() {
+        let cache = QueryCache::with_capacity_and_ttl(10, Duration::from_millis(50));
+        let result = create_test_result();
+
+        cache.put("key1".to_string(), result);
+
+        // Wait for expiration
+        std::thread::sleep(Duration::from_millis(100));
+
+        let evicted = cache.evict_expired();
+        assert_eq!(evicted, 1);
+
+        let stats = cache.stats();
+        assert_eq!(stats.expired_evictions, 1);
+    }
+
+    #[test]
+    fn test_query_cache_reset_stats() {
+        let cache = QueryCache::with_capacity_and_ttl(10, Duration::from_secs(60));
+        let result = create_test_result();
+
+        cache.put("key1".to_string(), result);
+        cache.get("key1");
+
+        let stats = cache.stats();
+        assert_eq!(stats.hits, 1);
+        assert_eq!(stats.total_inserts, 1);
+
+        cache.reset_stats();
+        let stats = cache.stats();
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.misses, 0);
+        assert_eq!(stats.total_inserts, 0);
     }
 
     #[test]
