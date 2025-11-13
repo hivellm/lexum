@@ -1,6 +1,7 @@
 //! Server configuration and startup
 
 use crate::handlers::index::AppState;
+use crate::middleware::connection_pool::ConnectionPoolConfig;
 use crate::router::build_router;
 use lexum_core::{
     IndexManager, ProgressTracker, SnapshotManager, TemplateManager,
