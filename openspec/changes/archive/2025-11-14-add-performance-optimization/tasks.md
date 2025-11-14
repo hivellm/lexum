@@ -196,13 +196,13 @@
 - ✅ Added profiling endpoints: /_profiling/start, /_profiling/stop, /_profiling/status, /_profiling/flamegraph, /_profiling/instructions
 - ✅ Flamegraph generation with mock SVG output (ready for integration with pprof/inferno)
 - ✅ Profiling configuration with CPU/memory profiling options, duration, and sampling rate
-- ✅ Comprehensive unit tests for profiling functionality (5 tests passing)
+- ✅ Comprehensive unit tests for profiling functionality (6 tests passing)
 - ✅ Implemented bottleneck analysis endpoint (bottleneck.rs handler)
 - ✅ Automatic bottleneck detection with severity classification (Critical, High, Medium, Low)
 - ✅ Bottleneck categorization (Search, Indexing, I/O, Memory, Network, Serialization, Cache, Other)
 - ✅ Intelligent recommendations generation based on bottleneck type and severity
 - ✅ Summary statistics with estimated performance improvement potential
-- ✅ Comprehensive unit tests for bottleneck analysis (4 tests passing)
+- ✅ Comprehensive unit tests for bottleneck analysis (5 tests passing)
 - ✅ Implemented large-scale load testing binary (load_test_scale.rs)
 - ✅ Load test supports 1M+ documents with configurable workers and batch sizes
 - ✅ Concurrent indexing with multiple workers and batch processing
