@@ -9,7 +9,6 @@ use lexum_core::{
 use serde_json::json;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use sys_info;
 use tokio::time::sleep;
 
 /// Large-scale load test configuration
@@ -255,7 +254,6 @@ async fn run_indexing_test(
     for worker_id in 0..workers {
         let index = index.clone();
         let worker_docs = docs_per_worker + if worker_id < remainder { 1 } else { 0 };
-        let batch_size = batch_size;
 
         let handle = tokio::spawn(async move {
             let mut local_indexed = 0;
@@ -264,11 +262,11 @@ async fn run_indexing_test(
             for batch_start in (0..worker_docs).step_by(batch_size) {
                 let batch_end = (batch_start + batch_size).min(worker_docs);
                 let batch = (batch_start..batch_end).map(|i| {
-                    let doc_id = format!("doc_{}_{}", worker_id, i);
+                    let doc_id = format!("doc_{worker_id}_{i}");
                     json!({
                         "id": doc_id,
-                        "title": format!("Document {} from worker {}", i, worker_id),
-                        "content": format!("This is the content of document {} from worker {}. It contains some text for testing purposes.", i, worker_id),
+                        "title": format!("Document {i} from worker {worker_id}"),
+                        "content": format!("This is the content of document {i} from worker {worker_id}. It contains some text for testing purposes."),
                         "category": format!("category_{}", i % 10),
                         "score": (i as f64) * 0.1
                     })
@@ -280,7 +278,7 @@ async fn run_indexing_test(
                 let document_store = DocumentStore::new(index.clone());
                 for doc in batch {
                     if let Err(e) = document_store.add_document(doc).await {
-                        eprintln!("Error indexing document: {}", e);
+                        eprintln!("Error indexing document: {e}");
                     } else {
                         local_indexed += 1;
                     }
@@ -291,8 +289,7 @@ async fn run_indexing_test(
 
                 if progress_reporting && local_indexed % 10000 == 0 {
                     println!(
-                        "  Worker {}: {} documents indexed",
-                        worker_id, local_indexed
+                        "  Worker {worker_id}: {local_indexed} documents indexed"
                     );
                     // Update peak memory during progress reporting
                     if let Ok(mem_info) = sys_info::mem_info() {
@@ -380,9 +377,9 @@ async fn run_search_test(
             for i in 0..worker_queries {
                 // Create different query types
                 let query = if i % 3 == 0 {
-                    QueryBuilder::match_query("title", &format!("Document {}", i % 1000))
+                    QueryBuilder::match_query("title", format!("Document {}", i % 1000))
                 } else if i % 3 == 1 {
-                    QueryBuilder::term_query("category", &format!("category_{}", i % 10))
+                    QueryBuilder::term_query("category", format!("category_{}", i % 10))
                 } else {
                     let mut range_query = QueryBuilder::range_query("score");
                     range_query = range_query.gte(serde_json::json!((i % 100) as f64 * 0.1));
