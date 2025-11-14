@@ -145,7 +145,7 @@ impl Highlighter {
         let mut fragments = Vec::new();
         let mut used_ranges = Vec::new();
 
-        for (idx, mat) in matches.iter().enumerate() {
+        for (_idx, mat) in matches.iter().enumerate() {
             if fragments.len() >= self.config.max_fragments {
                 break;
             }
@@ -280,6 +280,7 @@ impl Default for Highlighter {
 struct MatchPosition {
     start: usize,
     end: usize,
+    #[allow(dead_code)]
     term: String,
 }
 

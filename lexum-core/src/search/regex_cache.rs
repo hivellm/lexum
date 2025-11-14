@@ -246,7 +246,9 @@ mod tests {
         let cache = RegexCache::new().with_max_pattern_length(10);
 
         // Should fail - pattern too long
-        let schema = Schema::builder().build();
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("test", TEXT);
+        let schema = schema_builder.build();
         let field = schema.get_field("test").unwrap();
         assert!(cache
             .get_or_compile("a".repeat(20).as_str(), field, false)
@@ -259,9 +261,9 @@ mod tests {
     #[test]
     fn test_regex_cache_caching() {
         let cache = RegexCache::new();
-        let schema = Schema::builder()
-            .add_text_field("test", TEXT | STORED)
-            .build();
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("test", TEXT | STORED);
+        let schema = schema_builder.build();
         let field = schema.get_field("test").unwrap();
 
         // First call - should compile
