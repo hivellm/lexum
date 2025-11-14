@@ -4,7 +4,11 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
-use lexum_server::{handlers::index::AppState, router::build_router};
+use lexum_server::{
+    handlers::index::AppState,
+    middleware::http2_push::Http2PushConfig,
+    router::build_router,
+};
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -56,7 +60,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
 #[ignore] // Requires filesystem operations that may fail in WSL
 async fn test_comprehensive_api_functionality() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // Test counter
     let mut passed = 0;

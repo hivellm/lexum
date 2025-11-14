@@ -4,7 +4,11 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::http::StatusCode;
 use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
-use lexum_server::{handlers::index::AppState, router::build_router};
+use lexum_server::{
+    handlers::index::AppState,
+    middleware::http2_push::Http2PushConfig,
+    router::build_router,
+};
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -58,7 +62,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
 #[lexum_macros::tokio_test]
 async fn test_health_check() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -76,7 +80,7 @@ async fn test_health_check() {
 #[lexum_macros::tokio_test]
 async fn test_search_with_filters() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // Test search request with filters structure
     // Note: Actual search requires index creation which has WSL compatibility issues
@@ -121,7 +125,7 @@ async fn test_search_with_filters() {
 #[lexum_macros::tokio_test]
 async fn test_search_without_filters() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // Test search request without filters
     let search_request = json!({
@@ -223,7 +227,7 @@ fn test_search_request() {
 #[lexum_macros::tokio_test]
 async fn test_create_snapshot_repository() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let request_body = serde_json::json!({
         "type": "fs",
@@ -264,7 +268,7 @@ async fn test_create_snapshot_repository() {
 #[lexum_macros::tokio_test]
 async fn test_get_snapshot_repository() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // First create a repository
     let request_body = serde_json::json!({
@@ -317,7 +321,7 @@ async fn test_get_snapshot_repository() {
 #[lexum_macros::tokio_test]
 async fn test_list_snapshot_repositories() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // Create a few repositories
     let repos = vec!["repo1", "repo2", "repo3"];
@@ -383,7 +387,7 @@ async fn test_list_snapshot_repositories() {
 #[lexum_macros::tokio_test]
 async fn test_create_repository_invalid_request() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // Test with invalid JSON
     let response = app
@@ -404,7 +408,7 @@ async fn test_create_repository_invalid_request() {
 #[lexum_macros::tokio_test]
 async fn test_create_repository_missing_required_fields() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // Test with missing type field - this should fail with 422
     let request_body = serde_json::json!({
@@ -432,7 +436,7 @@ async fn test_create_repository_missing_required_fields() {
 #[lexum_macros::tokio_test]
 async fn test_snapshot_deletion_workflow() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     // Step 1: Create a snapshot repository
     let repo_request = serde_json::json!({
@@ -529,7 +533,7 @@ async fn test_snapshot_deletion_workflow() {
 #[lexum_macros::tokio_test]
 async fn test_delete_nonexistent_snapshot() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -548,7 +552,7 @@ async fn test_delete_nonexistent_snapshot() {
 #[lexum_macros::tokio_test]
 async fn test_cluster_info() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -579,7 +583,7 @@ async fn test_cluster_info() {
 #[lexum_macros::tokio_test]
 async fn test_cluster_health() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -612,7 +616,7 @@ async fn test_cluster_health() {
 #[lexum_macros::tokio_test]
 async fn test_cluster_stats() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -641,7 +645,7 @@ async fn test_cluster_stats() {
 #[lexum_macros::tokio_test]
 async fn test_cluster_state() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -676,7 +680,7 @@ async fn test_cluster_state() {
 #[lexum_macros::tokio_test]
 async fn test_root_endpoint() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -704,7 +708,7 @@ async fn test_root_endpoint() {
 #[lexum_macros::tokio_test]
 async fn test_node_stats() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -735,7 +739,7 @@ async fn test_node_stats() {
 #[lexum_macros::tokio_test]
 async fn test_cluster_settings() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let response = app
         .oneshot(
@@ -767,7 +771,7 @@ async fn test_cluster_settings() {
 #[lexum_macros::tokio_test]
 async fn test_update_cluster_settings() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let request_body = serde_json::json!({
         "settings": {

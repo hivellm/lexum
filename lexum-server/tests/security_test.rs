@@ -6,6 +6,7 @@ use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
 use lexum_server::{
     handlers::index::AppState,
     middleware::{
+        http2_push::Http2PushConfig,
         ip_filter::{IpFilterConfig, IpFilterLayer},
         query_complexity::QueryComplexityLimitConfig,
         rate_limit::RateLimitConfig,
@@ -68,7 +69,7 @@ async fn test_ip_filter_whitelist_allows() {
     ip_config.add_to_whitelist("127.0.0.1".parse().unwrap());
     ip_config.allow_when_whitelist_empty = false;
 
-    let app = build_router(state).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -89,7 +90,7 @@ async fn test_ip_filter_whitelist_blocks() {
     ip_config.add_to_whitelist("127.0.0.1".parse().unwrap());
     ip_config.allow_when_whitelist_empty = false;
 
-    let app = build_router(state).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -109,7 +110,7 @@ async fn test_ip_filter_blacklist_blocks() {
     let mut ip_config = IpFilterConfig::default();
     ip_config.add_to_blacklist("10.0.0.1".parse().unwrap());
 
-    let app = build_router(state).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -128,7 +129,7 @@ async fn test_ip_filter_disabled_allows_all() {
     // IP filter disabled (default)
     let ip_config = IpFilterConfig::default();
 
-    let app = build_router(state).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -151,7 +152,7 @@ async fn test_request_size_limit_body_too_large() {
         ..Default::default()
     };
 
-    let app = build_router(state)
+    let app = build_router(state, &Http2PushConfig::default())
         .layer(ServiceBuilder::new().layer(RequestSizeLimitLayer::new(size_config)));
 
     // Create a request with body larger than limit
@@ -179,7 +180,7 @@ async fn test_request_size_limit_url_too_long() {
         ..Default::default()
     };
 
-    let app = build_router(state)
+    let app = build_router(state, &Http2PushConfig::default())
         .layer(ServiceBuilder::new().layer(RequestSizeLimitLayer::new(size_config)));
 
     // Create a request with URL longer than limit
@@ -204,7 +205,7 @@ async fn test_query_complexity_limit_too_deep() {
         ..Default::default()
     };
 
-    let app = build_router(state)
+    let app = build_router(state, &Http2PushConfig::default())
         .layer(ServiceBuilder::new().layer(QueryComplexityLimitLayer::new(complexity_config)));
 
     // Create a deeply nested query in URL parameters
@@ -236,7 +237,7 @@ async fn test_security_middlewares_combined() {
     ip_config.add_to_whitelist("127.0.0.1".parse().unwrap());
     ip_config.allow_when_whitelist_empty = false;
 
-    let app = build_router(state).layer(
+    let app = build_router(state, &Http2PushConfig::default()).layer(
         ServiceBuilder::new()
             .layer(IpFilterLayer::new(ip_config))
             .layer(RateLimitLayer::new(RateLimitConfig::default()))
@@ -271,7 +272,7 @@ async fn test_rate_limit_enforcement() {
     };
 
     let app =
-        build_router(state).layer(ServiceBuilder::new().layer(RateLimitLayer::new(rate_config)));
+        build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(RateLimitLayer::new(rate_config)));
 
     // Make requests up to the limit
     for _ in 0..2 {
@@ -314,7 +315,7 @@ async fn test_security_middleware_order() {
         use_api_key: false,
     };
 
-    let app = build_router(state).layer(
+    let app = build_router(state, &Http2PushConfig::default()).layer(
         ServiceBuilder::new()
             .layer(IpFilterLayer::new(ip_config))
             .layer(RateLimitLayer::new(rate_config)),

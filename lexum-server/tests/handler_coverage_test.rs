@@ -7,8 +7,8 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
 use lexum_server::{
-    handlers::index::AppState, middleware::serialization::SerializationOptimizer,
-    router::build_router,
+    handlers::index::AppState, middleware::http2_push::Http2PushConfig,
+    middleware::serialization::SerializationOptimizer, router::build_router,
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -110,7 +110,7 @@ async fn test_search_handler_empty_query() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test search with empty query
@@ -139,7 +139,7 @@ async fn test_search_handler_empty_query() {
 #[lexum_macros::tokio_test]
 async fn test_search_handler_invalid_index() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let search_request = Request::builder()
         .uri("/api/v1/indices/nonexistent-index/search")
@@ -183,7 +183,7 @@ async fn test_document_handler_invalid_json() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test adding document with invalid JSON
@@ -201,7 +201,7 @@ async fn test_document_handler_invalid_json() {
 #[lexum_macros::tokio_test]
 async fn test_index_handler_duplicate_field_names() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let create_request = Request::builder()
         .uri("/api/v1/indices/test-index")
@@ -232,7 +232,7 @@ async fn test_index_handler_duplicate_field_names() {
 #[lexum_macros::tokio_test]
 async fn test_index_handler_empty_fields() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let create_request = Request::builder()
         .uri("/api/v1/indices/test-index")
@@ -254,7 +254,7 @@ async fn test_index_handler_empty_fields() {
 #[lexum_macros::tokio_test]
 async fn test_index_handler_invalid_field_type() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let create_request = Request::builder()
         .uri("/api/v1/indices/test-index")
@@ -302,7 +302,7 @@ async fn test_search_handler_with_filters() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test search with filters
@@ -356,7 +356,7 @@ async fn test_search_handler_with_sorting() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test search with sorting
@@ -389,7 +389,7 @@ async fn test_search_handler_with_sorting() {
 #[lexum_macros::tokio_test]
 async fn test_index_handler_get_stats_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let request = Request::builder()
         .uri("/api/v1/indices/nonexistent-index/stats")
@@ -404,7 +404,7 @@ async fn test_index_handler_get_stats_nonexistent() {
 #[lexum_macros::tokio_test]
 async fn test_index_handler_refresh_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let request = Request::builder()
         .uri("/api/v1/indices/nonexistent-index/refresh")
@@ -419,7 +419,7 @@ async fn test_index_handler_refresh_nonexistent() {
 #[lexum_macros::tokio_test]
 async fn test_index_handler_flush_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
-    let app = build_router(state);
+    let app = build_router(state, &Http2PushConfig::default());
 
     let request = Request::builder()
         .uri("/api/v1/indices/nonexistent-index/flush")
@@ -451,7 +451,7 @@ async fn test_document_handler_get_nonexistent() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test getting nonexistent document
@@ -485,7 +485,7 @@ async fn test_document_handler_delete_nonexistent() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test deleting nonexistent document
@@ -520,7 +520,7 @@ async fn test_search_handler_invalid_query_structure() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test search with invalid query structure
@@ -563,7 +563,7 @@ async fn test_search_handler_with_pagination() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test search with pagination
@@ -616,7 +616,7 @@ async fn test_search_handler_with_field_filtering() {
         ))
         .unwrap();
 
-    let app = build_router(state.clone());
+    let app = build_router(state.clone(), &Http2PushConfig::default());
     let _create_response = app.clone().oneshot(create_request).await.unwrap();
 
     // Test search with field filtering
