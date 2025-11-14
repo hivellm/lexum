@@ -959,6 +959,186 @@ mod tests {
         assert!(alias.is_empty());
     }
 
+    #[lexum_macros::tokio_test]
+    #[ignore = "WSL/Tantivy compatibility issue - use Windows native or Linux native paths"]
+    async fn test_refresh_index() {
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = test_settings();
+        manager
+            .create_index("test_index", schema, settings)
+            .await
+            .unwrap();
+
+        let result = manager.refresh_index("test_index").await;
+        assert!(result.is_ok());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_refresh_index_not_found() {
+        let manager = IndexManager::new("./data");
+        let result = manager.refresh_index("non_existent").await;
+        assert!(result.is_err());
+    }
+
+    #[lexum_macros::tokio_test]
+    #[ignore = "WSL/Tantivy compatibility issue - use Windows native or Linux native paths"]
+    async fn test_flush_index() {
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = test_settings();
+        manager
+            .create_index("test_index", schema, settings)
+            .await
+            .unwrap();
+
+        let result = manager.flush_index("test_index").await;
+        assert!(result.is_ok());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_flush_index_not_found() {
+        let manager = IndexManager::new("./data");
+        let result = manager.flush_index("non_existent").await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    #[ignore = "WSL/Tantivy compatibility issue - use Windows native or Linux native paths"]
+    fn test_get_aliases_for_index() {
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
+
+        // Create an index
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = test_settings();
+        tokio_test::block_on(async {
+            manager
+                .create_index("test_index", schema, settings)
+                .await
+                .unwrap();
+        });
+
+        // Create aliases pointing to the index
+        let indices = vec![IndexName::new("test_index")];
+        manager.create_alias("alias1", indices.clone()).unwrap();
+        manager.create_alias("alias2", indices).unwrap();
+
+        let aliases = manager.get_aliases_for_index("test_index");
+        assert_eq!(aliases.len(), 2);
+        assert!(aliases.iter().any(|a| a.name.as_str() == "alias1"));
+        assert!(aliases.iter().any(|a| a.name.as_str() == "alias2"));
+    }
+
+    #[test]
+    #[ignore = "WSL/Tantivy compatibility issue - use Windows native or Linux native paths"]
+    fn test_get_aliases_for_index_none() {
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
+
+        // Create an index without aliases
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = test_settings();
+        tokio_test::block_on(async {
+            manager
+                .create_index("test_index", schema, settings)
+                .await
+                .unwrap();
+        });
+
+        let aliases = manager.get_aliases_for_index("test_index");
+        assert_eq!(aliases.len(), 0);
+    }
+
+    #[test]
+    #[ignore = "WSL/Tantivy compatibility issue - use Windows native or Linux native paths"]
+    fn test_create_index_duplicate() {
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
+
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = test_settings();
+        tokio_test::block_on(async {
+            manager
+                .create_index("test_index", schema.clone(), settings.clone())
+                .await
+                .unwrap();
+
+            // Try to create the same index again
+            let result = manager
+                .create_index("test_index", schema, settings)
+                .await;
+            assert!(result.is_err());
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("already exists"));
+        });
+    }
+
+    #[test]
+    fn test_create_alias_with_nonexistent_index() {
+        let manager = IndexManager::new("./data");
+        let indices = vec![IndexName::new("non_existent")];
+        let result = manager.create_alias("my_alias", indices);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not exist"));
+    }
+
+    #[test]
+    #[ignore = "WSL/Tantivy compatibility issue - use Windows native or Linux native paths"]
+    fn test_add_indices_to_alias_nonexistent_index() {
+        let temp_dir = create_test_dir();
+        let manager = IndexManager::new(&temp_dir);
+
+        // Create an index and alias
+        let mut schema_builder = tantivy::schema::Schema::builder();
+        schema_builder.add_text_field("title", tantivy::schema::TEXT | tantivy::schema::STORED);
+        let schema = schema_builder.build();
+
+        let settings = test_settings();
+        tokio_test::block_on(async {
+            manager
+                .create_index("index1", schema, settings)
+                .await
+                .unwrap();
+        });
+
+        let indices = vec![IndexName::new("index1")];
+        manager.create_alias("my_alias", indices).unwrap();
+
+        // Try to add a non-existent index
+        let new_indices = vec![IndexName::new("non_existent")];
+        let result = manager.add_indices_to_alias("my_alias", new_indices);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("does not exist"));
+    }
+
     // Note: Full integration tests with disk I/O will be in tests/ directory
     // These unit tests focus on logic without disk dependencies
 }
