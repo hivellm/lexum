@@ -226,7 +226,7 @@ pub async fn generate_flamegraph(
 
     let statistics = ProfilingStatistics {
         total_samples: config.duration_secs * u64::from(config.sampling_rate),
-        duration_secs: f64::from(config.duration_secs),
+        duration_secs: config.duration_secs as f64,
         samples_per_second: f64::from(config.sampling_rate),
         top_functions: vec![FunctionStats {
             name: "lexum_core::search::executor::SearchExecutor::execute".to_string(),
