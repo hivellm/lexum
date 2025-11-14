@@ -25,9 +25,9 @@
 - [x] 4.4 Test regex queries (tests in query/types.rs)
 
 ## 5. Field Boosting
-- [ ] 5.1 Implement boost parameter in queries
-- [ ] 5.2 Add multi-field boost support
-- [ ] 5.3 Test boosting effect on scores
+- [x] 5.1 Implement boost parameter in queries (FunctionScoreQuery with boost_mode and max_boost)
+- [ ] 5.2 Add multi-field boost support (pending - boost only in FunctionScoreQuery, not in basic queries)
+- [x] 5.3 Test boosting effect on scores (tests for FunctionScoreQuery boost modes in query/types.rs)
 
 ## 6. Result Highlighting
 - [ ] 6.1 Implement highlighter
@@ -50,14 +50,14 @@
 - [x] 8.4 Test MLT queries (tests in query/types.rs)
 
 ## 9. Explain API
-- [ ] 9.1 Implement query explanation
-- [ ] 9.2 Add score calculation details
-- [ ] 9.3 Implement GET /{index}/_explain/{id}
-- [ ] 9.4 Test explain functionality
+- [x] 9.1 Implement query explanation (explain parameter in search handler)
+- [x] 9.2 Add score calculation details (_explanation field added to results)
+- [ ] 9.3 Implement GET /{index}/_explain/{id} (pending - only explain parameter in search exists)
+- [x] 9.4 Test explain functionality (explain parameter tested in search handler)
 
 ## 10. Performance & Testing
-- [ ] 10.1 Benchmark advanced query types
-- [ ] 10.2 Optimize performance
-- [ ] 10.3 Add comprehensive tests
-- [ ] 10.4 Document all features
+- [x] 10.1 Benchmark advanced query types (search_bench.rs, concurrency_bench.rs, stress_test.rs)
+- [ ] 10.2 Optimize performance (ongoing)
+- [x] 10.3 Add comprehensive tests (tests in query/types.rs for all query types)
+- [x] 10.4 Document all features (QUERY_LANGUAGE.md, API_REFERENCE.md)
 
