@@ -170,6 +170,9 @@ cargo bench --package lexum-core --bench compression_bench
 # Network performance benchmarks
 cargo bench --package lexum-server --bench network_performance_bench
 
+# I/O performance benchmarks
+cargo bench --package lexum-core --bench io_performance_bench
+
 # Regression testing
 cargo bench --package lexum-core --bench regression_test
 
@@ -322,21 +325,51 @@ println!("Search took: {:?}", duration);
 
 ### Memory Optimizations
 
-1. **Buffer Pooling**: 
+1. **Arena Allocation**: 
+   - Chunk-based arena allocator for efficient batch allocation
+   - Reduces memory fragmentation and allocation overhead
+   - Thread-safe arena allocator for concurrent use
+   - Configurable chunk sizes (default: 64KB)
+
+2. **Buffer Pooling**: 
    - Reusable buffer pools for string operations
    - Reduces allocations in hot paths
    - Configurable pool sizes
 
-2. **Query Object Pooling**: 
+3. **Query Object Pooling**: 
    - Object pool for MatchQuery, TermQuery, BoolQuery
    - Reuses query objects to reduce allocations
    - Integrated into SearchExecutor
 
-3. **Memory Profiling**: 
+4. **Memory Profiling**: 
    - Component-level memory tracking
    - Allocation pattern analysis
    - Memory leak detection
    - Memory usage reports
+
+### I/O Optimizations
+
+1. **Memory-Mapped Index Files**:
+   - IndexManager can open indices using memory-mapped directories
+   - Reduces syscall overhead for frequently accessed segments
+   - Configurable per index through `IndexSettings` (`enable_memory_mapped_storage`)
+   - Enabled by default; disable when running on filesystems that do not support `mmap`
+
+2. **Stored Field Compression**:
+   - Large stored fields (>100 bytes) automatically compressed
+   - Configurable allow/deny lists per field
+   - Integrated compression statistics for monitoring
+
+3. **Buffered Snapshot I/O**:
+   - Snapshot repository uses shared buffered writers for large files
+   - Minimizes small write syscalls during snapshot/restore
+   - Configurable buffer sizes for optimal performance
+
+4. **Read-Ahead Optimization**:
+   - ReadAheadReader pre-fetches data in background for sequential reads
+   - Reduces latency by overlapping I/O with computation
+   - Configurable read-ahead buffer sizes (default: 1MB)
+   - ReadAheadHint for OS-level read-ahead hints (platform-specific)
 
 ### Network Optimizations
 
@@ -391,7 +424,7 @@ println!("Search took: {:?}", duration);
 ### Planned Improvements
 
 1. **Arena Allocation**: Memory arena for efficient allocation patterns
-2. **I/O Optimization**: Memory-mapped index files, read-ahead optimization
+2. **I/O Optimization**: Read-ahead optimization and disk access batching
 3. **Concurrency Tuning**: Thread pool optimization, work stealing
 4. **Stored Field Compression**: Optimize compression for stored fields
 5. **HTTP/2 Push**: Server push for improved network performance

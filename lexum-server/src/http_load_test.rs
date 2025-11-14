@@ -958,7 +958,7 @@ pub fn print_detailed_results(name: &str, result: &HttpLoadTestResults) {
 mod tests {
     use super::*;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_http_load_test_config_default() {
         let config = HttpLoadTestConfig::default();
         assert_eq!(config.base_url, "http://127.0.0.1:9200");
@@ -966,7 +966,7 @@ mod tests {
         assert_eq!(config.requests_per_client, 100);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_http_load_test_client_creation() {
         let config = HttpLoadTestConfig::default();
         let client = HttpLoadTestClient::new(config);

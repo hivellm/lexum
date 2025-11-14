@@ -839,7 +839,7 @@ mod tests {
             .with_state(state)
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_reindex() {
         let app = create_test_app();
         let request_body = ReindexRequest {
@@ -884,7 +884,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_reindex_with_enhanced_config() {
         let app = create_test_app();
         let request_body = ReindexRequest {
@@ -941,7 +941,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_task() {
         let app = create_test_app();
         let request = Request::builder()
@@ -954,7 +954,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_cancel_task() {
         let app = create_test_app();
         let request = Request::builder()
@@ -967,7 +967,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_tasks() {
         let app = create_test_app();
         let request = Request::builder()

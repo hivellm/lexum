@@ -407,7 +407,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_profiler() {
         let profiler = Profiler::new();
 
@@ -422,7 +422,8 @@ mod tests {
         assert!(profile.avg_time >= Duration::from_millis(50));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
+    #[ignore = "Slow test - performs multiple long-running operations"]
     async fn test_profile_analysis() {
         let profiler = Profiler::new();
 

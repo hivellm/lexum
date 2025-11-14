@@ -345,7 +345,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_metrics_collector() {
         let collector = MetricsCollector::new();
 
@@ -380,7 +380,7 @@ mod tests {
         assert_eq!(metrics.get_gauge("test_gauge"), Some(42.5));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_performance_timer() {
         let collector = Arc::new(MetricsCollector::new());
 

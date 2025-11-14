@@ -8,7 +8,7 @@ use lexum_core::types::IndexName;
 use std::sync::Arc;
 use tempfile::TempDir;
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_alias_resolution_single_index() {
     let temp_dir = TempDir::new().unwrap();
@@ -51,7 +51,7 @@ async fn test_alias_resolution_single_index() {
     assert_eq!(resolved[0].as_str(), "test_index");
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_alias_resolution_multiple_indices() {
     let temp_dir = TempDir::new().unwrap();
@@ -115,7 +115,7 @@ async fn test_alias_resolution_multiple_indices() {
     assert!(resolved.iter().any(|i| i.as_str() == "index3"));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_resolution_nonexistent_alias() {
     let temp_dir = TempDir::new().unwrap();
     let manager = Arc::new(IndexManager::new(temp_dir.path()));
@@ -125,7 +125,7 @@ async fn test_alias_resolution_nonexistent_alias() {
     assert!(result.is_err());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_alias_resolution_direct_index() {
     let temp_dir = TempDir::new().unwrap();
@@ -164,7 +164,7 @@ async fn test_alias_resolution_direct_index() {
     assert_eq!(resolved[0].as_str(), "direct_index");
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_multi_index_search_executor_with_alias() {
     let temp_dir = TempDir::new().unwrap();
@@ -240,7 +240,7 @@ async fn test_multi_index_search_executor_with_alias() {
     }
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_alias_resolution_with_filtering() {
     let temp_dir = TempDir::new().unwrap();
@@ -303,7 +303,7 @@ async fn test_alias_resolution_with_filtering() {
     assert_eq!(resolved.len(), 2);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_alias_resolution_performance() {
     let temp_dir = TempDir::new().unwrap();
@@ -362,7 +362,7 @@ async fn test_alias_resolution_performance() {
     assert!(duration.as_millis() < 1000); // Should resolve quickly
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_resolution_error_handling() {
     let temp_dir = TempDir::new().unwrap();
     let manager = Arc::new(IndexManager::new(temp_dir.path()));
@@ -374,7 +374,7 @@ async fn test_alias_resolution_error_handling() {
     assert!(manager.resolve_name("index_with_special_chars!@#").is_err());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_alias_resolution_case_sensitivity() {
     let temp_dir = TempDir::new().unwrap();

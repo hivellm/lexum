@@ -1,6 +1,7 @@
 //! Enhanced incremental snapshot management for Phase 3
 
 use crate::error::Result;
+use crate::io::BufferedFileWriter;
 use crate::snapshot::compression::{CompressionConfig, ContentDeduplicator, SnapshotCompressor};
 use crate::snapshot::parallel::{ParallelDeltaProcessor, SnapshotChainOptimizer};
 use crate::types::{IndexName, RepositoryName, SnapshotName};
@@ -173,6 +174,7 @@ impl IncrementalSnapshotManager {
         delta_results: &[crate::snapshot::parallel::IndexDeltaResult],
     ) -> Result<CompressionResult> {
         let compressor = SnapshotCompressor::new(self.compression_config.clone());
+        let writer = BufferedFileWriter::default();
         let mut total_original_size = 0;
         let mut total_compressed_size = 0;
         let mut compression_stats = Vec::new();
@@ -191,7 +193,7 @@ impl IncrementalSnapshotManager {
 
                             // Store compressed content (simplified)
                             let compressed_path = format!("{file_path}.compressed");
-                            fs::write(&compressed_path, compressed).await?;
+                            writer.write_all(&compressed_path, &compressed).await?;
 
                             // Record compression stats
                             let stats =

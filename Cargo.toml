@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "lexum-core", "lexum-server",
+    "lexum-macros",
     "tests",
     "tests/e2e",
     "tests/stress",
@@ -50,6 +51,7 @@ private_intra_doc_links = "allow"
 [workspace.dependencies]
 # Async runtime
 tokio = { version = "1.48", features = ["full"] }
+lexum-macros = { path = "lexum-macros" }
 
 # Web framework
 axum = "0.8"

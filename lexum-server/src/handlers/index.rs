@@ -473,6 +473,7 @@ pub async fn flush_index(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lexum_core::StorageSettings;
 
     #[allow(dead_code)]
     fn create_test_app_state() -> AppState {
@@ -512,7 +513,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_success() {
         let state = create_test_app_state();
         let request = CreateIndexRequest {
@@ -558,7 +559,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_empty_name() {
         let state = create_test_app_state();
         let request = CreateIndexRequest {
@@ -583,7 +584,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_empty_fields() {
         let state = create_test_app_state();
         let request = CreateIndexRequest {
@@ -602,7 +603,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_empty_field_name() {
         let state = create_test_app_state();
         let request = CreateIndexRequest {
@@ -627,7 +628,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_invalid_field_type() {
         let state = create_test_app_state();
         let request = CreateIndexRequest {
@@ -652,7 +653,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_duplicate() {
         let state = create_test_app_state();
         let request = CreateIndexRequest {
@@ -684,7 +685,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_success() {
         let state = create_test_app_state();
 
@@ -720,7 +721,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_not_found() {
         let state = create_test_app_state();
         let result = get_index(State(state), Path("non-existent-index-12345".to_string())).await;
@@ -734,7 +735,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_indices_empty() {
         let state = create_test_app_state();
         let result = list_indices(State(state)).await;
@@ -744,7 +745,7 @@ mod tests {
         assert!(response.indices.is_empty());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_indices_with_data() {
         let state = create_test_app_state();
 
@@ -788,7 +789,7 @@ mod tests {
         let _ = response.indices.len();
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_delete_index_success() {
         let state = create_test_app_state();
 
@@ -822,7 +823,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_delete_index_not_found() {
         let state = create_test_app_state();
         let result =
@@ -841,7 +842,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_stats_not_found() {
         let state = create_test_app_state();
         let result = get_index_stats(State(state), Path("non-existent-index".to_string())).await;
@@ -855,7 +856,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_stats_success() {
         let state = create_test_app_state();
 
@@ -892,7 +893,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_schema_build_error() {
         // Test that schema build errors are properly handled
         // This is tested indirectly through invalid field configurations
@@ -918,7 +919,7 @@ mod tests {
         // Schema build error handling is verified through code review
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_refresh_index_success() {
         let state = create_test_app_state();
 
@@ -952,7 +953,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_refresh_index_not_found() {
         let state = create_test_app_state();
         let result =
@@ -967,7 +968,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_flush_index_success() {
         let state = create_test_app_state();
 
@@ -1001,7 +1002,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_flush_index_not_found() {
         let state = create_test_app_state();
         let result = flush_index(State(state), Path("non-existent-flush-index".to_string())).await;
@@ -1160,7 +1161,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_with_all_field_types() {
         // Test that all valid field types are accepted
         let field_types = vec!["text", "keyword", "i64", "f64", "date", "boolean"];
@@ -1192,7 +1193,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_with_different_field_configurations() {
         let state = create_test_app_state();
 
@@ -1233,13 +1234,14 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_with_custom_settings() {
         let state = create_test_app_state();
         let settings = IndexSettings {
             number_of_shards: 3,
             number_of_replicas: 2,
             refresh_interval: 5,
+            storage: StorageSettings::default(),
         };
 
         let request = CreateIndexRequest {
@@ -1262,7 +1264,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_indices_handles_errors_gracefully() {
         let state = create_test_app_state();
 
@@ -1290,7 +1292,7 @@ mod tests {
         let _ = response.indices.len();
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_stats_internal_error_handling() {
         let state = create_test_app_state();
 
@@ -1311,7 +1313,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_refresh_index_internal_error() {
         let state = create_test_app_state();
 
@@ -1330,7 +1332,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_flush_index_internal_error() {
         let state = create_test_app_state();
 
@@ -1391,7 +1393,7 @@ mod tests {
         assert!(field.fast);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_multiple_fields_all_types() {
         let state = create_test_app_state();
         let request = CreateIndexRequest {
@@ -1451,7 +1453,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_field_configurations_combinations() {
         let state = create_test_app_state();
 
@@ -1488,7 +1490,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_schema_build_error_path() {
         let state = create_test_app_state();
 
@@ -1522,7 +1524,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_duplicate_check_before_creation() {
         let state = create_test_app_state();
         let index_name = "test-duplicate-check".to_string();
@@ -1551,7 +1553,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_stats_error_paths() {
         let state = create_test_app_state();
 
@@ -1569,7 +1571,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_refresh_index_error_message_handling() {
         let state = create_test_app_state();
 
@@ -1592,7 +1594,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_flush_index_error_message_handling() {
         let state = create_test_app_state();
 
@@ -1658,6 +1660,7 @@ mod tests {
             number_of_shards: 10,
             number_of_replicas: 3,
             refresh_interval: 30,
+            storage: StorageSettings::default(),
         };
 
         let request = CreateIndexRequest {
@@ -1681,7 +1684,7 @@ mod tests {
         assert_eq!(deserialized.settings.refresh_interval, 30);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_indices_filters_invalid_indices() {
         let state = create_test_app_state();
 
@@ -1757,7 +1760,7 @@ mod tests {
         assert_eq!(deserialized.num_segments, usize::MAX);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_index_with_special_characters_in_name() {
         let state = create_test_app_state();
 
@@ -1806,7 +1809,7 @@ mod tests {
         assert_eq!(response.indices[999].name, "index_999");
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_with_empty_name() {
         let state = create_test_app_state();
 

@@ -221,7 +221,7 @@ mod tests {
         AppState::default()
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_generate_api_key() {
         let state = create_test_app_state();
         let request = GenerateApiKeyRequest {
@@ -240,7 +240,7 @@ mod tests {
         assert!(response.expires_at.is_some());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_revoke_api_key() {
         let state = create_test_app_state();
 
@@ -265,7 +265,7 @@ mod tests {
         assert_eq!(response.message, "API key revoked successfully");
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_revoke_nonexistent_key() {
         let state = create_test_app_state();
         let request = RevokeApiKeyRequest {
@@ -282,7 +282,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_api_keys() {
         let state = create_test_app_state();
 

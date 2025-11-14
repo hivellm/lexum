@@ -541,7 +541,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_add_document() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -564,7 +564,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_add_document_with_id() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -588,7 +588,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_add_document_with_complex_json() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -619,7 +619,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_add_document_with_invalid_schema() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -643,7 +643,7 @@ mod tests {
         assert!(result.is_ok()); // Tantivy is lenient with extra fields
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_update_document() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -679,7 +679,7 @@ mod tests {
         assert!(result.is_ok()); // Should succeed now with _id field
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_document_without_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -705,7 +705,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_document_with_id_field() {
         // Create schema with _id field that is both stored and indexed
         use crate::schema::FieldConfig;
@@ -776,7 +776,7 @@ mod tests {
         assert_eq!(id, "test_doc");
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_document_not_found() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -799,7 +799,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_delete_document_without_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -825,7 +825,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_delete_document_with_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -856,7 +856,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_index() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -908,7 +908,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_update() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -944,7 +944,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_mixed_operations() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -996,7 +996,7 @@ mod tests {
         assert_eq!(bulk_result.items.len(), 3);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_empty_list() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -1020,7 +1020,7 @@ mod tests {
         assert!(!bulk_result.errors);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_large_batch() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -1057,7 +1057,7 @@ mod tests {
         assert!(!bulk_result.errors);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_document_nonexistent() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -1079,7 +1079,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_update_document_nonexistent() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -1105,7 +1105,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_delete_without_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -1148,7 +1148,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_delete_with_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -1197,7 +1197,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_mixed() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
@@ -1243,7 +1243,7 @@ mod tests {
         assert_eq!(bulk_result.errors_details.len(), 1);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_with_invalid_json() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);

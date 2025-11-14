@@ -12,3 +12,4 @@ tempfile = "3.8"
 tokio = { version = "1.0", features = ["full"] }
 axum = "0.7"
 tower = "0.4"
+lexum-macros = { workspace = true }

@@ -27,3 +27,4 @@ anyhow = "1.0"
 tempfile = "3.8"
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", features = ["json"] }
+lexum-macros = { workspace = true }

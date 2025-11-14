@@ -46,7 +46,7 @@ async fn create_test_index(manager: &Arc<IndexManager>, name: &str) -> Result<()
     }
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_simple_filter() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -78,7 +78,7 @@ async fn test_alias_with_simple_filter() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_complex_filter() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -122,7 +122,7 @@ async fn test_alias_with_complex_filter() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_routing() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -150,7 +150,7 @@ async fn test_alias_with_routing() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_write_index_flag() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -174,7 +174,7 @@ async fn test_alias_with_write_index_flag() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_combined_configuration() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -212,7 +212,7 @@ async fn test_alias_with_combined_configuration() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_config_serialization() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -254,7 +254,7 @@ async fn test_alias_config_serialization() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_config_defaults() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -278,7 +278,7 @@ async fn test_alias_config_defaults() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_nested_filters() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -338,7 +338,7 @@ async fn test_alias_with_nested_filters() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_multiple_routing_values() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -366,7 +366,7 @@ async fn test_alias_with_multiple_routing_values() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_config_validation() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -396,7 +396,7 @@ async fn test_alias_config_validation() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_empty_configuration() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -427,7 +427,7 @@ async fn test_alias_with_empty_configuration() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_config_clone_and_equality() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -463,7 +463,7 @@ async fn test_alias_config_clone_and_equality() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_large_filter() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     

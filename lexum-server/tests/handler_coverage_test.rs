@@ -57,7 +57,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
     (state, temp_dir)
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_serialization_optimizer_integration() {
     let serializer = SerializationOptimizer::new();
     let data = json!({
@@ -76,7 +76,7 @@ async fn test_serialization_optimizer_integration() {
     assert!(string.contains(r#""count":3"#));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_serialization_optimizer_pretty() {
     let config = lexum_server::middleware::serialization::SerializationConfig {
         compact: false,
@@ -90,7 +90,7 @@ async fn test_serialization_optimizer_pretty() {
     assert!(string.contains('\n'));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_handler_empty_query() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -136,7 +136,7 @@ async fn test_search_handler_empty_query() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_handler_invalid_index() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -163,7 +163,7 @@ async fn test_search_handler_invalid_index() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_document_handler_invalid_json() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -198,7 +198,7 @@ async fn test_document_handler_invalid_json() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_index_handler_duplicate_field_names() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -229,7 +229,7 @@ async fn test_index_handler_duplicate_field_names() {
     assert!(response.status().is_client_error() || response.status().is_success());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_index_handler_empty_fields() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -251,7 +251,7 @@ async fn test_index_handler_empty_fields() {
     assert!(response.status().is_client_error());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_index_handler_invalid_field_type() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -276,7 +276,7 @@ async fn test_index_handler_invalid_field_type() {
     assert!(response.status().is_client_error());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_handler_with_filters() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -336,7 +336,7 @@ async fn test_search_handler_with_filters() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_handler_with_sorting() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -386,7 +386,7 @@ async fn test_search_handler_with_sorting() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_index_handler_get_stats_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -401,7 +401,7 @@ async fn test_index_handler_get_stats_nonexistent() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_index_handler_refresh_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -416,7 +416,7 @@ async fn test_index_handler_refresh_nonexistent() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_index_handler_flush_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -431,7 +431,7 @@ async fn test_index_handler_flush_nonexistent() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_document_handler_get_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -465,7 +465,7 @@ async fn test_document_handler_get_nonexistent() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_document_handler_delete_nonexistent() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -500,7 +500,7 @@ async fn test_document_handler_delete_nonexistent() {
     assert!(response.status().is_success() || response.status() == StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_handler_invalid_query_structure() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -543,7 +543,7 @@ async fn test_search_handler_invalid_query_structure() {
     assert!(response.status().is_client_error() || response.status().is_success());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_handler_with_pagination() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -590,7 +590,7 @@ async fn test_search_handler_with_pagination() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_handler_with_field_filtering() {
     let (state, _temp_dir) = setup_test_server().await;
 

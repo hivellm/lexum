@@ -316,7 +316,7 @@ mod tests {
     use crate::progress::ProgressTracker;
     use std::sync::Arc;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_with_progress() {
         // This is a simplified test - in a real implementation,
         // you would need to set up a proper index

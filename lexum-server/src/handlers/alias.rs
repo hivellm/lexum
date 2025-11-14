@@ -416,7 +416,7 @@ mod tests {
             .with_state(state)
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_aliases() {
         let app = create_test_app();
         let request = Request::builder()
@@ -428,7 +428,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_aliases() {
         let app = create_test_app();
         let request = Request::builder()
@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_perform_alias_operations() {
         use tokio::time::{Duration, timeout};
@@ -477,7 +477,7 @@ mod tests {
         timeout(Duration::from_secs(10), test_future).await.unwrap();
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_add_alias() {
         let app = create_test_app();
         let request = Request::builder()
@@ -491,7 +491,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_remove_alias() {
         let app = create_test_app();
         let request = Request::builder()
@@ -504,7 +504,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_perform_atomic_alias_operations() {
         let app = create_test_app();
@@ -542,7 +542,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_perform_atomic_alias_operations_failure() {
         let app = create_test_app();
         let request_body = AliasOperationsRequest {
@@ -584,7 +584,7 @@ mod tests {
     // Enhanced Server-Side Alias API Tests
     // ============================================================================
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_aliases_with_data() {
         let app = create_test_app();
 
@@ -632,7 +632,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_index_aliases_with_data() {
         let app = create_test_app();
 
@@ -668,7 +668,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_add_alias_with_config() {
         let app = create_test_app();
         let request_body = serde_json::json!({
@@ -694,7 +694,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_add_alias_invalid_json() {
         let app = create_test_app();
         let request = Request::builder()
@@ -707,7 +707,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_remove_alias_success() {
         use tokio::time::{Duration, timeout};
@@ -745,7 +745,7 @@ mod tests {
         timeout(Duration::from_secs(10), test_future).await.unwrap();
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_perform_alias_operations_invalid_json() {
         let app = create_test_app();
         let request = Request::builder()
@@ -758,7 +758,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_perform_alias_operations_empty_actions() {
         let app = create_test_app();
         let request_body = AliasOperationsRequest { actions: vec![] };
@@ -772,7 +772,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_perform_alias_operations_invalid_action() {
         let app = create_test_app();
         let request_body = AliasOperationsRequest {
@@ -797,7 +797,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_perform_atomic_alias_operations_invalid_json() {
         let app = create_test_app();
         let request = Request::builder()
@@ -810,7 +810,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_perform_atomic_alias_operations_empty_actions() {
         let app = create_test_app();
         let request_body = AliasOperationsRequest { actions: vec![] };
@@ -824,7 +824,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_perform_atomic_alias_operations_remove_action() {
         let app = create_test_app();
@@ -875,7 +875,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_perform_atomic_alias_operations_remove_index_action() {
         let app = create_test_app();
@@ -926,7 +926,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_alias_operations_with_complex_config() {
         let app = create_test_app();
@@ -961,7 +961,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_alias_operations_missing_content_type() {
         use tokio::time::{Duration, timeout};
@@ -994,7 +994,7 @@ mod tests {
         timeout(Duration::from_secs(10), test_future).await.unwrap();
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_alias_operations_large_request() {
         let app = create_test_app();
@@ -1025,7 +1025,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     #[ignore] // Requires index creation which has Tantivy compatibility issues in WSL
     async fn test_alias_operations_concurrent_requests() {
         use std::sync::Arc;

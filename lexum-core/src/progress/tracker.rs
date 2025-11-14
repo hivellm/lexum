@@ -411,7 +411,7 @@ impl Default for ProgressTracker {
 mod tests {
     use super::*;
 
-    #[tokio::test(flavor = "current_thread")]
+    #[lexum_macros::tokio_test(flavor = "current_thread")]
     #[ignore] // TODO: Fix deadlock issue in update_stats - test hangs indefinitely
     async fn test_progress_tracking() {
         let tracker = ProgressTracker::new();
@@ -447,7 +447,7 @@ mod tests {
         assert!(progress.end_time.is_some());
     }
 
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[lexum_macros::tokio_test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_progress_filtering() {
         use tokio::time::{Duration, timeout};
 

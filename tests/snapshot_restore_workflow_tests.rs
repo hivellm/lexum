@@ -120,7 +120,7 @@ async fn create_test_index(
 // Snapshot Creation Tests
 // ============================================================================
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_create_full_snapshot() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -184,7 +184,7 @@ async fn test_create_full_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_create_incremental_snapshot() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -265,7 +265,7 @@ async fn test_create_incremental_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_create_enhanced_incremental_snapshot() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -346,7 +346,7 @@ async fn test_create_enhanced_incremental_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_create_snapshot_with_multiple_indices() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -399,7 +399,7 @@ async fn test_create_snapshot_with_multiple_indices() -> Result<()> {
 // Snapshot Restoration Tests
 // ============================================================================
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_restore_full_snapshot() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -456,7 +456,7 @@ async fn test_restore_full_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_restore_with_rename_pattern() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -511,7 +511,7 @@ async fn test_restore_with_rename_pattern() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_restore_partial_indices() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -592,7 +592,7 @@ async fn test_restore_partial_indices() -> Result<()> {
 // Error Handling and Edge Cases
 // ============================================================================
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_restore_nonexistent_snapshot() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -615,7 +615,7 @@ async fn test_restore_nonexistent_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_restore_failed_snapshot() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -652,7 +652,7 @@ async fn test_restore_failed_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_create_duplicate_snapshot() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -694,7 +694,7 @@ async fn test_create_duplicate_snapshot() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_snapshot_validation() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -736,7 +736,7 @@ async fn test_snapshot_validation() -> Result<()> {
 // Performance and Stress Tests
 // ============================================================================
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 #[ignore] // Test takes too long (>60s), skip due to timeout
 async fn test_large_snapshot_creation() -> Result<()> {
     let temp_dir = TempDir::new()?;
@@ -786,7 +786,7 @@ async fn test_large_snapshot_creation() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_concurrent_snapshot_operations() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -886,7 +886,7 @@ async fn test_concurrent_snapshot_operations() -> Result<()> {
 // Snapshot Chain Tests
 // ============================================================================
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_snapshot_chain_creation() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);
@@ -1000,7 +1000,7 @@ async fn test_snapshot_chain_creation() -> Result<()> {
 // Integration Tests
 // ============================================================================
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 #[ignore] // TODO: Fix restore workflow - restore doesn't register indices in IndexManager
 async fn test_complete_snapshot_restore_workflow() -> Result<()> {
     let temp_dir = TempDir::new()?;
@@ -1155,7 +1155,7 @@ async fn test_complete_snapshot_restore_workflow() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test(timeout = 60)]
 async fn test_snapshot_metadata_persistence() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let config = create_test_snapshot_config(&temp_dir);

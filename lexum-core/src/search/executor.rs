@@ -640,7 +640,7 @@ mod tests {
     use crate::query::QueryBuilder;
     use crate::schema::SchemaBuilder;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_search_executor() {
         let (schema, _) = SchemaBuilder::new()
             .add_text_field("title")

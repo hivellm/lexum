@@ -49,7 +49,7 @@ async fn create_test_state() -> AppState {
     }
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_max_docs() {
     let conditions = RolloverConditions {
         max_docs: Some(1000),
@@ -68,7 +68,7 @@ async fn test_rollover_conditions_max_docs() {
     assert_eq!(reason, Some("max_docs:1000".to_string()));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_max_size() {
     let conditions = RolloverConditions {
         max_size: Some("1mb".to_string()),
@@ -87,7 +87,7 @@ async fn test_rollover_conditions_max_size() {
     assert_eq!(reason, Some("max_size:1mb".to_string()));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_max_age() {
     let conditions = RolloverConditions {
         max_age: Some("1h".to_string()),
@@ -106,7 +106,7 @@ async fn test_rollover_conditions_max_age() {
     assert_eq!(reason, Some("max_age:1h".to_string()));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_not_met() {
     let conditions = RolloverConditions {
         max_docs: Some(1000),
@@ -127,25 +127,25 @@ async fn test_rollover_conditions_not_met() {
     assert_eq!(reason, None);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_generate_rollover_index_name_with_number() {
     let result = generate_rollover_index_name("logs-2023-01-01");
     assert_eq!(result, "logs-2023-01-000002");
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_generate_rollover_index_name_without_number() {
     let result = generate_rollover_index_name("logs");
     assert_eq!(result, "logs-000001");
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_generate_rollover_index_name_increment() {
     let result = generate_rollover_index_name("logs-000001");
     assert_eq!(result, "logs-000002");
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_rollover_index_dry_run() {
     use tokio::time::{Duration, timeout};
@@ -193,7 +193,7 @@ async fn test_rollover_index_dry_run() {
     timeout(Duration::from_secs(10), test_future).await.unwrap();
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_index_not_found() {
     let state = create_test_state().await;
 
@@ -213,7 +213,7 @@ async fn test_rollover_index_not_found() {
     assert!(result.is_err());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_get_rollover_conditions() {
     use tokio::time::{Duration, timeout};
@@ -251,7 +251,7 @@ async fn test_get_rollover_conditions() {
     timeout(Duration::from_secs(10), test_future).await.unwrap();
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Temporarily disabled due to Tantivy filesystem compatibility issues in WSL
 async fn test_update_rollover_conditions() {
     use tokio::time::{Duration, timeout};

@@ -1258,7 +1258,7 @@ mod tests {
         assert!(config.validate().is_err());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_serialize_deserialize() {
         let config = Config::default();
         let yaml = serde_yaml::to_string(&config).unwrap();
@@ -1266,7 +1266,7 @@ mod tests {
         assert_eq!(config.network.http_port, parsed.network.http_port);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_config_manager_creation() {
         use std::io::Write;
         use tempfile::NamedTempFile;
@@ -1287,7 +1287,7 @@ mod tests {
         assert_eq!(loaded_config.network.http_port, 9200);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_config_reload() {
         use std::io::{Seek, Write};
         use tempfile::NamedTempFile;
@@ -1328,7 +1328,7 @@ mod tests {
         assert_eq!(reloaded_config.network.http_port, 9300);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_config_subscription() {
         use std::io::{Seek, Write};
         use tempfile::NamedTempFile;

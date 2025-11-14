@@ -55,7 +55,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
     (state, temp_dir)
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_health_check() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -73,7 +73,7 @@ async fn test_health_check() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_with_filters() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -118,7 +118,7 @@ async fn test_search_with_filters() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_search_without_filters() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -148,7 +148,7 @@ async fn test_search_without_filters() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_create_and_get_index() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -156,7 +156,7 @@ async fn test_create_and_get_index() {
     assert!(state.index_manager.list_indices().is_empty());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_bulk_operations_structure() {
     use lexum_server::handlers::document::*;
 
@@ -220,7 +220,7 @@ fn test_search_request() {
     assert!(request.sort.is_some());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_create_snapshot_repository() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -261,7 +261,7 @@ async fn test_create_snapshot_repository() {
     assert_eq!(response_json["total_size"], 0);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_get_snapshot_repository() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -314,7 +314,7 @@ async fn test_get_snapshot_repository() {
     assert_eq!(response_json["settings"]["location"], "/tmp/test_snapshots");
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_list_snapshot_repositories() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -380,7 +380,7 @@ async fn test_list_snapshot_repositories() {
     }
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_create_repository_invalid_request() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -401,7 +401,7 @@ async fn test_create_repository_invalid_request() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_create_repository_missing_required_fields() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -429,7 +429,7 @@ async fn test_create_repository_missing_required_fields() {
     assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_snapshot_deletion_workflow() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -526,7 +526,7 @@ async fn test_snapshot_deletion_workflow() {
     assert_eq!(delete_response.status(), StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_delete_nonexistent_snapshot() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -545,7 +545,7 @@ async fn test_delete_nonexistent_snapshot() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_cluster_info() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -576,7 +576,7 @@ async fn test_cluster_info() {
     assert!(response_json["version"]["lucene_version"].is_string());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_cluster_health() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -609,7 +609,7 @@ async fn test_cluster_health() {
     assert!(response_json["unassigned_shards"].is_number());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_cluster_stats() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -638,7 +638,7 @@ async fn test_cluster_stats() {
     assert!(response_json["number_of_shards"].is_number());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_cluster_state() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -673,7 +673,7 @@ async fn test_cluster_state() {
     assert!(response_json["routing_nodes"].is_array());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_root_endpoint() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -701,7 +701,7 @@ async fn test_root_endpoint() {
     assert!(response_json["version"].is_object());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_node_stats() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -732,7 +732,7 @@ async fn test_node_stats() {
     assert!(response_json["memory_usage_percent"].is_number());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_cluster_settings() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);
@@ -764,7 +764,7 @@ async fn test_cluster_settings() {
     assert!(response_json["network"]["enable_cors"].is_boolean());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_update_cluster_settings() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state);

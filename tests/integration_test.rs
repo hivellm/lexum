@@ -17,7 +17,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Integration test that tests the full workflow
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_full_workflow() -> Result<()> {
     // Setup test environment using tempfile for better reliability
     let temp_dir = tempfile::tempdir()?.path().to_path_buf();
@@ -64,7 +64,7 @@ async fn test_full_workflow() -> Result<()> {
 }
 
 /// Test server startup and basic API functionality
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_server_integration() -> Result<()> {
     // This test would require starting the actual server
     // For now, we'll test the server creation and configuration
@@ -96,7 +96,7 @@ async fn test_server_integration() -> Result<()> {
 }
 
 /// Test CLI integration
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // TODO: lexum-cli no longer exists - CLI functionality moved or removed
 async fn test_cli_integration() -> Result<()> {
     // Test CLI command parsing
@@ -123,7 +123,7 @@ async fn test_cli_integration() -> Result<()> {
 }
 
 /// Test error handling and edge cases
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_error_handling() -> Result<()> {
     let temp_dir = tempfile::tempdir()?.path().to_path_buf();
 
@@ -148,7 +148,7 @@ async fn test_error_handling() -> Result<()> {
 }
 
 /// Test performance with larger datasets
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_performance() -> Result<()> {
     let temp_dir = tempfile::tempdir()?.path().to_path_buf();
 
@@ -173,7 +173,7 @@ async fn test_performance() -> Result<()> {
 }
 
 /// Test concurrent operations
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_concurrent_operations() -> Result<()> {
     let temp_dir = tempfile::tempdir()?.path().to_path_buf();
 
@@ -198,7 +198,7 @@ async fn test_concurrent_operations() -> Result<()> {
 
 /// E2E Test: Complete document lifecycle
 /// Requires a running server - use feature "s2s" to enable
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_e2e_document_lifecycle() {
     use reqwest::Client;

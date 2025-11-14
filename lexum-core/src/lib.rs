@@ -49,6 +49,12 @@ pub mod error;
 /// Index management
 pub mod index;
 
+/// Disk I/O utilities
+pub mod io;
+
+/// Concurrency optimization utilities
+pub mod concurrency;
+
 /// Logging and tracing setup
 pub mod logging;
 
@@ -86,7 +92,8 @@ pub use error::{Error, Result};
 pub use index::{
     AliasAction, AliasConfig, AliasManager, AliasName, AliasOperationsRequest,
     AliasOperationsResponse, Index, IndexAlias, IndexManager, IndexPattern, IndexSettings,
-    IndexStats, IndexTemplate, TemplateManager, TemplateMappings, TemplateName, TemplateSettings,
+    IndexStats, IndexTemplate, StorageSettings, TemplateManager, TemplateMappings, TemplateName,
+    TemplateSettings,
 };
 pub use progress::{
     OperationType, ProgressId, ProgressInfo, ProgressMetrics, ProgressStatus, ProgressTracker,

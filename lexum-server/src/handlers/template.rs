@@ -250,7 +250,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_put_template_success() {
         let state = create_test_app_state();
         let request = PutTemplateRequest {
@@ -280,7 +280,7 @@ mod tests {
         assert!(response.0.acknowledged);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_put_template_invalid_patterns() {
         let state = create_test_app_state();
         let request = PutTemplateRequest {

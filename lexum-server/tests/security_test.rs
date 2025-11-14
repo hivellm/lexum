@@ -59,7 +59,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
     (state, temp_dir)
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_ip_filter_whitelist_allows() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -80,7 +80,7 @@ async fn test_ip_filter_whitelist_allows() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_ip_filter_whitelist_blocks() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -101,7 +101,7 @@ async fn test_ip_filter_whitelist_blocks() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_ip_filter_blacklist_blocks() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -121,7 +121,7 @@ async fn test_ip_filter_blacklist_blocks() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_ip_filter_disabled_allows_all() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -140,7 +140,7 @@ async fn test_ip_filter_disabled_allows_all() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_request_size_limit_body_too_large() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -168,7 +168,7 @@ async fn test_request_size_limit_body_too_large() {
     assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_request_size_limit_url_too_long() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -193,7 +193,7 @@ async fn test_request_size_limit_url_too_long() {
     assert_eq!(response.status(), StatusCode::URI_TOO_LONG);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_query_complexity_limit_too_deep() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -222,7 +222,7 @@ async fn test_query_complexity_limit_too_deep() {
     assert!(response.status().is_client_error() || response.status().is_success());
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_security_middlewares_combined() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -257,7 +257,7 @@ async fn test_security_middlewares_combined() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rate_limit_enforcement() {
     let (state, _temp_dir) = setup_test_server().await;
 
@@ -296,7 +296,7 @@ async fn test_rate_limit_enforcement() {
     assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_security_middleware_order() {
     // Test that IP filter runs before rate limit
     // If IP is blocked, rate limit shouldn't even be checked

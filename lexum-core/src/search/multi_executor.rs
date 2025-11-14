@@ -218,21 +218,21 @@ mod tests {
     use crate::query::MatchQuery;
     use std::sync::Arc;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_multi_index_search_executor_creation() {
         let index_manager = Arc::new(IndexManager::new("./test_data"));
         let executor = MultiIndexSearchExecutor::new(index_manager);
         assert!(executor.cache_enabled);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_multi_index_search_executor_without_cache() {
         let index_manager = Arc::new(IndexManager::new("./test_data"));
         let executor = MultiIndexSearchExecutor::without_cache(index_manager);
         assert!(!executor.cache_enabled);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_cache_key_generation() {
         let index_manager = Arc::new(IndexManager::new("./test_data"));
         let _executor = MultiIndexSearchExecutor::new(index_manager);
@@ -248,7 +248,7 @@ mod tests {
         assert!(cache_key.contains("index1,index2"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_cache_key_generation_without_sort() {
         let indices = vec![IndexName::new("index1")];
         let query = Query::Match(MatchQuery::new("field", "value"));
@@ -260,7 +260,7 @@ mod tests {
         assert!(cache_key.contains("index1"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_cache_key_generation_with_offset() {
         let indices = vec![IndexName::new("index1")];
         let query = Query::Match(MatchQuery::new("field", "value"));
@@ -273,7 +273,7 @@ mod tests {
         assert_ne!(cache_key_1, cache_key_2);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_cache_key_generation_different_queries() {
         let indices = vec![IndexName::new("index1")];
         let query1 = Query::Match(MatchQuery::new("field1", "value1"));
@@ -287,7 +287,7 @@ mod tests {
         assert_ne!(cache_key_1, cache_key_2);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_extract_field_value() {
         let source = serde_json::json!({
             "title": "Test Document",
@@ -305,14 +305,14 @@ mod tests {
         assert_eq!(missing_value, None);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_extract_field_value_non_object() {
         let source = serde_json::json!("not an object");
         let value = MultiIndexSearchExecutor::extract_field_value(&source, "field");
         assert_eq!(value, None);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_clear_cache() {
         let index_manager = Arc::new(IndexManager::new("./test_data"));
         let executor = MultiIndexSearchExecutor::new(index_manager);
@@ -325,7 +325,7 @@ mod tests {
         assert_eq!(executor.cache.len(), 0);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_default_implementation() {
         let executor = MultiIndexSearchExecutor::default();
         assert!(executor.cache_enabled);

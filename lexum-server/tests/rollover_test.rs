@@ -5,7 +5,7 @@ use lexum_server::handlers::rollover::{
     generate_rollover_index_name,
 };
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_max_docs() {
     let conditions = RolloverConditions {
         max_docs: Some(100),
@@ -24,7 +24,7 @@ async fn test_rollover_conditions_max_docs() {
     assert_eq!(reason, Some("max_docs:100".to_string()));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_max_size() {
     let conditions = RolloverConditions {
         max_size: Some("1mb".to_string()),
@@ -43,7 +43,7 @@ async fn test_rollover_conditions_max_size() {
     assert_eq!(reason, Some("max_size:1mb".to_string()));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_max_age() {
     let conditions = RolloverConditions {
         max_age: Some("7d".to_string()),
@@ -63,7 +63,7 @@ async fn test_rollover_conditions_max_age() {
     assert_eq!(reason, Some("max_age:7d".to_string()));
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_rollover_conditions_not_met() {
     let conditions = RolloverConditions {
         max_docs: Some(100),

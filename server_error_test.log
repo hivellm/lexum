@@ -1,4 +1,0 @@
-   Compiling lexum-server v0.1.0-alpha (F:\Node\hivellm\lexum\lexum-server)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.32s
-     Running `target\debug\lexum-server.exe`
-error: process didn't exit successfully: `target\debug\lexum-server.exe` (exit code: 0xffffffff)

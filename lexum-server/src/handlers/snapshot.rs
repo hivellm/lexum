@@ -462,7 +462,7 @@ mod tests {
     use lexum_core::types::IndexName;
     use std::collections::HashMap;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_repository_request_deserialization() {
         let json = r#"{
             "type": "fs",
@@ -481,7 +481,7 @@ mod tests {
         assert_eq!(request.settings.get("compress"), Some(&"true".to_string()));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_repository_response_serialization() {
         let mut settings = HashMap::new();
         settings.insert("location".to_string(), "/tmp/snapshots".to_string());
@@ -500,7 +500,7 @@ mod tests {
         assert!(json.contains("5"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_or_update_repository_request_deserialization() {
         let json = r#"{
             "type": "s3",
@@ -524,7 +524,7 @@ mod tests {
         assert_eq!(request.settings.get("compress"), Some(&"true".to_string()));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_or_update_repository_handler() {
         use axum::Json;
         use axum::extract::State;
@@ -551,7 +551,7 @@ mod tests {
         assert_eq!(response.total_size, 0);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_repository_with_s3_settings() {
         use axum::Json;
         use axum::extract::State;
@@ -575,7 +575,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_repository_with_invalid_settings() {
         use axum::Json;
         use axum::extract::State;
@@ -600,7 +600,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_repository_with_default_settings() {
         use axum::Json;
         use axum::extract::State;
@@ -630,7 +630,7 @@ mod tests {
         assert!(response.settings.contains_key("compress"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_update_existing_repository() {
         use axum::Json;
         use axum::extract::State;
@@ -692,7 +692,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_snapshot_handler() {
         use axum::Json;
         use axum::extract::State;
@@ -711,7 +711,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_snapshot_with_rename() {
         use axum::Json;
         use axum::extract::State;

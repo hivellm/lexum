@@ -1001,7 +1001,7 @@ mod tests {
             .with_state(state)
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_cluster_info() {
         let app = create_test_app();
         let request = Request::builder()
@@ -1013,7 +1013,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_cluster_health() {
         let app = create_test_app();
         let request = Request::builder()
@@ -1025,7 +1025,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_cluster_stats() {
         let app = create_test_app();
         let request = Request::builder()

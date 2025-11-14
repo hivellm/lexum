@@ -3,6 +3,31 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+/// Storage-related settings for an index.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct StorageSettings {
+    /// Enable memory-mapped directories for index files (default: true).
+    #[serde(default = "default_enable_memory_mapped_storage")]
+    pub enable_memory_mapped_storage: bool,
+
+    /// Optional read-ahead hint in bytes for sequential I/O (future optimization).
+    #[serde(default)]
+    pub read_ahead_bytes: Option<usize>,
+}
+
+fn default_enable_memory_mapped_storage() -> bool {
+    true
+}
+
+impl Default for StorageSettings {
+    fn default() -> Self {
+        Self {
+            enable_memory_mapped_storage: default_enable_memory_mapped_storage(),
+            read_ahead_bytes: None,
+        }
+    }
+}
+
 /// Settings for index creation
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct IndexSettings {
@@ -17,6 +42,10 @@ pub struct IndexSettings {
     /// Refresh interval in seconds
     #[serde(default = "default_refresh_interval")]
     pub refresh_interval: u64,
+
+    /// Storage configuration (memory-mapped, read-ahead, etc.)
+    #[serde(default)]
+    pub storage: StorageSettings,
 }
 
 fn default_shards() -> usize {
@@ -37,6 +66,7 @@ impl Default for IndexSettings {
             number_of_shards: default_shards(),
             number_of_replicas: default_replicas(),
             refresh_interval: default_refresh_interval(),
+            storage: StorageSettings::default(),
         }
     }
 }
@@ -65,6 +95,24 @@ impl IndexSettings {
         self
     }
 
+    /// Set storage settings
+    pub fn with_storage(mut self, storage: StorageSettings) -> Self {
+        self.storage = storage;
+        self
+    }
+
+    /// Enable or disable memory-mapped storage
+    pub fn with_memory_mapped_storage(mut self, enabled: bool) -> Self {
+        self.storage.enable_memory_mapped_storage = enabled;
+        self
+    }
+
+    /// Configure read-ahead hint in bytes
+    pub fn with_read_ahead_bytes(mut self, bytes: Option<usize>) -> Self {
+        self.storage.read_ahead_bytes = bytes;
+        self
+    }
+
     /// Validate settings
     pub fn validate(&self) -> crate::Result<()> {
         if self.number_of_shards == 0 {
@@ -86,6 +134,7 @@ mod tests {
         assert_eq!(settings.number_of_shards, 5);
         assert_eq!(settings.number_of_replicas, 1);
         assert_eq!(settings.refresh_interval, 1);
+        assert!(settings.storage.enable_memory_mapped_storage);
     }
 
     #[test]
@@ -94,6 +143,7 @@ mod tests {
         assert_eq!(settings.number_of_shards, 5);
         assert_eq!(settings.number_of_replicas, 1);
         assert_eq!(settings.refresh_interval, 1);
+        assert!(settings.storage.enable_memory_mapped_storage);
     }
 
     #[test]
@@ -101,11 +151,15 @@ mod tests {
         let settings = IndexSettings::new()
             .with_shards(3)
             .with_replicas(2)
-            .with_refresh_interval(5);
+            .with_refresh_interval(5)
+            .with_memory_mapped_storage(false)
+            .with_read_ahead_bytes(Some(4096));
 
         assert_eq!(settings.number_of_shards, 3);
         assert_eq!(settings.number_of_replicas, 2);
         assert_eq!(settings.refresh_interval, 5);
+        assert!(!settings.storage.enable_memory_mapped_storage);
+        assert_eq!(settings.storage.read_ahead_bytes, Some(4096));
     }
 
     #[test]
@@ -136,7 +190,8 @@ mod tests {
         let settings = IndexSettings::new()
             .with_shards(3)
             .with_replicas(2)
-            .with_refresh_interval(5);
+            .with_refresh_interval(5)
+            .with_memory_mapped_storage(false);
 
         assert!(settings.validate().is_ok());
     }
@@ -152,17 +207,20 @@ mod tests {
         let settings = IndexSettings::new()
             .with_shards(3)
             .with_replicas(2)
-            .with_refresh_interval(5);
+            .with_refresh_interval(5)
+            .with_memory_mapped_storage(false);
 
         let json = serde_json::to_string(&settings).unwrap();
         assert!(json.contains("number_of_shards"));
         assert!(json.contains("number_of_replicas"));
         assert!(json.contains("refresh_interval"));
+        assert!(json.contains("storage"));
 
         let deserialized: IndexSettings = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.number_of_shards, 3);
         assert_eq!(deserialized.number_of_replicas, 2);
         assert_eq!(deserialized.refresh_interval, 5);
+        assert!(!deserialized.storage.enable_memory_mapped_storage);
     }
 
     #[test]
@@ -182,5 +240,6 @@ mod tests {
         assert_eq!(settings.number_of_shards, 7);
         assert_eq!(settings.number_of_replicas, 1); // Default
         assert_eq!(settings.refresh_interval, 1); // Default
+        assert!(settings.storage.enable_memory_mapped_storage);
     }
 }

@@ -2,6 +2,7 @@
 
 use crate::config::SnapshotRepositoryConfig;
 use crate::error::{Error, Result};
+use crate::io::BufferedFileWriter;
 use crate::snapshot::types::*;
 use crate::types::{IndexName, RepositoryName, SnapshotName};
 use chrono::Utc;
@@ -88,6 +89,7 @@ pub struct FsSnapshotRepository {
     name: RepositoryName,
     path: String,
     settings: HashMap<String, String>,
+    writer: BufferedFileWriter,
 }
 
 impl FsSnapshotRepository {
@@ -120,6 +122,7 @@ impl FsSnapshotRepository {
             name: RepositoryName::new(config.name),
             path,
             settings,
+            writer: BufferedFileWriter::default(),
         })
     }
 
@@ -1023,38 +1026,42 @@ impl FsSnapshotRepository {
         });
 
         let index_metadata_file = format!("{snapshot_path}/index.json");
-        fs::write(
-            &index_metadata_file,
-            serde_json::to_string_pretty(&index_metadata)?,
-        )
-        .await?;
+        self.writer
+            .write_json_pretty(&index_metadata_file, &index_metadata)
+            .await?;
 
         // Create a more realistic data file with actual content
         let data_file = format!("{snapshot_path}/data.bin");
         let data_content = self
             .create_index_snapshot_data(index_name, start_time)
             .await?;
-        fs::write(&data_file, data_content).await?;
+        self.writer.write_all(&data_file, &data_content).await?;
 
         // Create schema file
         let schema_file = format!("{snapshot_path}/schema.json");
         let schema_content = self.create_index_schema_data(index_name).await?;
-        fs::write(&schema_file, schema_content).await?;
+        self.writer.write_all(&schema_file, &schema_content).await?;
 
         // Create segments file
         let segments_file = format!("{snapshot_path}/segments.json");
         let segments_content = self.create_segments_data(index_name, start_time).await?;
-        fs::write(&segments_file, segments_content).await?;
+        self.writer
+            .write_all(&segments_file, &segments_content)
+            .await?;
 
         // Create manifest file
         let manifest_file = format!("{snapshot_path}/manifest.json");
         let manifest_content = self.create_manifest_data(index_name, start_time).await?;
-        fs::write(&manifest_file, manifest_content).await?;
+        self.writer
+            .write_all(&manifest_file, &manifest_content)
+            .await?;
 
         // Create checksum file
         let checksum_file = format!("{snapshot_path}/checksum.sha256");
         let checksum_content = self.create_checksum_data(snapshot_path).await?;
-        fs::write(&checksum_file, checksum_content).await?;
+        self.writer
+            .write_all(&checksum_file, &checksum_content)
+            .await?;
 
         Ok(())
     }
@@ -1179,8 +1186,8 @@ impl FsSnapshotRepository {
             snapshot_info.clone(),
         );
 
-        let content = serde_json::to_string_pretty(&snapshots)?;
-        fs::write(&metadata_path, content).await?;
+        let content = serde_json::to_vec_pretty(&snapshots)?;
+        self.writer.write_all(&metadata_path, &content).await?;
 
         Ok(())
     }
@@ -1198,8 +1205,8 @@ impl FsSnapshotRepository {
 
         snapshots.remove(snapshot_name.as_str());
 
-        let content = serde_json::to_string_pretty(&snapshots)?;
-        fs::write(&metadata_path, content).await?;
+        let content = serde_json::to_vec_pretty(&snapshots)?;
+        self.writer.write_all(&metadata_path, &content).await?;
 
         Ok(())
     }
@@ -1332,19 +1339,25 @@ impl FsSnapshotRepository {
     ) -> Result<()> {
         // Write restored data
         let data_file = format!("{target_path}/restored_data.json");
-        fs::write(&data_file, data).await?;
+        self.writer.write_all(&data_file, data).await?;
 
         // Write index metadata
         let index_file = format!("{target_path}/index_metadata.json");
-        fs::write(&index_file, serde_json::to_string_pretty(index_metadata)?).await?;
+        self.writer
+            .write_json_pretty(&index_file, index_metadata)
+            .await?;
 
         // Write schema
         let schema_file = format!("{target_path}/schema.json");
-        fs::write(&schema_file, serde_json::to_string_pretty(schema_data)?).await?;
+        self.writer
+            .write_json_pretty(&schema_file, schema_data)
+            .await?;
 
         // Write segments
         let segments_file = format!("{target_path}/segments.json");
-        fs::write(&segments_file, serde_json::to_string_pretty(segments_data)?).await?;
+        self.writer
+            .write_json_pretty(&segments_file, segments_data)
+            .await?;
 
         // Create a restore manifest
         let restore_manifest = serde_json::json!({
@@ -1376,11 +1389,9 @@ impl FsSnapshotRepository {
         });
 
         let manifest_file = format!("{target_path}/restore_manifest.json");
-        fs::write(
-            &manifest_file,
-            serde_json::to_string_pretty(&restore_manifest)?,
-        )
-        .await?;
+        self.writer
+            .write_json_pretty(&manifest_file, &restore_manifest)
+            .await?;
 
         Ok(())
     }
@@ -1528,11 +1539,9 @@ impl FsSnapshotRepository {
         });
 
         let index_metadata_file = format!("{snapshot_path}/index.json");
-        fs::write(
-            &index_metadata_file,
-            serde_json::to_string_pretty(&incremental_metadata)?,
-        )
-        .await?;
+        self.writer
+            .write_json_pretty(&index_metadata_file, &incremental_metadata)
+            .await?;
 
         // Create delta files
         self.create_delta_files(index_name, snapshot_path, &parent_index_path, &delta)
@@ -1543,12 +1552,16 @@ impl FsSnapshotRepository {
         let manifest_content = self
             .create_incremental_manifest_data(index_name, start_time, &delta)
             .await?;
-        fs::write(&manifest_file, manifest_content).await?;
+        self.writer
+            .write_all(&manifest_file, &manifest_content)
+            .await?;
 
         // Create checksum
         let checksum_file = format!("{snapshot_path}/checksum.sha256");
         let checksum_content = self.create_checksum_data(snapshot_path).await?;
-        fs::write(&checksum_file, checksum_content).await?;
+        self.writer
+            .write_all(&checksum_file, &checksum_content)
+            .await?;
 
         Ok((
             delta.size_bytes,
@@ -1628,29 +1641,33 @@ impl FsSnapshotRepository {
         });
 
         let delta_metadata_file = format!("{delta_path}/delta.json");
-        fs::write(
-            &delta_metadata_file,
-            serde_json::to_string_pretty(&delta_metadata)?,
-        )
-        .await?;
+        self.writer
+            .write_json_pretty(&delta_metadata_file, &delta_metadata)
+            .await?;
 
         // Create placeholder files for added/modified files
         for file in &delta.added_files {
             let file_path = format!("{delta_path}/added/{file}");
             fs::create_dir_all(format!("{delta_path}/added")).await?;
-            fs::write(&file_path, b"placeholder content").await?;
+            self.writer
+                .write_all(&file_path, b"placeholder content")
+                .await?;
         }
 
         for file in &delta.modified_files {
             let file_path = format!("{delta_path}/modified/{file}");
             fs::create_dir_all(format!("{delta_path}/modified")).await?;
-            fs::write(&file_path, b"modified content").await?;
+            self.writer
+                .write_all(&file_path, b"modified content")
+                .await?;
         }
 
         // Create deleted files list
         let deleted_files_list = format!("{delta_path}/deleted_files.txt");
         let deleted_content = delta.deleted_files.join("\n");
-        fs::write(&deleted_files_list, deleted_content).await?;
+        self.writer
+            .write_all(&deleted_files_list, deleted_content.as_bytes())
+            .await?;
 
         Ok(())
     }
@@ -1844,7 +1861,7 @@ impl FsSnapshotRepository {
                     queue.push_back((entry_path.to_string_lossy().to_string(), target_path));
                 } else {
                     let content = fs::read(&entry_path).await?;
-                    fs::write(&target_path, content).await?;
+                    self.writer.write_all(&target_path, &content).await?;
                 }
             }
         }
@@ -1955,7 +1972,7 @@ impl FsSnapshotRepository {
                     Ok(compressed) => {
                         // Write compressed content
                         let compressed_path = format!("{}.compressed", path.to_string_lossy());
-                        fs::write(&compressed_path, compressed).await?;
+                        self.writer.write_all(&compressed_path, &compressed).await?;
 
                         // Remove original file
                         fs::remove_file(&path).await?;
@@ -1976,7 +1993,7 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_fs_repository_creation() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -1992,7 +2009,7 @@ mod tests {
         assert_eq!(repo.name.as_str(), "test_repo");
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_fs_repository_info() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2012,7 +2029,7 @@ mod tests {
         assert_eq!(info.snapshot_count, 0);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2084,7 +2101,7 @@ mod tests {
         assert!(index2_path.join("data.bin").exists());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_duplicate_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2111,7 +2128,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("already exists"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2145,7 +2162,7 @@ mod tests {
         assert_eq!(created_snapshot.indices, retrieved_snapshot.indices);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_snapshots() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2185,7 +2202,7 @@ mod tests {
         assert!(snapshot_names.contains(&"snapshot2".to_string()));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_delete_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2218,7 +2235,7 @@ mod tests {
         assert_eq!(snapshots.len(), 0);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_snapshot_stats() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2257,7 +2274,7 @@ mod tests {
         assert_eq!(stats.in_progress_snapshots, 0);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2317,7 +2334,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_nonexistent_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2338,7 +2355,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_failed_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2378,7 +2395,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_with_ignore_unavailable() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2412,7 +2429,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_with_invalid_rename_pattern() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2453,7 +2470,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_incremental_snapshot_creation() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2500,7 +2517,7 @@ mod tests {
         assert_eq!(snapshot_info.chain_depth, 1);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_snapshot_chain_retrieval() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2551,7 +2568,7 @@ mod tests {
         assert_eq!(chain.depth, 1);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_find_best_parent_snapshot() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2585,7 +2602,7 @@ mod tests {
         assert_eq!(best_parent.unwrap(), full_snapshot_name);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_incremental_snapshot_restore() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {
@@ -2638,7 +2655,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_snapshot_deltas_retrieval() {
         let temp_dir = TempDir::new().unwrap();
         let config = SnapshotRepositoryConfig {

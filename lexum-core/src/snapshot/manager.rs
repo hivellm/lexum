@@ -213,7 +213,7 @@ mod tests {
         config
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_snapshot_manager_creation() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -222,7 +222,7 @@ mod tests {
         assert!(manager.repository_exists(&RepositoryName::new("test_repo")));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_repository() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -234,7 +234,7 @@ mod tests {
         assert!(repo.is_err());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_repositories() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -244,7 +244,7 @@ mod tests {
         assert_eq!(repos[0].as_str(), "test_repo");
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_repository_info() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -257,7 +257,7 @@ mod tests {
         assert_eq!(info.repository_type, "fs");
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_global_stats() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -267,7 +267,7 @@ mod tests {
         assert_eq!(stats.total_size, 0);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_create_snapshot() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -293,7 +293,7 @@ mod tests {
         assert_eq!(snapshot_info.indices.len(), 2);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_get_snapshot() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -318,7 +318,7 @@ mod tests {
         assert_eq!(snapshot_info.repository, repo_name);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_list_snapshots() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -348,7 +348,7 @@ mod tests {
         assert_eq!(snapshots.len(), 2);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_delete_snapshot() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -378,7 +378,7 @@ mod tests {
         assert_eq!(snapshots.len(), 0);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_repository_not_found() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -395,7 +395,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_snapshot() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -427,7 +427,7 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_nonexistent_snapshot() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();
@@ -444,7 +444,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_restore_with_rename_pattern() {
         let config = create_test_config();
         let manager = SnapshotManager::new(&config).unwrap();

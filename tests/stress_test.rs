@@ -3,7 +3,7 @@
 use lexum_stress_tests::stress_test::{StressConfig, StressTestRunner};
 use std::time::Duration;
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_memory_limits() {
     let config = StressConfig {
         test_duration: Duration::from_secs(10),
@@ -20,7 +20,7 @@ async fn test_memory_limits() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_disk_space_exhaustion() {
     let config = StressConfig {
         test_duration: Duration::from_secs(10),
@@ -37,7 +37,7 @@ async fn test_disk_space_exhaustion() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_connection_limits() {
     let config = StressConfig {
         max_connections: Some(50),
@@ -55,7 +55,7 @@ async fn test_connection_limits() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_query_complexity_limits() {
     let config = StressConfig {
         max_query_complexity: Some(50),
@@ -73,7 +73,7 @@ async fn test_query_complexity_limits() {
     );
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_graceful_degradation() {
     let config = StressConfig {
         test_duration: Duration::from_secs(15),

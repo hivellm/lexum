@@ -41,7 +41,7 @@ async fn create_test_index(manager: &Arc<IndexManager>, name: &str) -> Result<()
     }
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_creation_performance() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -68,7 +68,7 @@ async fn test_alias_creation_performance() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_resolution_performance() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -98,7 +98,7 @@ async fn test_alias_resolution_performance() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_large_alias_performance() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -131,7 +131,7 @@ async fn test_large_alias_performance() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_concurrent_alias_operations() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -170,7 +170,7 @@ async fn test_concurrent_alias_operations() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_atomic_operations_performance() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -212,7 +212,7 @@ async fn test_atomic_operations_performance() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_memory_usage() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -244,7 +244,7 @@ async fn test_alias_memory_usage() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_stress_test() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -281,7 +281,7 @@ async fn test_alias_stress_test() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_complex_config_performance() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -332,7 +332,7 @@ async fn test_alias_with_complex_config_performance() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_resolution_under_load() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -377,7 +377,7 @@ async fn test_alias_resolution_under_load() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_operations_mixed_workload() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     

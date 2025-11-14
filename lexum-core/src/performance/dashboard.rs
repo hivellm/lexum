@@ -517,7 +517,7 @@ mod tests {
     use super::*;
     use std::time::Duration;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_performance_dashboard() {
         let dashboard = PerformanceDashboard::new(Duration::from_millis(100));
 
@@ -539,7 +539,7 @@ mod tests {
         dashboard.stop().await;
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_health_status_calculation() {
         let mut data = DashboardData::new();
 
@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(data.health_status.cpu_health, 100);
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_alert_system() {
         let dashboard = PerformanceDashboard::new(Duration::from_secs(1));
 

@@ -13,6 +13,6 @@ pub use alias::{
     AliasOperationsResponse, IndexAlias,
 };
 pub use manager::{Index, IndexManager, IndexStats};
-pub use settings::IndexSettings;
+pub use settings::{IndexSettings, StorageSettings};
 pub use template::{IndexPattern, IndexTemplate, TemplateMappings, TemplateName, TemplateSettings};
 pub use template_manager::TemplateManager;

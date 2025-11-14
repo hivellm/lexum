@@ -52,7 +52,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
     (state, temp_dir)
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 #[ignore] // Requires filesystem operations that may fail in WSL
 async fn test_comprehensive_api_functionality() {
     let (state, _temp_dir) = setup_test_server().await;

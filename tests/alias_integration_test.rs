@@ -40,7 +40,7 @@ async fn create_test_index(manager: &Arc<IndexManager>, name: &str) -> Result<()
     }
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_creation_and_resolution() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -74,7 +74,7 @@ async fn test_alias_creation_and_resolution() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_operations_integration() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -106,7 +106,7 @@ async fn test_alias_operations_integration() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_atomic_alias_operations_integration() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -164,7 +164,7 @@ async fn test_atomic_alias_operations_integration() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_configuration() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -198,7 +198,7 @@ async fn test_alias_with_configuration() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_error_handling() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -228,7 +228,7 @@ async fn test_alias_error_handling() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_concurrent_operations() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -268,7 +268,7 @@ async fn test_alias_concurrent_operations() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_listing_and_management() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -310,7 +310,7 @@ async fn test_alias_listing_and_management() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_transaction_rollback() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -355,7 +355,7 @@ async fn test_alias_transaction_rollback() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_performance_large_scale() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     
@@ -385,7 +385,7 @@ async fn test_alias_performance_large_scale() -> Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[lexum_macros::tokio_test]
 async fn test_alias_with_complex_filtering() -> Result<()> {
     let (_temp_dir, manager) = create_test_manager().await?;
     

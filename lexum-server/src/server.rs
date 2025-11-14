@@ -195,7 +195,7 @@ mod tests {
         assert!(server.is_ok());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_server_with_hot_reload() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("config.yml");

@@ -35,7 +35,7 @@ pub async fn health_check() -> Json<HealthResponse> {
 mod tests {
     use super::*;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_health_check() {
         let response = health_check().await;
         assert_eq!(response.0.status, "ok");

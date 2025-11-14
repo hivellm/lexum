@@ -345,7 +345,7 @@ pub fn print_detailed_results(name: &str, result: &LoadTestResults) {
 mod tests {
     use super::*;
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_load_test_runner() -> Result<()> {
         // Skip this test due to Tantivy compatibility issues in this environment
         // This is a known issue with Tantivy 0.24/0.25 in certain environments
@@ -354,7 +354,7 @@ mod tests {
         return Ok(());
     }
 
-    #[tokio::test]
+    #[lexum_macros::tokio_test]
     async fn test_load_test_client() -> Result<()> {
         // Skip this test due to Tantivy compatibility issues in this environment
         // This is a known issue with Tantivy 0.24/0.25 in certain environments
