@@ -225,12 +225,12 @@ pub async fn generate_flamegraph(
     let flamegraph_svg = generate_mock_flamegraph();
 
     let statistics = ProfilingStatistics {
-        total_samples: config.duration_secs * config.sampling_rate as u64,
-        duration_secs: config.duration_secs as f64,
-        samples_per_second: config.sampling_rate as f64,
+        total_samples: config.duration_secs * u64::from(config.sampling_rate),
+        duration_secs: f64::from(config.duration_secs),
+        samples_per_second: f64::from(config.sampling_rate),
         top_functions: vec![FunctionStats {
             name: "lexum_core::search::executor::SearchExecutor::execute".to_string(),
-            samples: (config.duration_secs * config.sampling_rate as u64) / 2,
+            samples: (config.duration_secs * u64::from(config.sampling_rate)) / 2,
             percentage: 50.0,
         }],
     };

@@ -5,11 +5,11 @@ use crate::handlers::index::AppState;
 use crate::middleware::query_complexity::QueryComplexityLimitLayer;
 use axum::Json;
 use axum::extract::{Path, State};
-use lexum_core::{Query, SearchExecutor, SearchResult, SortOption};
 use lexum_core::search::{Highlighter, HighlighterConfig};
-use std::collections::HashSet;
+use lexum_core::{Query, SearchExecutor, SearchResult, SortOption};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 /// Search request
@@ -297,7 +297,7 @@ pub async fn search(
     if let Some(highlight) = request.highlight {
         // Extract query terms for highlighting
         let query_terms = extract_query_terms(&final_query_for_highlighting, request.q.as_deref());
-        
+
         // Create highlighter with config
         let highlighter_config = HighlighterConfig::new()
             .with_pre_tag(highlight.pre_tag.clone())
@@ -309,7 +309,7 @@ pub async fn search(
         for hit in &mut result.hits {
             if let serde_json::Value::Object(ref mut source) = hit.source {
                 let mut highlighted_fields = std::collections::HashMap::new();
-                
+
                 for field in &highlight.fields {
                     if field == "_all" {
                         // Highlight all text fields
@@ -327,7 +327,10 @@ pub async fn search(
                                         highlighted_fields.insert(
                                             format!("{key}_highlighted"),
                                             serde_json::Value::Array(
-                                                fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                                fragments
+                                                    .iter()
+                                                    .map(|f| serde_json::Value::String(f.clone()))
+                                                    .collect(),
                                             ),
                                         );
                                     }
@@ -346,14 +349,17 @@ pub async fn search(
                                 highlighted_fields.insert(
                                     format!("{field}_highlighted"),
                                     serde_json::Value::Array(
-                                        fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                        fragments
+                                            .iter()
+                                            .map(|f| serde_json::Value::String(f.clone()))
+                                            .collect(),
                                     ),
                                 );
                             }
                         }
                     }
                 }
-                
+
                 // Add highlighted fields to source
                 for (key, value) in highlighted_fields {
                     source.insert(key, value);
@@ -419,14 +425,14 @@ pub async fn explain(
         .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
 
     // Parse query from query parameter
-    let query_str = params.get("q").ok_or_else(|| {
-        ApiError::InvalidRequest("Query parameter 'q' is required".to_string())
-    })?;
+    let query_str = params
+        .get("q")
+        .ok_or_else(|| ApiError::InvalidRequest("Query parameter 'q' is required".to_string()))?;
 
     // Build query from query string
     // Get text field names from index
     let text_fields = index.get_text_field_names();
-    
+
     if text_fields.is_empty() {
         return Err(ApiError::InvalidRequest(
             "No text fields found in index".to_string(),
@@ -446,7 +452,7 @@ pub async fn explain(
     let search_result = executor
         .search(query.clone(), 100, 0, None)
         .await
-        .map_err(|e| ApiError::InvalidRequest(format!("Search failed: {}", e)))?;
+        .map_err(|e| ApiError::InvalidRequest(format!("Search failed: {e}")))?;
 
     // Find the document in results
     let hit = search_result
@@ -461,7 +467,7 @@ pub async fn explain(
     let explanation = ExplainExplanation {
         value: score,
         description: if matched {
-            format!("Document matches query with score {}", score)
+            format!("Document matches query with score {score}")
         } else {
             "Document does not match query".to_string()
         },
@@ -681,7 +687,7 @@ pub async fn search_get(
         if let Some(highlight) = request.highlight {
             // Extract query terms for highlighting
             let query_terms = extract_query_terms(&query, request.q.as_deref());
-            
+
             // Create highlighter with config
             let highlighter_config = HighlighterConfig::new()
                 .with_pre_tag(highlight.pre_tag.clone())
@@ -693,7 +699,7 @@ pub async fn search_get(
             for hit in &mut result.hits {
                 if let serde_json::Value::Object(ref mut source) = hit.source {
                     let mut highlighted_fields = std::collections::HashMap::new();
-                    
+
                     for field in &highlight.fields {
                         if field == "_all" {
                             // Highlight all text fields
@@ -711,7 +717,12 @@ pub async fn search_get(
                                             highlighted_fields.insert(
                                                 format!("{key}_highlighted"),
                                                 serde_json::Value::Array(
-                                                    fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                                    fragments
+                                                        .iter()
+                                                        .map(|f| {
+                                                            serde_json::Value::String(f.clone())
+                                                        })
+                                                        .collect(),
                                                 ),
                                             );
                                         }
@@ -730,14 +741,17 @@ pub async fn search_get(
                                     highlighted_fields.insert(
                                         format!("{field}_highlighted"),
                                         serde_json::Value::Array(
-                                            fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                            fragments
+                                                .iter()
+                                                .map(|f| serde_json::Value::String(f.clone()))
+                                                .collect(),
                                         ),
                                     );
                                 }
                             }
                         }
                     }
-                    
+
                     // Add highlighted fields to source
                     for (key, value) in highlighted_fields {
                         source.insert(key, value);
