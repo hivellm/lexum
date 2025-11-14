@@ -124,22 +124,22 @@ impl RegexCache {
     }
 
     /// Detect potentially dangerous ReDoS patterns
+    #[allow(clippy::unused_self)]
     fn detect_redos_pattern(&self, pattern: &str) -> bool {
         // Simple heuristic: look for nested quantifiers
         // This is a basic check - a full implementation would use a proper regex parser
         let chars: Vec<char> = pattern.chars().collect();
         for i in 0..chars.len().saturating_sub(3) {
             // Look for patterns like (a+)+ or (a*)*
-            if chars[i] == '(' && i + 3 < chars.len() {
-                if (chars[i + 1] == 'a' || chars[i + 1] == '.')
-                    && (chars[i + 2] == '+' || chars[i + 2] == '*')
-                    && chars[i + 3] == ')'
-                {
-                    // Check if followed by another quantifier
-                    if i + 4 < chars.len() && (chars[i + 4] == '+' || chars[i + 4] == '*') {
-                        return true;
-                    }
-                }
+            if chars[i] == '('
+                && i + 3 < chars.len()
+                && (chars[i + 1] == 'a' || chars[i + 1] == '.')
+                && (chars[i + 2] == '+' || chars[i + 2] == '*')
+                && chars[i + 3] == ')'
+                && i + 4 < chars.len()
+                && (chars[i + 4] == '+' || chars[i + 4] == '*')
+            {
+                return true;
             }
         }
         false
@@ -160,7 +160,7 @@ impl RegexCache {
             let final_pattern = if case_sensitive {
                 pattern.to_string()
             } else {
-                format!("(?i){}", pattern)
+                format!("(?i){pattern}")
             };
             return TantivyRegexQuery::from_pattern(&final_pattern, field)
                 .map_err(|e| Error::Config(format!("Invalid regex pattern: {e}")))
@@ -187,7 +187,7 @@ impl RegexCache {
         let final_pattern = if case_sensitive {
             pattern.to_string()
         } else {
-            format!("(?i){}", pattern)
+            format!("(?i){pattern}")
         };
 
         let compiled_query = TantivyRegexQuery::from_pattern(&final_pattern, field)
@@ -250,9 +250,11 @@ mod tests {
         schema_builder.add_text_field("test", TEXT);
         let schema = schema_builder.build();
         let field = schema.get_field("test").unwrap();
-        assert!(cache
-            .get_or_compile("a".repeat(20).as_str(), field, false)
-            .is_err());
+        assert!(
+            cache
+                .get_or_compile("a".repeat(20).as_str(), field, false)
+                .is_err()
+        );
 
         // Should succeed - pattern within limit
         assert!(cache.get_or_compile("test", field, false).is_ok());
@@ -276,4 +278,3 @@ mod tests {
         assert!(Arc::ptr_eq(&query1, &query2));
     }
 }
-

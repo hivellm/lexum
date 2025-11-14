@@ -112,6 +112,7 @@ impl Highlighter {
     }
 
     /// Find all match positions in text
+    #[allow(clippy::unused_self)]
     fn find_matches(&self, text: &str, query_terms: &HashSet<String>) -> Vec<MatchPosition> {
         let mut matches = Vec::new();
         let text_lower = text.to_lowercase();
@@ -145,22 +146,19 @@ impl Highlighter {
         let mut fragments = Vec::new();
         let mut used_ranges = Vec::new();
 
-        for (_idx, mat) in matches.iter().enumerate() {
+        for mat in matches.iter() {
             if fragments.len() >= self.config.max_fragments {
                 break;
             }
 
             // Calculate fragment boundaries
-            let fragment_start = mat
-                .start
-                .saturating_sub(self.config.fragment_margin)
-                .max(0);
+            let fragment_start = mat.start.saturating_sub(self.config.fragment_margin).max(0);
             let fragment_end = (mat.end + self.config.fragment_margin).min(text.len());
 
             // Check if this fragment overlaps with already used ranges
-            let overlaps = used_ranges.iter().any(|(start, end)| {
-                fragment_start < *end && fragment_end > *start
-            });
+            let overlaps = used_ranges
+                .iter()
+                .any(|(start, end)| fragment_start < *end && fragment_end > *start);
 
             if !overlaps {
                 // Extract fragment
@@ -201,10 +199,7 @@ impl Highlighter {
         // Find matches within this fragment
         let fragment_matches: Vec<_> = matches
             .iter()
-            .filter(|m| {
-                m.start >= fragment_offset
-                    && m.end <= fragment_offset + fragment.len()
-            })
+            .filter(|m| m.start >= fragment_offset && m.end <= fragment_offset + fragment.len())
             .collect();
 
         for mat in fragment_matches {
@@ -344,4 +339,3 @@ mod tests {
         assert!(highlighted.contains("<em>test</em>"));
     }
 }
-

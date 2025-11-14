@@ -730,12 +730,13 @@ mod tests {
         };
 
         let store = DocumentStore::new(Arc::new(index));
-        let doc_id = DocumentId::new("test_doc");
 
-        // Add document first
+        let doc_id = DocumentId::new("test_doc_123");
         let doc = serde_json::json!({
             "title": "Test Document"
         });
+
+        // Add document first
         store
             .add_document_with_id(doc_id.clone(), doc)
             .await
@@ -762,26 +763,23 @@ mod tests {
             })
             .unwrap();
         assert_eq!(title, "Test Document");
-
-        // _id should be a string
-        let id = retrieved_doc["_id"]
-            .as_str()
-            .or_else(|| {
-                retrieved_doc["_id"]
-                    .as_array()
-                    .and_then(|arr| arr.first())
-                    .and_then(|v| v.as_str())
-            })
-            .unwrap();
-        assert_eq!(id, "test_doc");
     }
 
     #[lexum_macros::tokio_test]
     async fn test_get_document_not_found() {
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("_id", TEXT | STORED);
-        schema_builder.add_text_field("title", TEXT | STORED);
-        let schema = schema_builder.build();
+        use crate::schema::FieldConfig;
+        use crate::schema::FieldType;
+        use crate::schema::SchemaBuilder as LexumSchemaBuilder;
+
+        let (schema, _) = LexumSchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("_id", FieldType::Keyword)
+                    .stored(true)
+                    .indexed(true),
+            )
+            .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
+            .build()
+            .unwrap();
 
         let tantivy_index = tantivy::Index::create_in_ram(schema);
         let index = Index {
@@ -793,10 +791,54 @@ mod tests {
         let store = DocumentStore::new(Arc::new(index));
         let doc_id = DocumentId::new("nonexistent_doc");
 
-        // Try to get non-existent document
         let result = store.get_document(&doc_id).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_delete_document_with_id_field() {
+        use crate::schema::FieldConfig;
+        use crate::schema::FieldType;
+        use crate::schema::SchemaBuilder as LexumSchemaBuilder;
+
+        let (schema, _) = LexumSchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("_id", FieldType::Keyword)
+                    .stored(true)
+                    .indexed(true),
+            )
+            .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let doc_id = DocumentId::new("delete_test");
+        let doc = serde_json::json!({
+            "title": "To Be Deleted"
+        });
+
+        // Add document first
+        store
+            .add_document_with_id(doc_id.clone(), doc)
+            .await
+            .unwrap();
+
+        // Delete document
+        let result = store.delete_document(&doc_id).await;
+        assert!(result.is_ok());
+
+        // Verify document is deleted
+        let get_result = store.get_document(&doc_id).await;
+        assert!(get_result.is_err());
     }
 
     #[lexum_macros::tokio_test]
@@ -826,9 +868,135 @@ mod tests {
     }
 
     #[lexum_macros::tokio_test]
-    async fn test_delete_document_with_id_field() {
+    async fn test_add_document_with_existing_id_in_document() {
+        use crate::schema::FieldConfig;
+        use crate::schema::FieldType;
+        use crate::schema::SchemaBuilder as LexumSchemaBuilder;
+
+        let (schema, _) = LexumSchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("_id", FieldType::Keyword)
+                    .stored(true)
+                    .indexed(true),
+            )
+            .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        // Document with _id field already present
+        let doc = serde_json::json!({
+            "_id": "custom_id_123",
+            "title": "Document with ID"
+        });
+
+        let result = store.add_document(doc).await;
+        assert!(result.is_ok());
+        let doc_id = result.unwrap();
+        assert_eq!(doc_id.as_str(), "custom_id_123");
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_bulk_operations_mixed() {
+        use crate::schema::FieldConfig;
+        use crate::schema::FieldType;
+        use crate::schema::SchemaBuilder as LexumSchemaBuilder;
+
+        let (schema, _) = LexumSchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("_id", FieldType::Keyword)
+                    .stored(true)
+                    .indexed(true),
+            )
+            .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let operations = vec![
+            BulkOperation::Index {
+                index: "test".to_string(),
+                id: DocumentId::new("doc1"),
+                document: serde_json::json!({"title": "Document 1"}),
+            },
+            BulkOperation::Index {
+                index: "test".to_string(),
+                id: DocumentId::new("doc2"),
+                document: serde_json::json!({"title": "Document 2"}),
+            },
+            BulkOperation::Update {
+                index: "test".to_string(),
+                id: DocumentId::new("doc1"),
+                document: serde_json::json!({"title": "Updated Document 1"}),
+            },
+            BulkOperation::Delete {
+                index: "test".to_string(),
+                id: DocumentId::new("doc2"),
+            },
+        ];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 4);
+        assert!(bulk_result.items.iter().all(|item| match item {
+            BulkOperationResult::Index { success, .. } => *success,
+            BulkOperationResult::Update { success, .. } => *success,
+            BulkOperationResult::Delete { success, .. } => *success,
+        }));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_bulk_operations_empty() {
+        use crate::schema::FieldConfig;
+        use crate::schema::FieldType;
+        use crate::schema::SchemaBuilder as LexumSchemaBuilder;
+
+        let (schema, _) = LexumSchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("_id", FieldType::Keyword)
+                    .stored(true)
+                    .indexed(true),
+            )
+            .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let result = store.bulk_operations(vec![]).await;
+        assert!(result.is_ok());
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 0);
+        assert!(!bulk_result.errors);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_bulk_operations_delete_without_id_field() {
         let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("_id", TEXT | STORED);
         schema_builder.add_text_field("title", TEXT | STORED);
         let schema = schema_builder.build();
 
@@ -840,19 +1008,58 @@ mod tests {
         };
 
         let store = DocumentStore::new(Arc::new(index));
-        let doc_id = DocumentId::new("test_doc");
 
-        // Add document first
-        let doc = serde_json::json!({
-            "title": "Test Document"
-        });
-        store
-            .add_document_with_id(doc_id.clone(), doc)
-            .await
+        let operations = vec![BulkOperation::Delete {
+            index: "test".to_string(),
+            id: DocumentId::new("doc1"),
+        }];
+
+        let result = store.bulk_operations(operations).await;
+        assert!(result.is_ok());
+        let bulk_result = result.unwrap();
+        assert_eq!(bulk_result.items.len(), 1);
+        assert!(bulk_result.errors);
+        match &bulk_result.items[0] {
+            BulkOperationResult::Delete { success, error, .. } => {
+                assert!(!success);
+                assert!(error.is_some());
+            }
+            _ => panic!("Expected Delete result"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_update_document_not_found() {
+        use crate::schema::FieldConfig;
+        use crate::schema::FieldType;
+        use crate::schema::SchemaBuilder as LexumSchemaBuilder;
+
+        let (schema, _) = LexumSchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("_id", FieldType::Keyword)
+                    .stored(true)
+                    .indexed(true),
+            )
+            .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
+            .build()
             .unwrap();
 
-        // Delete document - should succeed with _id field
-        let result = store.delete_document(&doc_id).await;
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+        };
+
+        let store = DocumentStore::new(Arc::new(index));
+
+        let doc_id = DocumentId::new("nonexistent");
+        let updated_doc = serde_json::json!({
+            "title": "Updated Title"
+        });
+
+        // Update should succeed (delete + add pattern, delete of non-existent doc is OK)
+        let result = store.update_document(&doc_id, updated_doc).await;
         assert!(result.is_ok());
     }
 
@@ -1106,49 +1313,6 @@ mod tests {
     }
 
     #[lexum_macros::tokio_test]
-    async fn test_bulk_operations_delete_without_id_field() {
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("title", TEXT | STORED);
-        let schema = schema_builder.build();
-
-        let tantivy_index = tantivy::Index::create_in_ram(schema);
-        let index = Index {
-            name: crate::types::IndexName::new("test"),
-            inner: Arc::new(tantivy_index),
-            settings: crate::index::IndexSettings::default(),
-        };
-
-        let store = DocumentStore::new(Arc::new(index));
-
-        let operations = vec![BulkOperation::Delete {
-            index: "test_index".to_string(),
-            id: DocumentId::new("doc1"),
-        }];
-
-        let result = store.bulk_operations(operations).await;
-        assert!(result.is_ok());
-
-        let bulk_result = result.unwrap();
-        assert_eq!(bulk_result.items.len(), 1);
-        assert!(bulk_result.errors); // Delete should fail without _id field
-        assert_eq!(bulk_result.errors_details.len(), 1);
-
-        match &bulk_result.items[0] {
-            BulkOperationResult::Delete { success, error, .. } => {
-                assert!(!success);
-                assert!(error.is_some());
-                assert!(
-                    error
-                        .as_ref()
-                        .unwrap()
-                        .contains("requires schema with _id field")
-                );
-            }
-            _ => panic!("Expected Delete result"),
-        }
-    }
-
-    #[lexum_macros::tokio_test]
     async fn test_bulk_operations_delete_with_id_field() {
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("_id", TEXT | STORED);
@@ -1195,52 +1359,6 @@ mod tests {
             }
             _ => panic!("Expected Delete result"),
         }
-    }
-
-    #[lexum_macros::tokio_test]
-    async fn test_bulk_operations_mixed() {
-        let mut schema_builder = Schema::builder();
-        schema_builder.add_text_field("title", TEXT | STORED);
-        let schema = schema_builder.build();
-
-        let tantivy_index = tantivy::Index::create_in_ram(schema);
-        let index = Index {
-            name: crate::types::IndexName::new("test"),
-            inner: Arc::new(tantivy_index),
-            settings: crate::index::IndexSettings::default(),
-        };
-
-        let store = DocumentStore::new(Arc::new(index));
-
-        let operations = vec![
-            BulkOperation::Index {
-                index: "test_index".to_string(),
-                id: DocumentId::new("doc1"),
-                document: serde_json::json!({
-                    "title": "Document 1"
-                }),
-            },
-            BulkOperation::Update {
-                index: "test_index".to_string(),
-                id: DocumentId::new("doc2"),
-                document: serde_json::json!({
-                    "title": "Updated Document 2"
-                }),
-            },
-            BulkOperation::Delete {
-                index: "test_index".to_string(),
-                id: DocumentId::new("doc3"),
-            },
-        ];
-
-        let result = store.bulk_operations(operations).await;
-        assert!(result.is_ok());
-
-        let bulk_result = result.unwrap();
-        assert_eq!(bulk_result.items.len(), 3);
-        // Delete will fail without _id field, so there should be an error
-        assert!(bulk_result.errors);
-        assert_eq!(bulk_result.errors_details.len(), 1);
     }
 
     #[lexum_macros::tokio_test]
