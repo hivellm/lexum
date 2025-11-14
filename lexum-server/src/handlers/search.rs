@@ -117,7 +117,7 @@ fn extract_query_terms(query: &Query, query_string: Option<&str>) -> HashSet<Str
         }
         Query::Wildcard(w) => {
             // Extract base pattern (remove wildcards)
-            let pattern = w.pattern.replace('*', "").replace('?', "");
+            let pattern = w.pattern.replace(['*', '?'], "");
             if !pattern.is_empty() {
                 terms.insert(pattern.to_lowercase());
             }
@@ -473,7 +473,7 @@ pub async fn explain(
         },
         details: vec![ExplainDetail {
             value: score,
-            description: format!("Query: {}", query_str),
+            description: format!("Query: {query_str}"),
         }],
     };
 

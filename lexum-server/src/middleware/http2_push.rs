@@ -102,7 +102,7 @@ where
             let mut response = service.call(req).await?;
 
             // Generate push hints based on the request path
-            let hints = generate_push_hints(&uri.path(), &config);
+            let hints = generate_push_hints(uri.path(), &config);
 
             if !hints.is_empty() {
                 // Add Link headers for preload hints
@@ -129,19 +129,14 @@ fn generate_push_hints(path: &str, config: &Http2PushConfig) -> Vec<String> {
         if let Some(index_name) = extract_index_from_path(path) {
             // Push index info endpoint
             hints.push(format!(
-                r"</api/v1/indices/{}>; rel=preload; as=fetch",
-                index_name
+                r"</api/v1/indices/{index_name}>; rel=preload; as=fetch"
             ));
             // Push index stats endpoint
             hints.push(format!(
-                r"</api/v1/indices/{}/stats>; rel=preload; as=fetch",
-                index_name
+                r"</api/v1/indices/{index_name}/stats>; rel=preload; as=fetch"
             ));
             // Push template endpoint if available
-            hints.push(format!(
-                r"</_template/{}>; rel=preload; as=fetch",
-                index_name
-            ));
+            hints.push(format!(r"</_template/{index_name}>; rel=preload; as=fetch"));
         }
     }
 
@@ -150,13 +145,11 @@ fn generate_push_hints(path: &str, config: &Http2PushConfig) -> Vec<String> {
         if let Some(index_name) = extract_index_from_path(path) {
             // Push index info
             hints.push(format!(
-                r"</api/v1/indices/{}>; rel=preload; as=fetch",
-                index_name
+                r"</api/v1/indices/{index_name}>; rel=preload; as=fetch"
             ));
             // Push search endpoint for related documents
             hints.push(format!(
-                r"</api/v1/indices/{}/search>; rel=preload; as=fetch",
-                index_name
+                r"</api/v1/indices/{index_name}/search>; rel=preload; as=fetch"
             ));
         }
     }
@@ -165,19 +158,12 @@ fn generate_push_hints(path: &str, config: &Http2PushConfig) -> Vec<String> {
     if config.enable_index_hints && path.contains("/indices") && !path.contains("/search") {
         if let Some(index_name) = extract_index_from_path(path) {
             // Push template if exists
-            hints.push(format!(
-                r"</_template/{}>; rel=preload; as=fetch",
-                index_name
-            ));
+            hints.push(format!(r"</_template/{index_name}>; rel=preload; as=fetch"));
             // Push aliases
-            hints.push(format!(
-                r"</{}/_alias>; rel=preload; as=fetch",
-                index_name
-            ));
+            hints.push(format!(r"</{index_name}/_alias>; rel=preload; as=fetch"));
             // Push stats
             hints.push(format!(
-                r"</api/v1/indices/{}/stats>; rel=preload; as=fetch",
-                index_name
+                r"</api/v1/indices/{index_name}/stats>; rel=preload; as=fetch"
             ));
         }
     }
