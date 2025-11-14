@@ -6,6 +6,7 @@ pub mod filter_cache;
 pub mod multi_executor;
 pub mod optimizer;
 pub mod query_cache;
+pub mod regex_cache;
 pub mod result;
 
 pub use field_cache::{FieldAggregationStats, FieldCache, FieldCacheStats, FieldValue};

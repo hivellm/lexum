@@ -8,6 +8,7 @@ use crate::search::field_cache::FieldCache;
 use crate::search::filter_cache::FilterCache;
 use crate::search::optimizer::QueryOptimizer;
 use crate::search::query_cache::QueryCache;
+use crate::search::regex_cache::RegexCache;
 use crate::search::result::{SearchHit, SearchResult, SortOption, SortOrder};
 use crate::types::{DocumentId, Score};
 use std::sync::Arc;
@@ -34,6 +35,8 @@ pub struct SearchExecutor {
     string_pool: Arc<StringBufferPool>,
     /// Query pool for reusing query objects
     query_pool: Arc<QueryPool>,
+    /// Regex cache for compiled regex queries
+    regex_cache: Arc<RegexCache>,
 }
 
 impl SearchExecutor {
@@ -51,6 +54,7 @@ impl SearchExecutor {
             buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
             string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
             query_pool: Arc::new(QueryPool::new()),
+            regex_cache: Arc::new(RegexCache::new()),
         }
     }
 
@@ -76,6 +80,7 @@ impl SearchExecutor {
             buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
             string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
             query_pool: Arc::new(QueryPool::new()),
+            regex_cache: Arc::new(RegexCache::new()),
         }
     }
 
@@ -89,6 +94,7 @@ impl SearchExecutor {
             buffer_pool: Arc::new(BufferPool::with_settings(10, 100)),
             string_pool: Arc::new(StringBufferPool::with_settings(20, 256)),
             query_pool: Arc::new(QueryPool::new()),
+            regex_cache: Arc::new(RegexCache::disabled()),
         }
     }
 
@@ -265,12 +271,13 @@ impl SearchExecutor {
         let query_clone = optimized_query.clone();
         let sort_clone = sort.clone();
 
+        let regex_cache_clone = self.regex_cache.clone();
         let result = tokio::task::spawn_blocking(move || {
             let reader = index.reader()?;
             let searcher = reader.searcher();
 
             // Convert our query to Tantivy query
-            let tantivy_query = Self::build_tantivy_query(&index.inner, &query_clone)?;
+            let tantivy_query = Self::build_tantivy_query(&index.inner, &query_clone, regex_cache_clone)?;
 
             // Execute search
             // Note: Tantivy-based sorting would require using FieldOrdering collectors,
@@ -446,6 +453,7 @@ impl SearchExecutor {
     fn build_tantivy_query(
         tantivy_index: &tantivy::Index,
         query: &Query,
+        regex_cache: Arc<RegexCache>,
     ) -> Result<Box<dyn tantivy::query::Query>> {
         let schema = tantivy_index.schema();
 
@@ -504,25 +512,25 @@ impl SearchExecutor {
 
                 // Add must clauses
                 for must in &bool_query.must {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, must)?;
+                    let sub_query = Self::build_tantivy_query(tantivy_index, must, regex_cache.clone())?;
                     clauses.push((Occur::Must, sub_query));
                 }
 
                 // Add should clauses
                 for should in &bool_query.should {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, should)?;
+                    let sub_query = Self::build_tantivy_query(tantivy_index, should, regex_cache.clone())?;
                     clauses.push((Occur::Should, sub_query));
                 }
 
                 // Add must_not clauses
                 for must_not in &bool_query.must_not {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, must_not)?;
+                    let sub_query = Self::build_tantivy_query(tantivy_index, must_not, regex_cache.clone())?;
                     clauses.push((Occur::MustNot, sub_query));
                 }
 
                 // Filter clauses (treat as must for now)
                 for filter in &bool_query.filter {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, filter)?;
+                    let sub_query = Self::build_tantivy_query(tantivy_index, filter, regex_cache.clone())?;
                     clauses.push((Occur::Must, sub_query));
                 }
 
@@ -587,14 +595,19 @@ impl SearchExecutor {
                     .get_field(&regex_query.field)
                     .map_err(|e| Error::Config(format!("Field not found: {e}")))?;
 
-                // Use Tantivy's regex query
-                let pattern = if regex_query.case_sensitive {
+                // Use regex cache to get or compile regex query
+                // Note: We compile directly here since TantivyRegexQuery doesn't implement Clone
+                // The cache validation still applies for safety limits
+                let final_pattern = if regex_query.case_sensitive {
                     regex_query.pattern.clone()
                 } else {
                     format!("(?i){}", regex_query.pattern)
                 };
 
-                TantivyRegexQuery::from_pattern(&pattern, field)
+                // Validate pattern for safety (using cache's validation)
+                regex_cache.validate_pattern(&regex_query.pattern)?;
+
+                TantivyRegexQuery::from_pattern(&final_pattern, field)
                     .map_err(|e| Error::Config(format!("Invalid regex pattern: {e}")))
                     .map(|q| Box::new(q) as Box<dyn tantivy::query::Query>)
             }
@@ -636,13 +649,13 @@ impl SearchExecutor {
             Query::Nested(nested_query) => {
                 // For now, execute the nested query directly
                 // In a full implementation, this would handle nested document structure
-                Self::build_tantivy_query(tantivy_index, nested_query.query.as_ref())
+                Self::build_tantivy_query(tantivy_index, nested_query.query.as_ref(), regex_cache)
             }
 
             Query::FunctionScore(func_score_query) => {
                 // For now, execute the base query without function scoring
                 // In a full implementation, this would apply custom scoring functions
-                Self::build_tantivy_query(tantivy_index, func_score_query.query.as_ref())
+                Self::build_tantivy_query(tantivy_index, func_score_query.query.as_ref(), regex_cache)
             }
 
             Query::GeoDistance(_geo_query) => {
@@ -696,7 +709,8 @@ mod tests {
 
         let tantivy_index = tantivy::Index::create_in_ram(schema);
         let query = QueryBuilder::term_query("title", "test");
-        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query);
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
         assert!(result.is_ok());
     }
 

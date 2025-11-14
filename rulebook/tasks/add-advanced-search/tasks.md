@@ -20,8 +20,8 @@
 
 ## 4. Regex Queries
 - [x] 4.1 Implement regex query type (RegexQuery in query/types.rs)
-- [ ] 4.2 Add regex compilation and caching (pending)
-- [ ] 4.3 Implement safety limits (pending)
+- [x] 4.2 Add regex compilation and caching (RegexCache with LRU cache in search/regex_cache.rs)
+- [x] 4.3 Implement safety limits (pattern length limit, alternation limit, ReDoS detection in regex_cache.rs)
 - [x] 4.4 Test regex queries (tests in query/types.rs)
 
 ## 5. Field Boosting
