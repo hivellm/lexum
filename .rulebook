@@ -1,44 +1,33 @@
 {
-  "version": "1.0.0",
-  "installedAt": "2025-10-25T20:02:08.644Z",
-  "updatedAt": "2025-11-12T02:04:03.847Z",
-  "projectId": "13847e4b-f04e-4c2d-9001-cd7dace5b996",
+  "version": "0.18.0",
+  "installedAt": "2025-11-12T02:04:07.293Z",
+  "updatedAt": "2025-11-14T03:49:46.025Z",
+  "projectId": "lexum",
+  "mode": "full",
   "features": {
-    "openspec": true,
-    "watcher": true,
-    "agent": true,
+    "watcher": false,
+    "agent": false,
     "logging": true,
-    "telemetry": true,
+    "telemetry": false,
     "notifications": false,
     "dryRun": false,
-    "gitHooks": false,
+    "gitHooks": true,
     "repl": false,
-    "templates": false,
-    "context": false,
-    "health": false,
+    "templates": true,
+    "context": true,
+    "health": true,
     "plugins": false,
-    "parallel": false,
-    "smartContinue": false
+    "parallel": true,
+    "smartContinue": true
   },
   "coverageThreshold": 95,
   "language": "en",
   "outputLanguage": "en",
   "cliTools": [],
-  "maxParallelTasks": 1,
+  "maxParallelTasks": 5,
   "timeouts": {
-    "taskExecution": 300000,
-    "cliResponse": 60000,
-    "testRun": 120000
-  },
-  "mode": "full",
-  "languages": [
-    "rust"
-  ],
-  "frameworks": [],
-  "modules": [
-    "openspec",
-    "context7"
-  ],
-  "modular": true,
-  "rulebookDir": "rulebook"
+    "taskExecution": 3600000,
+    "cliResponse": 180000,
+    "testRun": 600000
+  }
 }
