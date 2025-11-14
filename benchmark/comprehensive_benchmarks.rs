@@ -242,7 +242,7 @@ fn bench_query_types(c: &mut Criterion) {
         
         // Fuzzy query
         group.bench_function("fuzzy_query", |b| {
-            let query = Query::Fuzzy(FuzzyQuery::new("content", "seach engin")
+            let query = Query::Fuzzy(FuzzyQuery::new("content", "search engin")
                 .fuzziness(2));
             b.iter(|| {
                 rt.block_on(executor.search(black_box(query.clone()), 10, 0, None)).unwrap()
@@ -522,7 +522,7 @@ fn bench_query_analysis(c: &mut Criterion) {
         Query::Bool(BoolQuery::new()
             .must(Query::Bool(BoolQuery::new()
                 .must(Query::Match(MatchQuery::new("title", "test")))
-                .should(Query::Fuzzy(FuzzyQuery::new("content", "seach")))
+                .should(Query::Fuzzy(FuzzyQuery::new("content", "search")))
                 .must_not(Query::Regex(RegexQuery::new("description", ".*spam.*")))))),
         Query::FunctionScore(FunctionScoreQuery::new(
             Query::Match(MatchQuery::new("content", "performance"))
