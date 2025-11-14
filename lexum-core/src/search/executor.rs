@@ -290,6 +290,9 @@ impl SearchExecutor {
                 buffer
             };
 
+            // Extract boost value from query
+            let boost = Self::extract_boost(&query_clone);
+
             for (score, doc_address) in top_docs.iter() {
                 let doc: TantivyDocument = searcher
                     .doc(*doc_address)
@@ -305,9 +308,12 @@ impl SearchExecutor {
                 let doc_id = DocumentId::new(doc_id_buf.clone());
                 string_pool.put(doc_id_buf); // Return buffer to pool
 
+                // Apply boost to score
+                let boosted_score = *score * boost;
+
                 hits.push(SearchHit {
                     id: doc_id,
-                    score: Score::new(*score),
+                    score: Score::new(boosted_score),
                     source,
                 });
             }
@@ -417,6 +423,26 @@ impl SearchExecutor {
     }
 
     /// Build Tantivy query from our Query type
+    /// Extract boost value from a query
+    fn extract_boost(query: &Query) -> f32 {
+        match query {
+            Query::Match(m) => m.boost,
+            Query::Term(t) => t.boost,
+            Query::Range(r) => r.boost,
+            Query::Fuzzy(f) => f.boost,
+            Query::Phrase(p) => p.boost,
+            Query::Wildcard(w) => w.boost,
+            Query::Regex(r) => r.boost,
+            Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
+            Query::FunctionScore(_fs) => {
+                // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
+                // In a full implementation, this would apply the boost_mode logic
+                1.0
+            }
+            _ => 1.0, // Other query types default to 1.0
+        }
+    }
+
     fn build_tantivy_query(
         tantivy_index: &tantivy::Index,
         query: &Query,

@@ -261,6 +261,139 @@ pub async fn search(
     Ok(Json(result))
 }
 
+/// Explain why a document matches or doesn't match a query
+#[utoipa::path(
+    get,
+    path = "/api/v1/indices/{index_name}/_explain/{id}",
+    params(
+        ("index_name" = String, Path, description = "Index name"),
+        ("id" = String, Path, description = "Document ID"),
+        ("q" = Option<String>, Query, description = "Query string"),
+    ),
+    responses(
+        (status = 200, description = "Explanation generated", body = ExplainResult),
+        (status = 404, description = "Index or document not found"),
+        (status = 400, description = "Invalid request")
+    ),
+    tag = "Search"
+)]
+pub async fn explain(
+    State(state): State<AppState>,
+    Path((index_name, doc_id)): Path<(String, String)>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> ApiResult<Json<ExplainResult>> {
+    // Resolve alias to actual index names
+    let target_indices = state
+        .index_manager
+        .resolve_name(&index_name)
+        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+
+    if target_indices.is_empty() {
+        return Err(ApiError::IndexNotFound(index_name));
+    }
+
+    // Get the first index (for now, single index only)
+    let index = state
+        .index_manager
+        .get_index(target_indices[0].as_str())
+        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+
+    // Parse query from query parameter
+    let query_str = params.get("q").ok_or_else(|| {
+        ApiError::InvalidRequest("Query parameter 'q' is required".to_string())
+    })?;
+
+    // Build query from query string
+    // Get text field names from index
+    let text_fields = index.get_text_field_names();
+    
+    if text_fields.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "No text fields found in index".to_string(),
+        ));
+    }
+
+    // Use first text field for simple query string
+    let query = lexum_core::Query::Match(lexum_core::MatchQuery::new(
+        text_fields[0].clone(),
+        query_str.clone(),
+    ));
+
+    // Create search executor
+    let executor = SearchExecutor::new(Arc::new(index));
+
+    // Execute search with explain enabled
+    let search_result = executor
+        .search(query.clone(), 100, 0, None)
+        .await
+        .map_err(|e| ApiError::InvalidRequest(format!("Search failed: {}", e)))?;
+
+    // Find the document in results
+    let hit = search_result
+        .hits
+        .iter()
+        .find(|h| h.id.as_str() == doc_id.as_str());
+
+    let matched = hit.is_some();
+    let score = hit.map(|h| h.score.value()).unwrap_or(0.0);
+
+    // Build explanation
+    let explanation = ExplainExplanation {
+        value: score,
+        description: if matched {
+            format!("Document matches query with score {}", score)
+        } else {
+            "Document does not match query".to_string()
+        },
+        details: vec![ExplainDetail {
+            value: score,
+            description: format!("Query: {}", query_str),
+        }],
+    };
+
+    let result = ExplainResult {
+        index: index_name,
+        id: doc_id,
+        matched,
+        explanation,
+    };
+
+    Ok(Json(result))
+}
+
+/// Explain result
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ExplainResult {
+    /// Index name
+    pub index: String,
+    /// Document ID
+    pub id: String,
+    /// Whether document matches the query
+    pub matched: bool,
+    /// Explanation details
+    pub explanation: ExplainExplanation,
+}
+
+/// Explanation details
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ExplainExplanation {
+    /// Score value
+    pub value: f32,
+    /// Description
+    pub description: String,
+    /// Additional details
+    pub details: Vec<ExplainDetail>,
+}
+
+/// Explanation detail
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ExplainDetail {
+    /// Value
+    pub value: f32,
+    /// Description
+    pub description: String,
+}
+
 /// Simple search handler with query parameters
 #[utoipa::path(
     get,

@@ -44,6 +44,13 @@ pub struct MatchQuery {
     pub field: String,
     /// Query text
     pub query: String,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+fn default_boost() -> f32 {
+    1.0
 }
 
 impl MatchQuery {
@@ -52,7 +59,14 @@ impl MatchQuery {
         Self {
             field: field.into(),
             query: query.into(),
+            boost: 1.0,
         }
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
     }
 }
 
@@ -63,6 +77,9 @@ pub struct TermQuery {
     pub field: String,
     /// Term value
     pub value: String,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
 }
 
 impl TermQuery {
@@ -71,7 +88,14 @@ impl TermQuery {
         Self {
             field: field.into(),
             value: value.into(),
+            boost: 1.0,
         }
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
     }
 }
 
@@ -88,6 +112,9 @@ pub struct RangeQuery {
     pub gt: Option<serde_json::Value>,
     /// Less than
     pub lt: Option<serde_json::Value>,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
 }
 
 impl RangeQuery {
@@ -99,6 +126,7 @@ impl RangeQuery {
             lte: None,
             gt: None,
             lt: None,
+            boost: 1.0,
         }
     }
 
@@ -123,6 +151,12 @@ impl RangeQuery {
     /// Set less than
     pub fn lt(mut self, value: serde_json::Value) -> Self {
         self.lt = Some(value);
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
         self
     }
 }
@@ -191,6 +225,9 @@ pub struct FuzzyQuery {
     /// Minimum prefix length that must match exactly
     #[serde(default)]
     pub prefix_length: u32,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
 }
 
 fn default_fuzzy_distance() -> u8 {
@@ -210,6 +247,7 @@ impl FuzzyQuery {
             fuzziness: 2,
             transpositions: true,
             prefix_length: 0,
+            boost: 1.0,
         }
     }
 
@@ -230,6 +268,12 @@ impl FuzzyQuery {
         self.prefix_length = length;
         self
     }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
 }
 
 /// Phrase query for exact phrase matching
@@ -242,6 +286,9 @@ pub struct PhraseQuery {
     /// Maximum allowed distance between terms (slop)
     #[serde(default)]
     pub slop: u32,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
 }
 
 impl PhraseQuery {
@@ -251,6 +298,7 @@ impl PhraseQuery {
             field: field.into(),
             phrase: phrase.into(),
             slop: 0,
+            boost: 1.0,
         }
     }
 
@@ -262,6 +310,12 @@ impl PhraseQuery {
         self.slop = slop;
         self
     }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
 }
 
 /// Wildcard query for pattern matching
@@ -271,6 +325,9 @@ pub struct WildcardQuery {
     pub field: String,
     /// Wildcard pattern (* for any characters, ? for single character)
     pub pattern: String,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
 }
 
 impl WildcardQuery {
@@ -279,7 +336,14 @@ impl WildcardQuery {
         Self {
             field: field.into(),
             pattern: pattern.into(),
+            boost: 1.0,
         }
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
     }
 }
 
@@ -293,6 +357,9 @@ pub struct RegexQuery {
     /// Case sensitivity
     #[serde(default)]
     pub case_sensitive: bool,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
 }
 
 impl RegexQuery {
@@ -302,12 +369,19 @@ impl RegexQuery {
             field: field.into(),
             pattern: pattern.into(),
             case_sensitive: false,
+            boost: 1.0,
         }
     }
 
     /// Set case sensitivity
     pub fn case_sensitive(mut self, case_sensitive: bool) -> Self {
         self.case_sensitive = case_sensitive;
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
         self
     }
 }
@@ -632,6 +706,13 @@ mod tests {
         let query = MatchQuery::new("title", "search terms");
         assert_eq!(query.field, "title");
         assert_eq!(query.query, "search terms");
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_match_query_boost() {
+        let query = MatchQuery::new("title", "search").boost(2.5);
+        assert_eq!(query.boost, 2.5);
     }
 
     #[test]
@@ -639,6 +720,13 @@ mod tests {
         let query = TermQuery::new("status", "active");
         assert_eq!(query.field, "status");
         assert_eq!(query.value, "active");
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_term_query_boost() {
+        let query = TermQuery::new("status", "active").boost(3.0);
+        assert_eq!(query.boost, 3.0);
     }
 
     #[test]
@@ -650,6 +738,13 @@ mod tests {
         assert_eq!(query.field, "age");
         assert!(query.gte.is_some());
         assert!(query.lte.is_some());
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_range_query_boost() {
+        let query = RangeQuery::new("age").boost(1.5);
+        assert_eq!(query.boost, 1.5);
     }
 
     #[test]
@@ -673,6 +768,13 @@ mod tests {
         assert_eq!(query.fuzziness, 1);
         assert_eq!(query.prefix_length, 2);
         assert!(query.transpositions);
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_fuzzy_query_boost() {
+        let query = FuzzyQuery::new("name", "test").boost(2.0);
+        assert_eq!(query.boost, 2.0);
     }
 
     #[test]
@@ -688,6 +790,13 @@ mod tests {
         assert_eq!(query.field, "content");
         assert_eq!(query.phrase, "quick brown fox");
         assert_eq!(query.slop, 1);
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_phrase_query_boost() {
+        let query = PhraseQuery::new("content", "test").boost(1.5);
+        assert_eq!(query.boost, 1.5);
     }
 
     #[test]
@@ -695,6 +804,13 @@ mod tests {
         let query = WildcardQuery::new("name", "test*");
         assert_eq!(query.field, "name");
         assert_eq!(query.pattern, "test*");
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_wildcard_query_boost() {
+        let query = WildcardQuery::new("name", "test*").boost(2.0);
+        assert_eq!(query.boost, 2.0);
     }
 
     #[test]
@@ -704,6 +820,13 @@ mod tests {
         assert_eq!(query.field, "content");
         assert_eq!(query.pattern, "[A-Z][a-z]+");
         assert!(query.case_sensitive);
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_regex_query_boost() {
+        let query = RegexQuery::new("content", "test").boost(1.8);
+        assert_eq!(query.boost, 1.8);
     }
 
     #[test]

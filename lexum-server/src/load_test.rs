@@ -134,10 +134,10 @@ impl LoadTestClient {
                     let request_start = Instant::now();
 
                     // Create a test query
-                    let query = Query::Match(lexum_core::query::types::MatchQuery {
-                        field: "title".to_string(),
-                        query: format!("test query {request_id} from client {client_id}"),
-                    });
+                    let query = Query::Match(lexum_core::query::types::MatchQuery::new(
+                        "title",
+                        format!("test query {request_id} from client {client_id}"),
+                    ));
 
                     // Execute search
                     match search_executor.search(query, 10, 0, None).await {

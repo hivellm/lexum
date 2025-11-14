@@ -26,8 +26,8 @@
 
 ## 5. Field Boosting
 - [x] 5.1 Implement boost parameter in queries (FunctionScoreQuery with boost_mode and max_boost)
-- [ ] 5.2 Add multi-field boost support (pending - boost only in FunctionScoreQuery, not in basic queries)
-- [x] 5.3 Test boosting effect on scores (tests for FunctionScoreQuery boost modes in query/types.rs)
+- [x] 5.2 Add multi-field boost support (boost added to MatchQuery, TermQuery, RangeQuery, FuzzyQuery, PhraseQuery, WildcardQuery, RegexQuery)
+- [x] 5.3 Test boosting effect on scores (tests for FunctionScoreQuery boost modes and basic query boost in query/types.rs)
 
 ## 6. Result Highlighting
 - [ ] 6.1 Implement highlighter
@@ -52,7 +52,7 @@
 ## 9. Explain API
 - [x] 9.1 Implement query explanation (explain parameter in search handler)
 - [x] 9.2 Add score calculation details (_explanation field added to results)
-- [ ] 9.3 Implement GET /{index}/_explain/{id} (pending - only explain parameter in search exists)
+- [x] 9.3 Implement GET /{index}/_explain/{id} (endpoint implemented in search.rs handler)
 - [x] 9.4 Test explain functionality (explain parameter tested in search handler)
 
 ## 10. Performance & Testing

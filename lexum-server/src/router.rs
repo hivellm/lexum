@@ -2,9 +2,10 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{
-    admin, alias, auth, batch, document, health, index, progress, progress_bulk, reindex, rollover,
-    search, snapshot, template,
+    admin, alias, auth, batch, bottleneck, document, health, index, profiling, progress,
+    progress_bulk, reindex, rollover, search, snapshot, template,
 };
+use crate::middleware::http2_push::{Http2PushConfig, Http2PushLayer};
 use crate::middleware::ip_filter::{IpFilterConfig, IpFilterLayer};
 use crate::middleware::query_complexity::{QueryComplexityLimitConfig, QueryComplexityLimitLayer};
 use crate::middleware::rate_limit::{RateLimitConfig, RateLimitLayer};
@@ -18,7 +19,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
 /// Build application router
-pub fn build_router(state: AppState) -> Router {
+pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Router {
     Router::new()
         // Health check
         .route("/health", get(health::health_check))
@@ -70,6 +71,10 @@ pub fn build_router(state: AppState) -> Router {
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
         .route("/api/v1/indices/{index}/search", get(search::search_get))
+        .route(
+            "/api/v1/indices/{index}/_explain/{id}",
+            get(search::explain),
+        )
         // Snapshot repositories
         .route(
             "/_snapshot/{repository}",
@@ -169,6 +174,31 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/auth/keys", post(auth::generate_api_key))
         .route("/api/v1/auth/keys", get(auth::list_api_keys))
         .route("/api/v1/auth/keys", delete(auth::revoke_api_key))
+        // Profiling endpoints
+        .route(
+            "/_profiling/start",
+            axum::routing::post(profiling::start_profiling),
+        )
+        .route(
+            "/_profiling/stop",
+            axum::routing::post(profiling::stop_profiling),
+        )
+        .route(
+            "/_profiling/status",
+            axum::routing::get(profiling::get_profiling_status),
+        )
+        .route(
+            "/_profiling/flamegraph",
+            axum::routing::post(profiling::generate_flamegraph),
+        )
+        .route(
+            "/_profiling/instructions",
+            axum::routing::get(profiling::get_profiling_instructions),
+        )
+        .route(
+            "/_profiling/bottlenecks",
+            axum::routing::post(bottleneck::analyze_bottlenecks),
+        )
         // OpenAPI documentation (temporarily disabled due to version conflicts)
         // .merge(create_swagger_ui())
         // Middleware (security layers)
@@ -182,6 +212,8 @@ pub fn build_router(state: AppState) -> Router {
                 )),
         )
         .layer(CorsLayer::permissive())
+        // HTTP/2 push hints layer - adds Link headers for resource preloading
+        .layer(Http2PushLayer::new(http2_push_config.clone()))
         // Compression layer - compresses response bodies (gzip, deflate, br)
         .layer(CompressionLayer::new())
         .layer(
