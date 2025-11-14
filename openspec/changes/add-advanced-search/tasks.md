@@ -30,11 +30,11 @@
 - [x] 5.3 Test boosting effect on scores (tests for FunctionScoreQuery boost modes and basic query boost in query/types.rs)
 
 ## 6. Result Highlighting
-- [ ] 6.1 Implement highlighter
-- [ ] 6.2 Add configurable HTML tags
-- [ ] 6.3 Implement fragment size configuration
-- [ ] 6.4 Add multiple fragments per field
-- [ ] 6.5 Test highlighting
+- [x] 6.1 Implement highlighter (Highlighter module in search/highlighter.rs)
+- [x] 6.2 Add configurable HTML tags (pre_tag and post_tag in HighlightConfig)
+- [x] 6.3 Implement fragment size configuration (fragment_size parameter in HighlightConfig)
+- [x] 6.4 Add multiple fragments per field (max_fragments parameter, returns array when multiple fragments)
+- [x] 6.5 Test highlighting (tests in highlighter.rs, integrated in search handlers)
 
 ## 7. Search Suggestions
 - [ ] 7.1 Implement suggest API

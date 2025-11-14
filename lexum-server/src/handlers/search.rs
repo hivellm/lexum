@@ -6,6 +6,8 @@ use crate::middleware::query_complexity::QueryComplexityLimitLayer;
 use axum::Json;
 use axum::extract::{Path, State};
 use lexum_core::{Query, SearchExecutor, SearchResult, SortOption};
+use lexum_core::search::{Highlighter, HighlighterConfig};
+use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -59,6 +61,20 @@ pub struct HighlightConfig {
     /// Post-tag for highlighting
     #[serde(default = "default_post_tag")]
     pub post_tag: String,
+    /// Fragment size in characters (default: 100)
+    #[serde(default = "default_fragment_size")]
+    pub fragment_size: usize,
+    /// Maximum number of fragments per field (default: 3)
+    #[serde(default = "default_max_fragments")]
+    pub max_fragments: usize,
+}
+
+fn default_fragment_size() -> usize {
+    100
+}
+
+fn default_max_fragments() -> usize {
+    3
 }
 
 fn default_pre_tag() -> String {
@@ -67,6 +83,60 @@ fn default_pre_tag() -> String {
 
 fn default_post_tag() -> String {
     "</em>".to_string()
+}
+
+/// Extract query terms from a query for highlighting
+fn extract_query_terms(query: &Query, query_string: Option<&str>) -> HashSet<String> {
+    let mut terms = HashSet::new();
+
+    // If query string is provided, use it
+    if let Some(q) = query_string {
+        for word in q.split_whitespace() {
+            terms.insert(word.to_lowercase());
+        }
+        return terms;
+    }
+
+    // Extract terms from query structure
+    match query {
+        Query::Match(m) => {
+            for word in m.query.split_whitespace() {
+                terms.insert(word.to_lowercase());
+            }
+        }
+        Query::Term(t) => {
+            terms.insert(t.value.to_lowercase());
+        }
+        Query::Fuzzy(f) => {
+            terms.insert(f.value.to_lowercase());
+        }
+        Query::Phrase(p) => {
+            for word in p.phrase.split_whitespace() {
+                terms.insert(word.to_lowercase());
+            }
+        }
+        Query::Wildcard(w) => {
+            // Extract base pattern (remove wildcards)
+            let pattern = w.pattern.replace('*', "").replace('?', "");
+            if !pattern.is_empty() {
+                terms.insert(pattern.to_lowercase());
+            }
+        }
+        Query::Bool(b) => {
+            // Extract terms from all clauses
+            for must in &b.must {
+                terms.extend(extract_query_terms(must, None));
+            }
+            for should in &b.should {
+                terms.extend(extract_query_terms(should, None));
+            }
+        }
+        _ => {
+            // For other query types, no terms extracted
+        }
+    }
+
+    terms
 }
 
 /// Search handler
@@ -171,6 +241,9 @@ pub async fn search(
         query
     };
 
+    // Clone final_query for highlighting (before it's moved)
+    let final_query_for_highlighting = final_query.clone();
+
     // Use single index search for now (multi-index search not implemented yet)
     let mut result = if target_indices.len() > 1 {
         // For now, just search the first index
@@ -222,21 +295,68 @@ pub async fn search(
 
     // Apply highlighting if requested
     if let Some(highlight) = request.highlight {
+        // Extract query terms for highlighting
+        let query_terms = extract_query_terms(&final_query_for_highlighting, request.q.as_deref());
+        
+        // Create highlighter with config
+        let highlighter_config = HighlighterConfig::new()
+            .with_pre_tag(highlight.pre_tag.clone())
+            .with_post_tag(highlight.post_tag.clone())
+            .with_fragment_size(highlight.fragment_size)
+            .with_max_fragments(highlight.max_fragments);
+        let highlighter = Highlighter::with_config(highlighter_config);
+
         for hit in &mut result.hits {
             if let serde_json::Value::Object(ref mut source) = hit.source {
+                let mut highlighted_fields = std::collections::HashMap::new();
+                
                 for field in &highlight.fields {
-                    if let Some(serde_json::Value::String(text)) = source.get(field) {
-                        // Simple highlighting - in production this would be more sophisticated
-                        let query_text = request.q.as_deref().unwrap_or("");
-                        let highlighted = text.replace(
-                            query_text,
-                            &format!("{}{}{}", highlight.pre_tag, query_text, highlight.post_tag),
-                        );
-                        source.insert(
-                            format!("{field}_highlighted"),
-                            serde_json::Value::String(highlighted),
-                        );
+                    if field == "_all" {
+                        // Highlight all text fields
+                        let keys: Vec<String> = source.keys().cloned().collect();
+                        for key in keys {
+                            if let Some(serde_json::Value::String(text)) = source.get(&key) {
+                                let fragments = highlighter.highlight(text, &query_terms);
+                                if !fragments.is_empty() {
+                                    if fragments.len() == 1 {
+                                        highlighted_fields.insert(
+                                            format!("{key}_highlighted"),
+                                            serde_json::Value::String(fragments[0].clone()),
+                                        );
+                                    } else {
+                                        highlighted_fields.insert(
+                                            format!("{key}_highlighted"),
+                                            serde_json::Value::Array(
+                                                fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                            ),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    } else if let Some(serde_json::Value::String(text)) = source.get(field) {
+                        let fragments = highlighter.highlight(text, &query_terms);
+                        if !fragments.is_empty() {
+                            if fragments.len() == 1 {
+                                highlighted_fields.insert(
+                                    format!("{field}_highlighted"),
+                                    serde_json::Value::String(fragments[0].clone()),
+                                );
+                            } else {
+                                highlighted_fields.insert(
+                                    format!("{field}_highlighted"),
+                                    serde_json::Value::Array(
+                                        fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                    ),
+                                );
+                            }
+                        }
                     }
+                }
+                
+                // Add highlighted fields to source
+                for (key, value) in highlighted_fields {
+                    source.insert(key, value);
                 }
             }
         }
@@ -505,6 +625,8 @@ pub async fn search_get(
             fields: vec!["_all".to_string()],
             pre_tag: "<em>".to_string(),
             post_tag: "</em>".to_string(),
+            fragment_size: 100,
+            max_fragments: 3,
         })
     } else {
         None
@@ -557,44 +679,69 @@ pub async fn search_get(
 
         // Apply highlighting if requested
         if let Some(highlight) = request.highlight {
+            // Extract query terms for highlighting
+            let query_terms = extract_query_terms(&query, request.q.as_deref());
+            
+            // Create highlighter with config
+            let highlighter_config = HighlighterConfig::new()
+                .with_pre_tag(highlight.pre_tag.clone())
+                .with_post_tag(highlight.post_tag.clone())
+                .with_fragment_size(highlight.fragment_size)
+                .with_max_fragments(highlight.max_fragments);
+            let highlighter = Highlighter::with_config(highlighter_config);
+
             for hit in &mut result.hits {
                 if let serde_json::Value::Object(ref mut source) = hit.source {
                     let mut highlighted_fields = std::collections::HashMap::new();
-
+                    
                     for field in &highlight.fields {
-                        if let Some(value) = source.get(field) {
-                            if let Some(text) = value.as_str() {
-                                // Simple highlighting - wrap matched terms
-                                let highlighted = text
-                                    .split_whitespace()
-                                    .map(|word| {
-                                        if word.to_lowercase().contains(
-                                            &request
-                                                .q
-                                                .as_ref()
-                                                .unwrap_or(&String::new())
-                                                .to_lowercase(),
-                                        ) {
-                                            format!(
-                                                "{}{}{}",
-                                                highlight.pre_tag, word, highlight.post_tag
-                                            )
+                        if field == "_all" {
+                            // Highlight all text fields
+                            let keys: Vec<String> = source.keys().cloned().collect();
+                            for key in keys {
+                                if let Some(serde_json::Value::String(text)) = source.get(&key) {
+                                    let fragments = highlighter.highlight(text, &query_terms);
+                                    if !fragments.is_empty() {
+                                        if fragments.len() == 1 {
+                                            highlighted_fields.insert(
+                                                format!("{key}_highlighted"),
+                                                serde_json::Value::String(fragments[0].clone()),
+                                            );
                                         } else {
-                                            word.to_string()
+                                            highlighted_fields.insert(
+                                                format!("{key}_highlighted"),
+                                                serde_json::Value::Array(
+                                                    fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                                ),
+                                            );
                                         }
-                                    })
-                                    .collect::<Vec<_>>()
-                                    .join(" ");
-
-                                highlighted_fields.insert(
-                                    format!("{field}_highlighted"),
-                                    serde_json::Value::String(highlighted),
-                                );
+                                    }
+                                }
+                            }
+                        } else if let Some(serde_json::Value::String(text)) = source.get(field) {
+                            let fragments = highlighter.highlight(text, &query_terms);
+                            if !fragments.is_empty() {
+                                if fragments.len() == 1 {
+                                    highlighted_fields.insert(
+                                        format!("{field}_highlighted"),
+                                        serde_json::Value::String(fragments[0].clone()),
+                                    );
+                                } else {
+                                    highlighted_fields.insert(
+                                        format!("{field}_highlighted"),
+                                        serde_json::Value::Array(
+                                            fragments.iter().map(|f| serde_json::Value::String(f.clone())).collect()
+                                        ),
+                                    );
+                                }
                             }
                         }
                     }
-
-                    source.extend(highlighted_fields);
+                    
+                    // Add highlighted fields to source
+                    for (key, value) in highlighted_fields {
+                        source.insert(key, value);
+                    }
                 }
             }
         }
