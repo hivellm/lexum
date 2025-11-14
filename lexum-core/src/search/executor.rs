@@ -277,7 +277,8 @@ impl SearchExecutor {
             let searcher = reader.searcher();
 
             // Convert our query to Tantivy query
-            let tantivy_query = Self::build_tantivy_query(&index.inner, &query_clone, regex_cache_clone)?;
+            let tantivy_query =
+                Self::build_tantivy_query(&index.inner, &query_clone, regex_cache_clone)?;
 
             // Execute search
             // Note: Tantivy-based sorting would require using FieldOrdering collectors,
@@ -512,25 +513,29 @@ impl SearchExecutor {
 
                 // Add must clauses
                 for must in &bool_query.must {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, must, regex_cache.clone())?;
+                    let sub_query =
+                        Self::build_tantivy_query(tantivy_index, must, regex_cache.clone())?;
                     clauses.push((Occur::Must, sub_query));
                 }
 
                 // Add should clauses
                 for should in &bool_query.should {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, should, regex_cache.clone())?;
+                    let sub_query =
+                        Self::build_tantivy_query(tantivy_index, should, regex_cache.clone())?;
                     clauses.push((Occur::Should, sub_query));
                 }
 
                 // Add must_not clauses
                 for must_not in &bool_query.must_not {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, must_not, regex_cache.clone())?;
+                    let sub_query =
+                        Self::build_tantivy_query(tantivy_index, must_not, regex_cache.clone())?;
                     clauses.push((Occur::MustNot, sub_query));
                 }
 
                 // Filter clauses (treat as must for now)
                 for filter in &bool_query.filter {
-                    let sub_query = Self::build_tantivy_query(tantivy_index, filter, regex_cache.clone())?;
+                    let sub_query =
+                        Self::build_tantivy_query(tantivy_index, filter, regex_cache.clone())?;
                     clauses.push((Occur::Must, sub_query));
                 }
 
@@ -655,7 +660,11 @@ impl SearchExecutor {
             Query::FunctionScore(func_score_query) => {
                 // For now, execute the base query without function scoring
                 // In a full implementation, this would apply custom scoring functions
-                Self::build_tantivy_query(tantivy_index, func_score_query.query.as_ref(), regex_cache)
+                Self::build_tantivy_query(
+                    tantivy_index,
+                    func_score_query.query.as_ref(),
+                    regex_cache,
+                )
             }
 
             Query::GeoDistance(_geo_query) => {

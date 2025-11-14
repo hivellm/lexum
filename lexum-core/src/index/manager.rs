@@ -1084,14 +1084,9 @@ mod tests {
                 .unwrap();
 
             // Try to create the same index again
-            let result = manager
-                .create_index("test_index", schema, settings)
-                .await;
+            let result = manager.create_index("test_index", schema, settings).await;
             assert!(result.is_err());
-            assert!(result
-                .unwrap_err()
-                .to_string()
-                .contains("already exists"));
+            assert!(result.unwrap_err().to_string().contains("already exists"));
         });
     }
 
@@ -1101,10 +1096,7 @@ mod tests {
         let indices = vec![IndexName::new("non_existent")];
         let result = manager.create_alias("my_alias", indices);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("does not exist"));
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
     }
 
     #[test]
@@ -1133,10 +1125,7 @@ mod tests {
         let new_indices = vec![IndexName::new("non_existent")];
         let result = manager.add_indices_to_alias("my_alias", new_indices);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("does not exist"));
+        assert!(result.unwrap_err().to_string().contains("does not exist"));
     }
 
     // Note: Full integration tests with disk I/O will be in tests/ directory

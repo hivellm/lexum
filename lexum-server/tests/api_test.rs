@@ -5,9 +5,7 @@ use axum::http::Request;
 use axum::http::StatusCode;
 use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
 use lexum_server::{
-    handlers::index::AppState,
-    middleware::http2_push::Http2PushConfig,
-    router::build_router,
+    handlers::index::AppState, middleware::http2_push::Http2PushConfig, router::build_router,
 };
 use serde_json::json;
 use std::sync::Arc;

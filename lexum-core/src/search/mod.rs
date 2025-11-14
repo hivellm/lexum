@@ -14,8 +14,8 @@ pub use field_cache::{FieldAggregationStats, FieldCache, FieldCacheStats, FieldV
 
 pub use executor::SearchExecutor;
 pub use filter_cache::{FilterCache, FilterCacheStats};
+pub use highlighter::{Highlighter, HighlighterConfig};
 pub use multi_executor::MultiIndexSearchExecutor;
 pub use optimizer::{QueryAnalysis, QueryOptimizer};
 pub use query_cache::{QueryCache, QueryCacheStats};
-pub use highlighter::{Highlighter, HighlighterConfig};
 pub use result::{SearchHit, SearchResult, SortOption, SortOrder};

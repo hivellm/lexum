@@ -288,9 +288,7 @@ async fn run_indexing_test(
                 local_times.push(batch_time.as_millis() as f64 / (batch_end - batch_start) as f64);
 
                 if progress_reporting && local_indexed % 10000 == 0 {
-                    println!(
-                        "  Worker {worker_id}: {local_indexed} documents indexed"
-                    );
+                    println!("  Worker {worker_id}: {local_indexed} documents indexed");
                     // Update peak memory during progress reporting
                     if let Ok(mem_info) = sys_info::mem_info() {
                         let current_memory_mb =

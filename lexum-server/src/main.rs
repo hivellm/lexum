@@ -18,6 +18,7 @@ async fn main() -> anyhow::Result<()> {
         data_dir: env::var("LEXUM_DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
         config_path,
         connection_pool: Default::default(),
+        http2_push: Default::default(),
     };
 
     // Create server with or without hot-reload

@@ -76,6 +76,10 @@ path = "src/bin/load_test.rs"
 name = "lexum-http-load-test"
 path = "src/bin/http_load_test.rs"
 
+[[bin]]
+name = "lexum-load-test-scale"
+path = "src/bin/load_test_scale.rs"
+
 [[bench]]
 name = "network_performance_bench"
 path = "benchmark/network_performance_bench.rs"

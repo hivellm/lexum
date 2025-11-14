@@ -2,6 +2,7 @@
 
 use crate::handlers::index::AppState;
 use crate::middleware::connection_pool::ConnectionPoolConfig;
+use crate::middleware::http2_push::Http2PushConfig;
 use crate::router::build_router;
 use lexum_core::{
     IndexManager, ProgressTracker, SnapshotManager, TemplateManager,
@@ -23,6 +24,8 @@ pub struct ServerConfig {
     pub config_path: Option<String>,
     /// Connection pool configuration
     pub connection_pool: ConnectionPoolConfig,
+    /// HTTP/2 push configuration
+    pub http2_push: Http2PushConfig,
 }
 
 impl Default for ServerConfig {
@@ -32,6 +35,7 @@ impl Default for ServerConfig {
             data_dir: "./data".to_string(),
             config_path: None,
             connection_pool: ConnectionPoolConfig::default(),
+            http2_push: Http2PushConfig::default(),
         }
     }
 }
@@ -107,7 +111,7 @@ impl Server {
                 crate::middleware::query_complexity::QueryComplexityLimitConfig::default(),
         };
 
-        let app = build_router(state);
+        let app = build_router(state, &self.config.http2_push);
 
         let listener = TcpListener::bind(&self.config.bind_addr).await?;
 
@@ -231,6 +235,7 @@ snapshots:
             data_dir: temp_dir.path().join("data").to_string_lossy().to_string(),
             config_path: Some(config_path.to_string_lossy().to_string()),
             connection_pool: ConnectionPoolConfig::default(),
+            http2_push: Http2PushConfig::default(),
         };
 
         let server = Server::new_with_hot_reload(config).await;

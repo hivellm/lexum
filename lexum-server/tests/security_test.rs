@@ -69,7 +69,8 @@ async fn test_ip_filter_whitelist_allows() {
     ip_config.add_to_whitelist("127.0.0.1".parse().unwrap());
     ip_config.allow_when_whitelist_empty = false;
 
-    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default())
+        .layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -90,7 +91,8 @@ async fn test_ip_filter_whitelist_blocks() {
     ip_config.add_to_whitelist("127.0.0.1".parse().unwrap());
     ip_config.allow_when_whitelist_empty = false;
 
-    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default())
+        .layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -110,7 +112,8 @@ async fn test_ip_filter_blacklist_blocks() {
     let mut ip_config = IpFilterConfig::default();
     ip_config.add_to_blacklist("10.0.0.1".parse().unwrap());
 
-    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default())
+        .layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -129,7 +132,8 @@ async fn test_ip_filter_disabled_allows_all() {
     // IP filter disabled (default)
     let ip_config = IpFilterConfig::default();
 
-    let app = build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
+    let app = build_router(state, &Http2PushConfig::default())
+        .layer(ServiceBuilder::new().layer(IpFilterLayer::new(ip_config)));
 
     let request = Request::builder()
         .uri("/health")
@@ -271,8 +275,8 @@ async fn test_rate_limit_enforcement() {
         use_api_key: false,
     };
 
-    let app =
-        build_router(state, &Http2PushConfig::default()).layer(ServiceBuilder::new().layer(RateLimitLayer::new(rate_config)));
+    let app = build_router(state, &Http2PushConfig::default())
+        .layer(ServiceBuilder::new().layer(RateLimitLayer::new(rate_config)));
 
     // Make requests up to the limit
     for _ in 0..2 {
