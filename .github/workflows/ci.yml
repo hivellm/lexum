@@ -125,9 +125,16 @@ jobs:
         run: cargo build --workspace --release --verbose
       
       - name: Check binary size
+        shell: bash
         run: |
-          ls -lh target/release/lexum-server* || true
-          ls -lh target/release/lexum-cli* || true
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            # On Windows, use PowerShell-compatible commands via bash
+            powershell -Command "Get-ChildItem -Path target/release/lexum-server* -ErrorAction SilentlyContinue | Format-Table Name, Length, LastWriteTime -AutoSize"
+            powershell -Command "Get-ChildItem -Path target/release/lexum-cli* -ErrorAction SilentlyContinue | Format-Table Name, Length, LastWriteTime -AutoSize"
+          else
+            ls -lh target/release/lexum-server* || true
+            ls -lh target/release/lexum-cli* || true
+          fi
 
 
 
