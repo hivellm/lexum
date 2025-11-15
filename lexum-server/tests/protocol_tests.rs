@@ -14,11 +14,46 @@ use tokio::sync::RwLock;
 use tower::ServiceExt;
 
 async fn setup_test_server() -> (AppState, TempDir) {
-    let temp_dir = TempDir::new().unwrap();
-    tokio::fs::create_dir_all(temp_dir.path()).await.unwrap();
-    let index_manager = Arc::new(IndexManager::new(temp_dir.path()));
+    use std::env;
+
+    // Detect WSL and use Linux native filesystem to avoid Tantivy compatibility issues
+    let is_wsl = env::var("WSL_DISTRO_NAME").is_ok()
+        || env::var("CARGO_MANIFEST_DIR")
+            .unwrap_or_default()
+            .contains("/mnt/");
+
+    let data_dir = if is_wsl {
+        // Use Linux native filesystem (HOME directory) to avoid WSL/Tantivy issues
+        let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        let mut linux_path = std::path::PathBuf::from(home);
+        linux_path.push(".lexum-test-data");
+        linux_path.push(format!("test-{}", std::process::id()));
+        tokio::fs::create_dir_all(&linux_path).await.unwrap();
+        linux_path
+    } else {
+        // Use tempfile for non-WSL environments
+        let temp_dir = TempDir::new().unwrap();
+        tokio::fs::create_dir_all(temp_dir.path()).await.unwrap();
+        temp_dir.path().to_path_buf()
+    };
+
+    let temp_dir = if is_wsl {
+        // Create a dummy TempDir for WSL case (we use linux_path instead)
+        // We'll keep the temp_dir for cleanup, but use data_dir for IndexManager
+        TempDir::new_in("/tmp").unwrap_or_else(|_| {
+            // Fallback if /tmp doesn't work
+            let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            TempDir::new_in(home).unwrap()
+        })
+    } else {
+        TempDir::new().unwrap()
+    };
+
+    let index_manager = Arc::new(IndexManager::new(&data_dir));
 
     let config = lexum_core::config::Config::default();
+    let snapshot_dir = data_dir.join("snapshots");
+    tokio::fs::create_dir_all(&snapshot_dir).await.unwrap();
     let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(
         |_| {
             let mut fallback_config = config;
@@ -27,11 +62,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
                     name: "default".to_string(),
                     repository_type: "fs".to_string(),
                     settings: lexum_core::config::SnapshotRepositorySettings {
-                        location: temp_dir
-                            .path()
-                            .join("snapshots")
-                            .to_string_lossy()
-                            .to_string(),
+                        location: snapshot_dir.to_string_lossy().to_string(),
                         ..Default::default()
                     },
                 }];
