@@ -151,8 +151,7 @@ impl MultiIndexSearchExecutor {
         let end = (start + limit).min(all_hits.len());
         let hits = all_hits[start..end].to_vec();
 
-        let result =
-            SearchResult::new(hits, total_hits, start_time.elapsed().as_millis() as u64);
+        let result = SearchResult::new(hits, total_hits, start_time.elapsed().as_millis() as u64);
 
         // Cache the result if caching is enabled
         if self.cache_enabled && !cache_key.is_empty() {

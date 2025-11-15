@@ -2,7 +2,7 @@
 
 Generated: 2025-11-15
 
-## Archived Tasks (12)
+## Archived Tasks (11)
 
 All archived tasks follow the naming pattern: `YYYY-MM-DD-task-name`
 
@@ -16,9 +16,8 @@ All archived tasks follow the naming pattern: `YYYY-MM-DD-task-name`
 7. **2025-11-12-add-rest-api** - REST API (100% complete)
 8. **2025-11-12-address-code-todos** - Code todos addressed (100% complete)
 9. **2025-11-13-fix-api-route-failures** - API route failures fixed
-10. **2025-11-14-add-performance-optimization** - Performance optimization (archived version)
-11. **2025-10-25-add-configuration-logging** - Configuration and logging
-12. **2025-10-25-add-lql-query-language** - LQL query language (100% complete)
+10. **2025-10-25-add-configuration-logging** - Configuration and logging
+11. **2025-10-25-add-lql-query-language** - LQL query language (100% complete)
 
 ## Active Tasks (10)
 
@@ -79,8 +78,8 @@ All archived tasks follow the naming pattern: `YYYY-MM-DD-task-name`
 
 ## Summary Statistics
 
-- **Total Tasks**: 22 (12 archived + 10 active)
-- **Completed**: 12 tasks (55%)
+- **Total Tasks**: 21 (11 archived + 10 active)
+- **Completed**: 11 tasks (52%)
 - **In Progress**: 2 tasks (9%)
 - **Not Started**: 8 tasks (36%)
 
