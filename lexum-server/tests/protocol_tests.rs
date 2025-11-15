@@ -101,8 +101,6 @@ async fn setup_test_server() -> (AppState, TempDir) {
 }
 
 async fn create_test_index(state: &AppState, index_name: &str) {
-    use std::env;
-
     let schema = SchemaBuilder::new()
         .add_field(FieldConfig::new("_id", FieldType::Keyword).stored(true))
         .add_field(FieldConfig::new("title", FieldType::Text).stored(true))
@@ -111,16 +109,10 @@ async fn create_test_index(state: &AppState, index_name: &str) {
         .unwrap()
         .0;
 
-    // Disable memory-mapped storage in WSL to avoid compatibility issues
-    let is_wsl = env::var("WSL_DISTRO_NAME").is_ok()
-        || env::var("CARGO_MANIFEST_DIR")
-            .unwrap_or_default()
-            .contains("/mnt/");
-
+    // Always disable memory-mapped storage in tests to avoid WSL/Tantivy compatibility issues
+    // This ensures tests work reliably across different environments
     let mut settings = lexum_core::index::settings::IndexSettings::default();
-    if is_wsl {
-        settings.storage.enable_memory_mapped_storage = false;
-    }
+    settings.storage.enable_memory_mapped_storage = false;
 
     state
         .index_manager
