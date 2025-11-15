@@ -36,10 +36,10 @@ async fn setup_test_server() -> (AppState, TempDir) {
     );
 
     let data_dir = if is_wsl {
-        // Use Linux native filesystem (HOME directory) to avoid WSL/Tantivy issues
-        let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        let mut linux_path = std::path::PathBuf::from(home);
-        linux_path.push(".lexum-test-data");
+        // Use Linux native filesystem (/tmp) to avoid WSL/Tantivy issues
+        // HOME might point to Windows path, so use /tmp which is always Linux native
+        let mut linux_path = std::path::PathBuf::from("/tmp");
+        linux_path.push("lexum-test-data");
         linux_path.push(format!("test-{unique_id}"));
         tokio::fs::create_dir_all(&linux_path).await.unwrap();
         linux_path
