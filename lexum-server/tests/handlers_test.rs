@@ -195,7 +195,7 @@ fn test_bulk_response_structure() {
 fn test_search_request_defaults() {
     let request = SearchRequest {
         filter: None,
-        query: QueryBuilder::match_all(),
+        query: Some(QueryBuilder::match_all()),
         limit: 10,
         offset: 0,
         sort: None,
@@ -216,7 +216,7 @@ fn test_search_request_defaults() {
 fn test_search_request_with_sort() {
     let request = SearchRequest {
         filter: None,
-        query: QueryBuilder::match_query("title", "test"),
+        query: Some(QueryBuilder::match_query("title", "test")),
         limit: 20,
         offset: 5,
         sort: Some(SortOption::asc("date")),
@@ -241,7 +241,7 @@ fn test_search_request_with_sort() {
 fn test_search_request_with_fuzzy_query() {
     let request = SearchRequest {
         filter: None,
-        query: QueryBuilder::fuzzy_query("name", "jhon"),
+        query: Some(QueryBuilder::fuzzy_query("name", "jhon")),
         limit: 10,
         offset: 0,
         sort: None,
@@ -253,14 +253,14 @@ fn test_search_request_with_fuzzy_query() {
         aggregations: None,
     };
 
-    assert!(matches!(request.query, Query::Fuzzy(_)));
+    assert!(matches!(request.query, Some(Query::Fuzzy(_))));
 }
 
 #[test]
 fn test_search_request_with_phrase_query() {
     let request = SearchRequest {
         filter: None,
-        query: QueryBuilder::phrase_query("content", "quick brown fox"),
+        query: Some(QueryBuilder::phrase_query("content", "quick brown fox")),
         limit: 10,
         offset: 0,
         sort: None,
@@ -272,7 +272,7 @@ fn test_search_request_with_phrase_query() {
         aggregations: None,
     };
 
-    assert!(matches!(request.query, Query::Phrase(_)));
+    assert!(matches!(request.query, Some(Query::Phrase(_))));
 }
 
 #[test]
@@ -283,7 +283,7 @@ fn test_search_request_with_bool_query() {
 
     let request = SearchRequest {
         filter: None,
-        query: Query::Bool(bool_query),
+        query: Some(Query::Bool(bool_query)),
         limit: 50,
         offset: 0,
         sort: Some(SortOption::desc("_score")),
@@ -296,7 +296,7 @@ fn test_search_request_with_bool_query() {
     };
 
     assert_eq!(request.limit, 50);
-    assert!(matches!(request.query, Query::Bool(_)));
+    assert!(matches!(request.query, Some(Query::Bool(_))));
 }
 
 // ============================================================================
@@ -329,7 +329,7 @@ fn test_bulk_operation_serialization() {
 fn test_search_request_serialization() {
     let request = SearchRequest {
         filter: None,
-        query: QueryBuilder::match_query("title", "test"),
+        query: Some(QueryBuilder::match_query("title", "test")),
         limit: 15,
         offset: 5,
         sort: Some(SortOption::desc("timestamp")),

@@ -417,6 +417,7 @@ mod tests {
             name: IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         // Add some test documents

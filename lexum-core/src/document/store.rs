@@ -115,7 +115,19 @@ impl DocumentStore {
     /// println!("Document ID: {}", doc_id);
     /// # });
     /// ```
-    pub async fn add_document(&self, document: JsonValue) -> Result<DocumentId> {
+    pub async fn add_document(&self, mut document: JsonValue) -> Result<DocumentId> {
+        // Validate document against mapping if available (for dynamic mapping validation)
+        if let Some(mapping) = self.index.mapping() {
+            mapping
+                .validate_document(&document)
+                .map_err(|e| Error::Validation(format!("Document validation failed: {e}")))?;
+
+            // Apply copy_to transformations
+            mapping
+                .apply_copy_to(&mut document)
+                .map_err(|e| Error::Validation(format!("Failed to apply copy_to: {e}")))?;
+        }
+
         let schema = self.index.schema();
 
         // Check if document already has an _id field and schema supports it
@@ -171,9 +183,21 @@ impl DocumentStore {
     pub async fn add_document_with_id(
         &self,
         doc_id: DocumentId,
-        document: JsonValue,
+        mut document: JsonValue,
     ) -> Result<()> {
         let schema = self.index.schema();
+
+        // Validate document against mapping if available (for dynamic mapping validation)
+        if let Some(mapping) = self.index.mapping() {
+            mapping
+                .validate_document(&document)
+                .map_err(|e| Error::Validation(format!("Document validation failed: {e}")))?;
+
+            // Apply copy_to transformations
+            mapping
+                .apply_copy_to(&mut document)
+                .map_err(|e| Error::Validation(format!("Failed to apply copy_to: {e}")))?;
+        }
 
         // Add _id field to document if schema has _id field
         let mut document_with_id = document.clone();
@@ -357,6 +381,7 @@ impl DocumentStore {
     pub async fn bulk_operations(&self, operations: Vec<BulkOperation>) -> Result<BulkResult> {
         let schema = self.index.schema();
         let index = self.index.clone();
+        let mapping = self.index.mapping().cloned();
 
         let start_time = std::time::Instant::now();
         let result = tokio::task::spawn_blocking(move || {
@@ -370,7 +395,26 @@ impl DocumentStore {
                         index,
                         id,
                         document,
-                    } => match Self::json_to_tantivy_doc(&schema, &document) {
+                    } => {
+                        // Validate document against mapping if available (for dynamic mapping validation)
+                        if let Some(ref mapping) = mapping {
+                            if let Err(e) = mapping.validate_document(&document) {
+                                let error_msg = format!("Document validation failed: {e}");
+                                errors.push(BulkError {
+                                    operation_index: i,
+                                    error: error_msg.clone(),
+                                });
+                                results.push(BulkOperationResult::Index {
+                                    index: index.clone(),
+                                    id: id.clone(),
+                                    success: false,
+                                    error: Some(error_msg),
+                                });
+                                continue;
+                            }
+                        }
+
+                        match Self::json_to_tantivy_doc(&schema, &document) {
                         Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
                             Ok(_) => {
                                 results.push(BulkOperationResult::Index {
@@ -380,8 +424,7 @@ impl DocumentStore {
                                     error: None,
                                 });
                                 tracing::debug!(doc_id = %id, "Bulk indexed document");
-                            }
-                            Err(e) => {
+                            }Err(e) => {
                                 let error_msg = format!("Failed to add document: {e}");
                                 errors.push(BulkError {
                                     operation_index: i,
@@ -408,12 +451,46 @@ impl DocumentStore {
                                 error: Some(error_msg),
                             });
                         }
-                    },
+                        }
+                    }
                     BulkOperation::Update {
                         index,
                         id,
-                        document,
+                        mut document,
                     } => {
+                        // Validate document against mapping if available (for dynamic mapping validation)
+                        if let Some(ref mapping) = mapping {
+                            if let Err(e) = mapping.validate_document(&document) {
+                                let error_msg = format!("Document validation failed: {e}");
+                                errors.push(BulkError {
+                                    operation_index: i,
+                                    error: error_msg.clone(),
+                                });
+                                results.push(BulkOperationResult::Update {
+                                    index: index.clone(),
+                                    id: id.clone(),
+                                    success: false,
+                                    error: Some(error_msg),
+                                });
+                                continue;
+                            }
+                            // Apply copy_to transformations
+                            if let Err(e) = mapping.apply_copy_to(&mut document) {
+                                let error_msg = format!("Failed to apply copy_to: {e}");
+                                errors.push(BulkError {
+                                    operation_index: i,
+                                    error: error_msg.clone(),
+                                });
+                                results.push(BulkOperationResult::Update {
+                                    index: index.clone(),
+                                    id: id.clone(),
+                                    success: false,
+                                    error: Some(error_msg),
+                                });
+                                continue;
+                            }
+                        }
+
                         // For now, update is delete + add
                         match Self::json_to_tantivy_doc(&schema, &document) {
                             Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
@@ -425,8 +502,7 @@ impl DocumentStore {
                                         error: None,
                                     });
                                     tracing::debug!(doc_id = %id, "Bulk updated document");
-                                }
-                                Err(e) => {
+                                }    Err(e) => {
                                     let error_msg = format!("Failed to update document: {e}");
                                     errors.push(BulkError {
                                         operation_index: i,
@@ -438,8 +514,7 @@ impl DocumentStore {
                                         success: false,
                                         error: Some(error_msg),
                                     });
-                                }
-                            },
+                                }},
                             Err(e) => {
                                 let error_msg = format!("Failed to parse document: {e}");
                                 errors.push(BulkError {
@@ -472,8 +547,7 @@ impl DocumentStore {
                                     error: None,
                                 });
                                 tracing::debug!(doc_id = %id, "Bulk deleted document");
-                            }
-                            Err(_) => {
+                            }Err(_) => {
                                 let error_msg = "Delete operation requires schema with _id field. Please add an _id field (keyword or text type) to your schema.".to_string();
                                 errors.push(BulkError {
                                     operation_index: i,
@@ -552,6 +626,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -575,6 +650,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -601,6 +677,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -630,6 +707,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -655,6 +733,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -690,6 +769,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -727,6 +807,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -786,6 +867,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -817,6 +899,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -852,6 +935,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -888,6 +972,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -925,6 +1010,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -983,6 +1069,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1005,6 +1092,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1049,6 +1137,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1075,6 +1164,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1126,6 +1216,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1164,6 +1255,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1214,6 +1306,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1239,6 +1332,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1276,6 +1370,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1298,6 +1393,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1324,6 +1420,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));
@@ -1372,6 +1469,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let store = DocumentStore::new(Arc::new(index));

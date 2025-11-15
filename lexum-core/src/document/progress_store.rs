@@ -64,37 +64,25 @@ impl ProgressDocumentStore {
 
         let schema = self.index.schema();
         let index = self.index.clone();
-        let progress_tracker = self.progress_tracker.clone();
-        let progress_id_clone = progress_id.clone();
+        let mapping = self.index.mapping().cloned();
 
+        // Perform bulk operations in blocking context (no progress updates inside to avoid deadlock)
         let result = tokio::task::spawn_blocking(move || {
             let mut writer = index.writer(50_000_000)?;
             let mut results = Vec::new();
             let mut errors = Vec::new();
-            let mut completed = 0u64;
-            let mut failed = 0u64;
 
             for (i, operation) in operations.into_iter().enumerate() {
                 let operation_result = match operation {
                     BulkOperation::Index {
                         index,
                         id,
-                        document,
+                        mut document,
                     } => {
-                        let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
-                        match writer.add_document(tantivy_doc) {
-                            Ok(_) => {
-                                completed += 1;
-                                BulkOperationResult::Index {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: true,
-                                    error: None,
-                                }
-                            }
-                            Err(e) => {
-                                failed += 1;
-                                let error_msg = format!("Failed to add document: {e}");
+                        // Validate document against mapping if available (for dynamic mapping validation)
+                        if let Some(ref mapping) = mapping {
+                            if let Err(e) = mapping.validate_document(&document) {
+                                let error_msg = format!("Document validation failed: {e}");
                                 errors.push(BulkError {
                                     operation_index: i,
                                     error: error_msg.clone(),
@@ -104,6 +92,67 @@ impl ProgressDocumentStore {
                                     id: id.clone(),
                                     success: false,
                                     error: Some(error_msg),
+                                }
+                            } else {
+                                // Apply copy_to transformations
+                                if let Err(e) = mapping.apply_copy_to(&mut document) {
+                                    let error_msg = format!("Failed to apply copy_to: {e}");
+                                    errors.push(BulkError {
+                                        operation_index: i,
+                                        error: error_msg.clone(),
+                                    });
+                                    BulkOperationResult::Index {
+                                        index: index.clone(),
+                                        id: id.clone(),
+                                        success: false,
+                                        error: Some(error_msg),
+                                    }
+                                } else {
+                                    let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
+                                    match writer.add_document(tantivy_doc) {
+                                        Ok(_) => BulkOperationResult::Index {
+                                            index: index.clone(),
+                                            id: id.clone(),
+                                            success: true,
+                                            error: None,
+                                        },
+                                        Err(e) => {
+                                            let error_msg = format!("Failed to add document: {e}");
+                                            errors.push(BulkError {
+                                                operation_index: i,
+                                                error: error_msg.clone(),
+                                            });
+                                            BulkOperationResult::Index {
+                                                index: index.clone(),
+                                                id: id.clone(),
+                                                success: false,
+                                                error: Some(error_msg),
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
+                            match writer.add_document(tantivy_doc) {
+                                Ok(_) => BulkOperationResult::Index {
+                                    index: index.clone(),
+                                    id: id.clone(),
+                                    success: true,
+                                    error: None,
+                                },
+                                Err(e) => {
+                                    let error_msg = format!("Failed to add document: {e}");
+                                    errors.push(BulkError {
+                                        operation_index: i,
+                                        error: error_msg.clone(),
+                                    });
+                                    BulkOperationResult::Index {
+                                        index: index.clone(),
+                                        id: id.clone(),
+                                        success: false,
+                                        error: Some(error_msg),
+                                    }
                                 }
                             }
                         }
@@ -111,22 +160,12 @@ impl ProgressDocumentStore {
                     BulkOperation::Update {
                         index,
                         id,
-                        document,
+                        mut document,
                     } => {
-                        let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
-                        match writer.add_document(tantivy_doc) {
-                            Ok(_) => {
-                                completed += 1;
-                                BulkOperationResult::Update {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: true,
-                                    error: None,
-                                }
-                            }
-                            Err(e) => {
-                                failed += 1;
-                                let error_msg = format!("Failed to update document: {e}");
+                        // Validate document against mapping if available (for dynamic mapping validation)
+                        if let Some(ref mapping) = mapping {
+                            if let Err(e) = mapping.validate_document(&document) {
+                                let error_msg = format!("Document validation failed: {e}");
                                 errors.push(BulkError {
                                     operation_index: i,
                                     error: error_msg.clone(),
@@ -137,13 +176,74 @@ impl ProgressDocumentStore {
                                     success: false,
                                     error: Some(error_msg),
                                 }
+                            } else {
+                                // Apply copy_to transformations
+                                if let Err(e) = mapping.apply_copy_to(&mut document) {
+                                    let error_msg = format!("Failed to apply copy_to: {e}");
+                                    errors.push(BulkError {
+                                        operation_index: i,
+                                        error: error_msg.clone(),
+                                    });
+                                    BulkOperationResult::Update {
+                                        index: index.clone(),
+                                        id: id.clone(),
+                                        success: false,
+                                        error: Some(error_msg),
+                                    }
+                                } else {
+                                    let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
+                                    match writer.add_document(tantivy_doc) {
+                                        Ok(_) => BulkOperationResult::Update {
+                                            index: index.clone(),
+                                            id: id.clone(),
+                                            success: true,
+                                            error: None,
+                                        },
+                                        Err(e) => {
+                                            let error_msg =
+                                                format!("Failed to update document: {e}");
+                                            errors.push(BulkError {
+                                                operation_index: i,
+                                                error: error_msg.clone(),
+                                            });
+                                            BulkOperationResult::Update {
+                                                index: index.clone(),
+                                                id: id.clone(),
+                                                success: false,
+                                                error: Some(error_msg),
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
+                            match writer.add_document(tantivy_doc) {
+                                Ok(_) => BulkOperationResult::Update {
+                                    index: index.clone(),
+                                    id: id.clone(),
+                                    success: true,
+                                    error: None,
+                                },
+                                Err(e) => {
+                                    let error_msg = format!("Failed to update document: {e}");
+                                    errors.push(BulkError {
+                                        operation_index: i,
+                                        error: error_msg.clone(),
+                                    });
+                                    BulkOperationResult::Update {
+                                        index: index.clone(),
+                                        id: id.clone(),
+                                        success: false,
+                                        error: Some(error_msg),
+                                    }
+                                }
                             }
                         }
                     }
                     BulkOperation::Delete { index, id } => {
                         // For delete operations, we need to find the document first
                         // This is a simplified implementation
-                        completed += 1;
                         BulkOperationResult::Delete {
                             index: index.clone(),
                             id: id.clone(),
@@ -154,32 +254,6 @@ impl ProgressDocumentStore {
                 };
 
                 results.push(operation_result);
-
-                // Update progress every 100 operations or at the end
-                let total_ops = total_operations as usize;
-                if (i + 1) % 100 == 0 || i == total_ops - 1 {
-                    let progress_tracker = progress_tracker.clone();
-                    let progress_id = progress_id_clone.clone();
-                    let completed_count = completed;
-                    let failed_count = failed;
-
-                    // Spawn async task to update progress
-                    tokio::spawn(async move {
-                        if let Err(e) = progress_tracker
-                            .update_progress(
-                                &progress_id,
-                                Some(completed_count),
-                                Some(failed_count),
-                                None,
-                                Some(format!("Processing operation {}/{}", i + 1, total_ops)),
-                                None,
-                            )
-                            .await
-                        {
-                            tracing::warn!("Failed to update progress: {}", e);
-                        }
-                    });
-                }
             }
 
             // Commit the writer
@@ -192,7 +266,39 @@ impl ProgressDocumentStore {
                 errors_details: errors,
             })
         })
-        .await??;
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
+
+        // Update progress after operations complete (outside spawn_blocking)
+        let completed = result
+            .items
+            .iter()
+            .filter(|r| match r {
+                BulkOperationResult::Index { success, .. }
+                | BulkOperationResult::Update { success, .. }
+                | BulkOperationResult::Delete { success, .. } => *success,
+            })
+            .count() as u64;
+        let failed = result
+            .items
+            .iter()
+            .filter(|r| match r {
+                BulkOperationResult::Index { success, .. }
+                | BulkOperationResult::Update { success, .. }
+                | BulkOperationResult::Delete { success, .. } => !*success,
+            })
+            .count() as u64;
+        self.progress_tracker
+            .update_progress(
+                &progress_id,
+                Some(completed),
+                Some(failed),
+                None,
+                Some("Bulk operations completed".to_string()),
+                None,
+            )
+            .await
+            .unwrap_or_else(|e| tracing::warn!("Failed to update progress: {}", e));
 
         // Mark as completed
         if result.errors {

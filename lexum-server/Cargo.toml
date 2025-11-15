@@ -51,6 +51,18 @@ url = "2.5"
 utoipa = { workspace = true }
 utoipa-swagger-ui = { version = "8.0", features = ["axum"] }
 
+# MCP (Model Context Protocol) support
+rmcp = { version = "0.8", features = ["server", "macros", "transport-streamable-http-server"] }
+hyper = { version = "1.7", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1", features = ["tokio", "server", "server-auto"] }
+
+# UMICP protocol support
+umicp-core = { version = "0.2.3", features = ["http2"] }
+zstd = "0.13"
+bincode = "1.3"
+tokio-stream = "0.1"
+futures = "0.3"
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = { workspace = true }

@@ -4,6 +4,7 @@ use crate::error::{ApiError, ApiResult};
 use axum::Json;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use lexum_core::schema::{ElasticsearchMapping, mapping_to_schema};
 use lexum_core::{
     FieldConfig, FieldType, IndexManager, IndexSettings, ProgressTracker, SchemaBuilder,
     SnapshotManager, TemplateManager,
@@ -105,8 +106,12 @@ fn default_true() -> bool {
 pub struct CreateIndexRequest {
     /// Index name
     pub name: String,
-    /// Schema fields
+    /// Schema fields (optional if mappings is provided)
+    #[serde(default)]
     pub fields: Vec<FieldDefinition>,
+    /// Elasticsearch mappings (optional if fields is provided)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mappings: Option<serde_json::Value>,
     /// Index settings
     #[serde(default)]
     pub settings: IndexSettings,
@@ -152,56 +157,160 @@ pub async fn create_index(
         ));
     }
 
-    if request.fields.is_empty() {
-        return Err(ApiError::InvalidRequest(
-            "At least one field is required".to_string(),
-        ));
+    // Find matching templates (sorted by priority descending, then order ascending)
+    let matching_templates = state
+        .template_manager
+        .find_matching_templates(&request.name);
+
+    // Start with request settings (they will be merged with template settings)
+    let mut final_settings = request.settings.clone();
+
+    // Apply template settings in order (templates are sorted by priority descending, then order ascending)
+    // We reverse to apply lower priority templates first, then higher priority ones overwrite them
+    // Request settings (final_settings) already has request values and will take final precedence
+    for template in matching_templates.iter().rev() {
+        let template_settings = template.settings.to_index_settings();
+        final_settings.merge(template_settings);
     }
 
-    // Build schema
-    let mut builder = SchemaBuilder::new();
+    // Track final mapping to store it in the index
+    let mut final_mapping_option: Option<ElasticsearchMapping> = None;
 
-    for field in &request.fields {
-        if field.name.is_empty() {
-            return Err(ApiError::InvalidRequest(
-                "Field name cannot be empty".to_string(),
-            ));
+    // Build schema from mappings or fields
+    let schema = if let Some(ref mappings_json) = request.mappings {
+        // Use Elasticsearch mappings if provided
+        let request_mapping: ElasticsearchMapping =
+            serde_json::from_value(mappings_json.clone())
+                .map_err(|e| ApiError::InvalidRequest(format!("Invalid mapping format: {e}")))?;
+
+        // Validate request mapping
+        request_mapping
+            .validate()
+            .map_err(|e| ApiError::InvalidRequest(format!("Invalid mapping: {e}")))?;
+
+        // Start with template mappings (in order - lower priority first, higher priority later)
+        // Templates are sorted by priority descending, so we reverse to apply lower priority first
+        let mut template_mappings = Vec::new();
+        for template in matching_templates.iter().rev() {
+            // Try to convert template mappings to ElasticsearchMapping
+            if let Ok(template_mapping) = template.mappings.to_elasticsearch_mapping() {
+                template_mappings.push(template_mapping);
+            }
         }
 
-        let field_type = match field.field_type.as_str() {
-            "text" => FieldType::Text,
-            "keyword" => FieldType::Keyword,
-            "i64" => FieldType::I64,
-            "f64" => FieldType::F64,
-            "date" => FieldType::Date,
-            "boolean" => FieldType::Boolean,
-            _ => {
-                return Err(ApiError::InvalidRequest(format!(
-                    "Unknown field type: {}",
-                    field.field_type
-                )));
-            }
+        // Merge all template mappings first (lower priority -> higher priority)
+        let mut final_mapping = if !template_mappings.is_empty() {
+            ElasticsearchMapping::merge_all(template_mappings)
+        } else {
+            ElasticsearchMapping::new()
         };
 
-        let mut field_config = FieldConfig::new(&field.name, field_type);
+        // Request mapping takes final precedence (overwrites template mappings)
+        final_mapping.merge(request_mapping);
 
-        if field.stored {
-            field_config = field_config.stored(true);
-        }
-        if field.indexed {
-            field_config = field_config.indexed(true);
-        }
-        if field.fast {
-            field_config = field_config.fast(true);
+        // Validate merged mapping
+        final_mapping
+            .validate()
+            .map_err(|e| ApiError::InvalidRequest(format!("Invalid merged mapping: {e}")))?;
+
+        // Store final mapping to use it later when creating the index
+        final_mapping_option = Some(final_mapping.clone());
+
+        // Convert mapping to schema
+        mapping_to_schema(&final_mapping).map_err(|e| {
+            ApiError::InvalidRequest(format!("Failed to convert mapping to schema: {e}"))
+        })?
+    } else if !request.fields.is_empty() {
+        // Use fields if provided
+        let mut builder = SchemaBuilder::new();
+
+        for field in &request.fields {
+            if field.name.is_empty() {
+                return Err(ApiError::InvalidRequest(
+                    "Field name cannot be empty".to_string(),
+                ));
+            }
+
+            let field_type = match field.field_type.as_str() {
+                "text" => FieldType::Text,
+                "keyword" => FieldType::Keyword,
+                "i64" => FieldType::I64,
+                "f64" => FieldType::F64,
+                "date" => FieldType::Date,
+                "boolean" => FieldType::Boolean,
+                _ => {
+                    return Err(ApiError::InvalidRequest(format!(
+                        "Unknown field type: {}",
+                        field.field_type
+                    )));
+                }
+            };
+
+            let mut field_config = FieldConfig::new(&field.name, field_type);
+
+            if field.stored {
+                field_config = field_config.stored(true);
+            }
+            if field.indexed {
+                field_config = field_config.indexed(true);
+            }
+            if field.fast {
+                field_config = field_config.fast(true);
+            }
+
+            builder = builder.add_field(field_config);
         }
 
-        builder = builder.add_field(field_config);
-    }
+        let (schema, _) = builder.build().map_err(|e| {
+            let error_msg = e.to_string();
+            ApiError::InvalidRequest(format!("Failed to build schema: {error_msg}"))
+        })?;
+        schema
+    } else if !matching_templates.is_empty() {
+        // If no fields or mappings provided but templates match, use template mappings
+        let mut template_mappings = Vec::new();
+        for template in &matching_templates {
+            if let Ok(mapping) = template.mappings.to_elasticsearch_mapping() {
+                template_mappings.push(mapping);
+            }
+        }
 
-    let (schema, _) = builder.build().map_err(|e| {
-        let error_msg = e.to_string();
-        ApiError::InvalidRequest(format!("Failed to build schema: {error_msg}"))
-    })?;
+        if template_mappings.is_empty() {
+            return Err(ApiError::InvalidRequest(format!(
+                "No mappings found in matching templates for index '{}'. Please provide 'fields' or 'mappings' in the request.",
+                request.name
+            )));
+        }
+
+        // Merge all template mappings
+        let merged_mapping = ElasticsearchMapping::merge_all(template_mappings);
+
+        // Validate merged mapping
+        merged_mapping
+            .validate()
+            .map_err(|e| ApiError::InvalidRequest(format!("Invalid template mapping: {e}")))?;
+
+        // Store final mapping to use it later when creating the index
+        final_mapping_option = Some(merged_mapping.clone());
+
+        // Convert to schema
+        mapping_to_schema(&merged_mapping).map_err(|e| {
+            ApiError::InvalidRequest(format!("Failed to convert template mapping to schema: {e}"))
+        })?
+    } else {
+        // Check if we have templates that could provide mappings
+        if matching_templates.is_empty() {
+            return Err(ApiError::InvalidRequest(
+                "At least one field must be provided".to_string(),
+            ));
+        } else {
+            // Templates exist but no mappings in them
+            return Err(ApiError::InvalidRequest(format!(
+                "No mappings found in matching templates for index '{}'. Please provide 'fields' or 'mappings' in the request.",
+                request.name
+            )));
+        }
+    };
 
     // Check if index already exists
     if state.index_manager.list_indices().contains(&request.name) {
@@ -211,11 +320,20 @@ pub async fn create_index(
         )));
     }
 
-    // Create index
-    let index = state
-        .index_manager
-        .create_index(&request.name, schema, request.settings)
-        .await
+    // Create index with merged settings and mapping (if available)
+    let index = if let Some(final_mapping) = final_mapping_option {
+        // We have a mapping, use create_index_with_mapping to store it
+        state
+            .index_manager
+            .create_index_with_mapping(&request.name, schema, final_settings, Some(final_mapping))
+            .await
+    } else {
+        // No mappings, use regular create_index
+        state
+            .index_manager
+            .create_index(&request.name, schema, final_settings)
+            .await
+    }
         .map_err(|e| {
             let error_msg = e.to_string();
             // Check if this is a Tantivy/WSL compatibility issue
@@ -539,6 +657,7 @@ mod tests {
                     fast: true,
                 },
             ],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -576,6 +695,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -595,6 +715,7 @@ mod tests {
         let request = CreateIndexRequest {
             name: "test-index".to_string(),
             fields: vec![],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -620,6 +741,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -645,6 +767,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -670,6 +793,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -704,6 +828,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -765,6 +890,7 @@ mod tests {
                     indexed: true,
                     fast: false,
                 }],
+                mappings: None,
                 settings: IndexSettings::default(),
             },
             CreateIndexRequest {
@@ -776,6 +902,7 @@ mod tests {
                     indexed: true,
                     fast: false,
                 }],
+                mappings: None,
                 settings: IndexSettings::default(),
             },
         ];
@@ -808,6 +935,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -875,6 +1003,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -912,6 +1041,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -938,6 +1068,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -987,6 +1118,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1061,6 +1193,7 @@ mod tests {
                     fast: true,
                 },
             ],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1182,6 +1315,7 @@ mod tests {
                     indexed: true,
                     fast: false,
                 }],
+                mappings: None,
                 settings: IndexSettings::default(),
             };
 
@@ -1228,6 +1362,7 @@ mod tests {
                     fast: false,
                 },
             ],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1258,6 +1393,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings,
         };
 
@@ -1283,6 +1419,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1447,6 +1584,7 @@ mod tests {
                     fast: true,
                 },
             ],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1484,6 +1622,7 @@ mod tests {
                     indexed: *indexed,
                     fast: *fast,
                 }],
+                mappings: None,
                 settings: IndexSettings::default(),
             };
 
@@ -1511,6 +1650,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1543,6 +1683,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1652,6 +1793,7 @@ mod tests {
                     fast: i % 5 == 0,
                 })
                 .collect(),
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1677,6 +1819,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: settings.clone(),
         };
 
@@ -1705,6 +1848,7 @@ mod tests {
                     indexed: true,
                     fast: false,
                 }],
+                mappings: None,
                 settings: IndexSettings::default(),
             };
             let _ = create_index(State(state.clone()), Json(request)).await;
@@ -1787,6 +1931,7 @@ mod tests {
                     indexed: true,
                     fast: false,
                 }],
+                mappings: None,
                 settings: IndexSettings::default(),
             };
 
@@ -1860,6 +2005,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 
@@ -1880,6 +2026,7 @@ mod tests {
                 indexed: true,
                 fast: false,
             }],
+            mappings: None,
             settings: IndexSettings::default(),
         };
 

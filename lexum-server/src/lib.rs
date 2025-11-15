@@ -35,6 +35,9 @@ pub mod server;
 /// Services
 pub mod services;
 
+/// Protocol handlers (StreamableHTTP, MCP, UMICP)
+pub mod protocols;
+
 /// Load testing framework
 pub mod load_test;
 

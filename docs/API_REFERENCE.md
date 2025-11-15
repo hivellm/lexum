@@ -239,6 +239,311 @@ Force merge segments.
 curl -X POST http://localhost:9200/my_index/_forcemerge?max_num_segments=1
 ```
 
+## Mappings API
+
+Lexum supports Elasticsearch-compatible index mappings, enabling easy migration from Elasticsearch and providing a familiar API. Mappings define how documents and their fields are stored and indexed.
+
+### Supported Field Types
+
+Lexum supports the following Elasticsearch field types:
+
+- **text**: Full-text searchable text fields (with analyzer support)
+- **keyword**: Exact-match keyword fields (not analyzed)
+- **long**: 64-bit signed integer
+- **double**: 64-bit floating point
+- **date**: Date/timestamp (with format support)
+- **boolean**: Boolean value
+- **object**: Nested objects (flattened to dot notation)
+- **nested**: Nested documents (flattened to dot notation)
+- **geo_point**: Geographic coordinates (stored as text, future: custom type)
+- **ip**: IP addresses (stored as keyword)
+- **completion**: Completion type for suggestions (stored as text, future: custom type)
+
+### Field Parameters
+
+Supported field parameters:
+
+- **analyzer**: Analyzer for text fields (stored in mapping)
+- **normalizer**: Normalizer for keyword fields (stored in mapping)
+- **index**: Whether field is indexed (default: true)
+- **store**: Whether field is stored (default: true)
+- **index_options**: Index options for text fields (docs, freqs, positions, offsets)
+- **norms**: Whether norms are enabled (stored in mapping)
+- **boost**: Field boost (applied in query boosting)
+- **copy_to**: Copy field value to other fields (✅ implemented - supports string or array format, applied during document indexing)
+- **format**: Date format for date fields
+- **ignore_above**: Maximum length for keyword fields
+
+### Multi-Field Support
+
+Lexum supports multi-fields, allowing a single source field to be indexed in multiple ways:
+
+```json
+{
+  "title": {
+    "type": "text",
+    "analyzer": "standard",
+    "fields": {
+      "keyword": {
+        "type": "keyword",
+        "ignore_above": 256
+      }
+    }
+  }
+}
+```
+
+### GET /{index}/_mapping
+
+Get index mapping.
+
+```bash
+curl http://localhost:9200/my_index/_mapping
+```
+
+**Response:**
+```json
+{
+  "my_index": {
+    "mappings": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "analyzer": "standard",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "price": {
+          "type": "double"
+        },
+        "created_at": {
+          "type": "date",
+          "format": "strict_date_optional_time||epoch_millis"
+        }
+      }
+    }
+  }
+}
+```
+
+### PUT /{index}/_mapping
+
+Update index mapping (currently returns not implemented - schema updates not supported in Tantivy).
+
+**Note**: Lexum currently does not support updating mappings after index creation due to Tantivy limitations. Mappings must be specified during index creation.
+
+```bash
+curl -X PUT http://localhost:9200/my_index/_mapping \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "properties": {
+      "new_field": {
+        "type": "text"
+      }
+    }
+  }'
+```
+
+### GET /{index}/_mapping/{field}
+
+Get mapping for a specific field.
+
+```bash
+curl http://localhost:9200/my_index/_mapping/title
+```
+
+**Response:**
+```json
+{
+  "my_index": {
+    "field": "title",
+    "mapping": {
+      "type": "text",
+      "analyzer": "standard",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    }
+  }
+}
+```
+
+### GET /_mapping
+
+Get mappings for all indices.
+
+```bash
+curl http://localhost:9200/_mapping
+```
+
+**Response:**
+```json
+{
+  "mappings": {
+    "index1": {
+      "properties": {
+        "title": {
+          "type": "text"
+        }
+      }
+    },
+    "index2": {
+      "properties": {
+        "name": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}
+```
+
+### Creating Index with Mapping
+
+You can specify mappings when creating an index:
+
+```bash
+curl -X PUT http://localhost:9200/my_index \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "mappings": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "analyzer": "standard",
+          "fields": {
+            "keyword": {
+              "type": "keyword"
+            }
+          }
+        },
+        "price": {
+          "type": "double"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "author": {
+              "type": "keyword"
+            }
+          }
+        }
+      }
+    }
+  }'
+```
+
+### Using copy_to Parameter
+
+The `copy_to` parameter allows you to copy field values to other fields during indexing. This is useful for creating a single searchable field from multiple source fields:
+
+```bash
+curl -X PUT http://localhost:9200/my_index \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "mappings": {
+      "properties": {
+        "title": {
+          "type": "text",
+          "copy_to": "full_text"
+        },
+        "content": {
+          "type": "text",
+          "copy_to": "full_text"
+        },
+        "full_text": {
+          "type": "text"
+        }
+      }
+    }
+  }'
+```
+
+When you index a document:
+
+```json
+{
+  "title": "My Article",
+  "content": "This is the article content"
+}
+```
+
+The `full_text` field will automatically contain both `title` and `content` values: `["My Article", "This is the article content"]`.
+
+You can also use an array format to copy to multiple fields:
+
+```json
+{
+  "title": {
+    "type": "text",
+    "copy_to": ["full_text", "search_fields"]
+  }
+}
+```
+
+### Elasticsearch Compatibility
+
+Lexum supports Elasticsearch 7.x and 8.x mapping formats. The parser automatically handles:
+- Standard mapping format: `{ "mappings": { "properties": {...} } }`
+- Direct mapping format: `{ "properties": {...} }`
+- ES 8.x additional fields (ignored but not rejected): `_source`, `_routing`, `_meta`
+
+### Field Type Mapping
+
+When converting from Lexum schema to Elasticsearch mapping:
+
+| Tantivy Field Type | Elasticsearch Field Type |
+|-------------------|--------------------------|
+| Str (indexed) | text |
+| Str (not indexed) | keyword |
+| I64 | long |
+| F64 | double |
+| Date | date |
+| U64/Bool | boolean |
+| Bytes | keyword |
+| Facet | keyword |
+| JsonObject | object |
+| IpAddr | ip |
+
+### Dynamic Mapping
+
+Dynamic mapping validation is implemented. You can set the `dynamic` parameter to control how unknown fields are handled:
+
+- **`true`** (default): Unknown fields are allowed but not indexed. Field types can be auto-detected during index creation using `detect_from_document`.
+- **`false`**: Unknown fields are ignored and not indexed
+- **`strict`**: Documents with unknown fields are rejected with an error (including nested objects)
+
+**Example:**
+```json
+{
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "title": {
+        "type": "text"
+      }
+    }
+  }
+}
+```
+
+**Note:** Auto-detection of field types is implemented via `detect_from_document` method, which can be used during index creation. However, automatic schema updates after index creation are not supported due to Tantivy's schema limitation (schemas cannot be modified after index creation).
+
+### Limitations
+
+1. **Mapping Updates**: Schema updates are not supported after index creation (Tantivy limitation)
+2. **copy_to Parameter**: ✅ Implemented - copy_to is applied during document indexing, copying values from source fields to destination fields
+3. **Dynamic Mapping Auto-Detection**: ✅ Implemented - Auto-detection is available via `detect_from_document` method during index creation. Includes date detection, numeric detection, and dynamic templates support. Recursive validation for nested objects in strict mode is also implemented.
+4. **Nested Types**: Flattened to dot notation (e.g., `user.name` instead of nested structure)
+5. **Custom Analyzers**: Analyzer names are stored but not yet applied to Tantivy schema
+
 ## Document API
 
 ### POST /{index}/_doc
@@ -555,7 +860,8 @@ curl -X POST http://localhost:9200/my_index/_search \
     "view_stats": {
       "count": 1000,
       "min": 0,
-      "max": 5000,```
+      "max": 5000,
+```
 
 ## Template API
 

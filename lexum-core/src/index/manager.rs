@@ -1,6 +1,7 @@
 //! Index manager implementation
 
 use crate::error::{Error, Result};
+use crate::schema::mapping::ElasticsearchMapping;
 use crate::types::IndexName;
 use parking_lot::RwLock;
 use std::collections::HashMap;
@@ -23,6 +24,9 @@ pub struct Index {
     pub(crate) inner: Arc<TantivyIndex>,
     /// Index settings
     pub(crate) settings: IndexSettings,
+    /// Original Elasticsearch mapping (if index was created with mappings)
+    /// This is used for dynamic mapping validation and copy_to support
+    pub(crate) mapping: Option<ElasticsearchMapping>,
 }
 
 impl Index {
@@ -79,6 +83,11 @@ impl Index {
         self.inner
             .reader()
             .map_err(|e| Error::Config(format!("Failed to create index reader: {e}")))
+    }
+
+    /// Get original Elasticsearch mapping (if available)
+    pub fn mapping(&self) -> Option<&ElasticsearchMapping> {
+        self.mapping.as_ref()
     }
 }
 
@@ -216,6 +225,7 @@ impl IndexManager {
             name: index_name,
             inner: Arc::new(tantivy_index),
             settings: settings.clone(),
+            mapping: None, // Will be set by create_index_with_mapping if needed
         };
 
         // Store index
@@ -225,6 +235,121 @@ impl IndexManager {
         }
 
         tracing::info!(index = %name_str, shards = settings.number_of_shards, "Index created");
+
+        Ok(index)
+    }
+
+    /// Create a new index with Elasticsearch mapping
+    /// This is a convenience method that stores the mapping for dynamic validation and copy_to support
+    pub async fn create_index_with_mapping(
+        &self,
+        name: impl Into<String>,
+        schema: tantivy::schema::Schema,
+        settings: IndexSettings,
+        mapping: Option<ElasticsearchMapping>,
+    ) -> Result<Index> {
+        let name_str = name.into();
+        let index_name = IndexName::new(&name_str);
+
+        // Validate settings
+        settings.validate()?;
+
+        // Check if index already exists
+        {
+            let indices = self.indices.read();
+            if indices.contains_key(&name_str) {
+                return Err(Error::Validation(format!(
+                    "Index {name_str} already exists"
+                )));
+            }
+        }
+
+        // Create index directory
+        let index_path = self.data_dir.join(&name_str);
+
+        // Ensure the directory exists and is writable
+        std::fs::create_dir_all(&index_path)
+            .map_err(|e| Error::Config(format!("Failed to create index directory: {e}")))?;
+
+        // Create Tantivy index in blocking context
+        let storage_settings = settings.storage.clone();
+        let tantivy_index = tokio::task::spawn_blocking({
+            let index_path = index_path.clone();
+            let schema_clone = schema.clone();
+            move || {
+                // Ensure the directory exists and is writable
+                // If directory exists and is not empty, remove it first (for tests)
+                if index_path.exists() {
+                    // Check if directory is empty
+                    let is_empty = std::fs::read_dir(&index_path)
+                        .map(|mut entries| entries.next().is_none())
+                        .unwrap_or(false);
+
+                    if !is_empty {
+                        // Remove existing directory for clean test state
+                        let _ = std::fs::remove_dir_all(&index_path);
+                    }
+                }
+
+                std::fs::create_dir_all(&index_path).map_err(|e| {
+                    tantivy::TantivyError::IoError(std::sync::Arc::new(std::io::Error::other(
+                        format!("Failed to create index directory: {e}"),
+                    )))
+                })?;
+
+                // Check if the directory is writable
+                let test_file = index_path.join(".write_test");
+                std::fs::write(&test_file, "test").map_err(|e| {
+                    tantivy::TantivyError::IoError(std::sync::Arc::new(std::io::Error::other(
+                        format!("Index directory is not writable: {e}"),
+                    )))
+                })?;
+                let _ = std::fs::remove_file(&test_file);
+
+                // Create the index using the configured storage backend
+                create_tantivy_index(&index_path, schema, &storage_settings).or_else(|e| {
+                    // If memory-mapped storage fails, fallback to regular storage
+                    if storage_settings.enable_memory_mapped_storage {
+                        eprintln!("First attempt failed: {e}");
+                        eprintln!("Falling back to regular storage (memory-mapped not supported)");
+                        let mut fallback_settings = storage_settings.clone();
+                        fallback_settings.enable_memory_mapped_storage = false;
+                        create_tantivy_index(&index_path, schema_clone.clone(), &fallback_settings)
+                            .map_err(|e2| {
+                                eprintln!("Second attempt failed: {e2}");
+                                e2
+                            })
+                    } else {
+                        // If it fails, try to create the directory again and retry
+                        let _ = std::fs::create_dir_all(&index_path);
+                        create_tantivy_index(&index_path, schema_clone.clone(), &storage_settings)
+                            .map_err(|e2| {
+                                eprintln!("First attempt failed: {e}");
+                                eprintln!("Second attempt failed: {e2}");
+                                e2
+                            })
+                    }
+                })
+            }
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))?
+        .map_err(|e| Error::Config(format!("Failed to create index: {e}")))?;
+
+        let index = Index {
+            name: index_name,
+            inner: Arc::new(tantivy_index),
+            settings: settings.clone(),
+            mapping,
+        };
+
+        // Store index
+        {
+            let mut indices = self.indices.write();
+            indices.insert(name_str.clone(), index.clone());
+        }
+
+        tracing::info!(index = %name_str, shards = settings.number_of_shards, "Index created with mapping");
 
         Ok(index)
     }

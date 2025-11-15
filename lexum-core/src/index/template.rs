@@ -4,7 +4,8 @@
 //! When a new index is created, it will automatically apply matching templates.
 
 use crate::error::{Error, Result};
-use crate::schema::{FieldConfig, SchemaBuilder};
+use crate::schema::converter::mapping_to_schema;
+use crate::schema::{FieldConfig, SchemaBuilder, mapping::ElasticsearchMapping};
 use regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -347,6 +348,18 @@ impl TemplateSettings {
         self
     }
 
+    /// Convert to IndexSettings
+    pub fn to_index_settings(&self) -> crate::index::settings::IndexSettings {
+        use crate::index::settings::{IndexSettings, StorageSettings};
+
+        IndexSettings {
+            number_of_shards: self.number_of_shards,
+            number_of_replicas: self.number_of_replicas,
+            refresh_interval: self.refresh_interval,
+            storage: StorageSettings::default(), // Use default storage settings from template
+        }
+    }
+
     /// Validate settings
     pub fn validate(&self) -> Result<()> {
         if self.number_of_shards == 0 {
@@ -401,12 +414,25 @@ impl TemplateMappings {
     }
 
     /// Convert to Tantivy schema
+    /// Supports both FieldConfig and ElasticsearchMapping formats
     pub fn to_schema(&self) -> Result<Schema> {
+        // Try to parse as ElasticsearchMapping first (full mapping format)
+        if let Ok(elasticsearch_mapping) = serde_json::from_value::<ElasticsearchMapping>(
+            serde_json::json!({ "properties": self.properties }),
+        ) {
+            return mapping_to_schema(&elasticsearch_mapping);
+        }
+
+        // Fall back to FieldConfig format
         let mut builder = SchemaBuilder::new();
 
-        for field_value in self.properties.values() {
+        for (name, field_value) in self.properties.iter() {
             if let Ok(field_config) = serde_json::from_value::<FieldConfig>(field_value.clone()) {
                 builder = builder.add_field(field_config);
+            } else {
+                return Err(Error::Validation(format!(
+                    "Invalid field configuration for '{name}': must be FieldConfig or ElasticsearchMapping format"
+                )));
             }
         }
 
@@ -414,8 +440,32 @@ impl TemplateMappings {
         Ok(schema)
     }
 
+    /// Convert to ElasticsearchMapping if possible
+    pub fn to_elasticsearch_mapping(&self) -> Result<ElasticsearchMapping> {
+        serde_json::from_value(serde_json::json!({ "properties": self.properties })).map_err(|e| {
+            Error::Validation(format!(
+                "Failed to convert template mappings to ElasticsearchMapping: {e}"
+            ))
+        })
+    }
+
+    /// Check if mappings are in Elasticsearch format
+    pub fn is_elasticsearch_format(&self) -> bool {
+        serde_json::from_value::<ElasticsearchMapping>(
+            serde_json::json!({ "properties": self.properties }),
+        )
+        .is_ok()
+    }
+
     /// Validate mappings
+    /// Supports both FieldConfig and ElasticsearchMapping formats
     pub fn validate(&self) -> Result<()> {
+        // Try ElasticsearchMapping format first
+        if let Ok(mapping) = self.to_elasticsearch_mapping() {
+            return mapping.validate();
+        }
+
+        // Fall back to FieldConfig format validation
         for (name, field_value) in self.properties.iter() {
             if name.is_empty() {
                 return Err(Error::Validation("Field name cannot be empty".to_string()));
@@ -424,7 +474,7 @@ impl TemplateMappings {
             // Try to deserialize as FieldConfig to validate
             if let Err(e) = serde_json::from_value::<FieldConfig>(field_value.clone()) {
                 return Err(Error::Validation(format!(
-                    "Invalid field configuration for '{name}': {e}"
+                    "Invalid field configuration for '{name}': must be FieldConfig or ElasticsearchMapping format. Error: {e}"
                 )));
             }
         }

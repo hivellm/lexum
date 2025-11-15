@@ -24,3 +24,7 @@ Language-specific rules are in @AGENTS.md.
 Module-specific patterns are in @AGENTS.md.
 
 When in doubt, ask to review @AGENTS.md first.
+
+MCP CONFIGURATION:
+The Lexum MCP server is available at http://localhost:17000/mcp
+Configuration files are in .cursor/ directory for Cursor IDE integration.

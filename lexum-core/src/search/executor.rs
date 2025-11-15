@@ -722,6 +722,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let executor = SearchExecutor::new(Arc::new(index));
@@ -757,6 +758,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let executor = SearchExecutor::new(Arc::new(index));
@@ -776,6 +778,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let executor = SearchExecutor::without_cache(Arc::new(index));
@@ -795,6 +798,7 @@ mod tests {
             name: crate::types::IndexName::new("test"),
             inner: Arc::new(tantivy_index),
             settings: crate::index::IndexSettings::default(),
+            mapping: None,
         };
 
         let executor = SearchExecutor::new(Arc::new(index));

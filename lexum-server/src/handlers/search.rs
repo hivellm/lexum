@@ -16,8 +16,9 @@ use std::sync::Arc;
 /// Search request
 #[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SearchRequest {
-    /// Query
-    pub query: Query,
+    /// Query (optional if q is provided)
+    #[serde(default)]
+    pub query: Option<Query>,
     /// Filter queries (must match but don't affect score)
     #[serde(default)]
     pub filter: Option<Vec<Query>>,
@@ -169,7 +170,7 @@ pub async fn search(
         .resolve_name(&index_name)
         .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
 
-    // Handle simple query string if provided
+    // Handle simple query string if provided, otherwise use query field
     let query = if let Some(ref q) = request.q {
         // Get index to find text fields
         let index = state
@@ -195,8 +196,12 @@ pub async fn search(
             }
             lexum_core::Query::Bool(bool_query)
         }
+    } else if let Some(ref query) = request.query {
+        query.clone()
     } else {
-        request.query
+        return Err(ApiError::InvalidRequest(
+            "Either 'query' or 'q' parameter is required".to_string(),
+        ));
     };
 
     // Validate query complexity
@@ -673,7 +678,7 @@ pub async fn search_get(
     };
 
     let request = SearchRequest {
-        query: query.clone(),
+        query: Some(query.clone()),
         filter: filters,
         limit: params.limit.unwrap_or(10),
         offset: params.offset.unwrap_or(0),
@@ -858,7 +863,7 @@ mod tests {
             "test query".to_string(),
         ));
         let request = SearchRequest {
-            query: query.clone(),
+            query: Some(query.clone()),
             filter: None,
             limit: 20,
             offset: 5,
@@ -887,7 +892,7 @@ mod tests {
             "test query".to_string(),
         ));
         let request = SearchRequest {
-            query,
+            query: Some(query),
             filter: None,
             limit: 10,  // default
             offset: 0,  // default
@@ -915,7 +920,7 @@ mod tests {
             "test query".to_string(),
         ));
         let request = SearchRequest {
-            query,
+            query: Some(query),
             filter: None,
             limit: 50,
             offset: 100,
@@ -947,7 +952,7 @@ mod tests {
         ];
 
         let request = SearchRequest {
-            query,
+            query: Some(query),
             filter: Some(filters.clone()),
             limit: 10,
             offset: 0,
@@ -979,7 +984,7 @@ mod tests {
         let filter = vec![Query::Term(TermQuery::new("category", "tech"))];
 
         let request = SearchRequest {
-            query: query.clone(),
+            query: Some(query.clone()),
             filter: Some(filter),
             limit: 20,
             offset: 0,
@@ -1005,7 +1010,7 @@ mod tests {
         let query = Query::Match(MatchQuery::new("title".to_string(), "test".to_string()));
 
         let request = SearchRequest {
-            query,
+            query: Some(query),
             filter: None,
             limit: 10,
             offset: 0,

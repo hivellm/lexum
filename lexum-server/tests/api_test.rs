@@ -207,7 +207,7 @@ fn test_search_request() {
 
     let request = SearchRequest {
         filter: None,
-        query: QueryBuilder::match_query("title", "test"),
+        query: Some(QueryBuilder::match_query("title", "test")),
         limit: 20,
         offset: 10,
         sort: Some(SortOption::desc("_score")),

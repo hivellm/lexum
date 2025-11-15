@@ -2,26 +2,34 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{
-    admin, alias, auth, batch, bottleneck, document, health, index, metrics, profiling, progress,
-    progress_bulk, reindex, rollover, search, snapshot, suggest, template,
+    admin, alias, auth, batch, bottleneck, document, health, index, mapping, metrics, profiling,
+    progress, progress_bulk, reindex, rollover, search, snapshot, suggest, template,
 };
 use crate::middleware::http2_push::{Http2PushConfig, Http2PushLayer};
 use crate::middleware::ip_filter::{IpFilterConfig, IpFilterLayer};
 use crate::middleware::query_complexity::{QueryComplexityLimitConfig, QueryComplexityLimitLayer};
 use crate::middleware::rate_limit::{RateLimitConfig, RateLimitLayer};
 use crate::middleware::request_size::{RequestSizeLimitConfig, RequestSizeLimitLayer};
+use crate::protocols::{mcp, streamable_http, umicp};
 use axum::Router;
 use axum::routing::{delete, get, post, put};
+use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::classify::ServerErrorsFailureClass;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
-/// Build application router
+/// Build application router with MCP as main server
 pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Router {
     let metrics_state = state.metrics.clone();
-    Router::new()
+    let state_arc = Arc::new(state);
+
+    // Create MCP router (main server) using StreamableHTTP transport
+    let mcp_router = create_mcp_router(state_arc.clone());
+
+    // Create REST API router
+    let rest_router = Router::new()
         // Health check
         .route("/health", get(health::health_check))
         .route("/_ready", get(health::readiness_check))
@@ -46,6 +54,20 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
         .route("/api/v1/indices/{name}/stats", get(index::get_index_stats))
         .route("/api/v1/indices/{name}/refresh", post(index::refresh_index))
         .route("/api/v1/indices/{name}/flush", post(index::flush_index))
+        // Mapping endpoints
+        .route(
+            "/api/v1/indices/{index}/_mapping",
+            get(mapping::get_mapping),
+        )
+        .route(
+            "/api/v1/indices/{index}/_mapping",
+            put(mapping::update_mapping),
+        )
+        .route(
+            "/api/v1/indices/{index}/_mapping/{field}",
+            get(mapping::get_field_mapping),
+        )
+        .route("/api/v1/_mapping", get(mapping::get_all_mappings))
         // Document operations
         .route(
             "/api/v1/indices/{index}/documents",
@@ -78,6 +100,11 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
         .route("/api/v1/indices/{index}/search", get(search::search_get))
+        // StreamableHTTP streaming search
+        .route(
+            "/api/v1/indices/{index}/_search/stream",
+            post(streamable_http::stream_search),
+        )
         .route(
             "/api/v1/indices/{index}/_explain/{id}",
             get(search::explain),
@@ -250,5 +277,55 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
                     },
                 ),
         )
-        .with_state(state)
+        .with_state(state_arc.as_ref().clone());
+
+    // Create UMICP router
+    let umicp_router = Router::new()
+        .route("/umicp", post(umicp::umicp_handler))
+        .with_state(state_arc.as_ref().clone());
+
+    // Merge all routers - MCP as main server, then REST, then UMICP
+    Router::new()
+        .merge(mcp_router)
+        .merge(rest_router)
+        .merge(umicp_router)
+}
+
+/// Create MCP router with StreamableHTTP transport
+fn create_mcp_router(state: Arc<AppState>) -> Router {
+    use hyper::service::Service;
+    use hyper_util::service::TowerToHyperService;
+    use rmcp::transport::streamable_http_server::StreamableHttpService;
+    use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
+
+    let state_clone = state.clone();
+
+    // Create StreamableHTTP service
+    let streamable_service = StreamableHttpService::new(
+        move || {
+            Ok(mcp::LexumMcpService {
+                state: state_clone.clone(),
+            })
+        },
+        LocalSessionManager::default().into(),
+        Default::default(),
+    );
+
+    // Convert to axum-compatible service
+    let hyper_service = TowerToHyperService::new(streamable_service);
+
+    // Create router with the MCP endpoint
+    Router::new().route(
+        "/mcp",
+        axum::routing::any(move |req: axum::extract::Request| {
+            let service = hyper_service.clone();
+            async move {
+                // Forward request to hyper service
+                match service.call(req).await {
+                    Ok(response) => Ok(response),
+                    Err(_) => Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR),
+                }
+            }
+        }),
+    )
 }

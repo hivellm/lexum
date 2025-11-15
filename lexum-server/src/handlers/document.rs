@@ -49,8 +49,15 @@ pub async fn add_document(
         .get_index(&index_name)
         .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
 
-    let store = DocumentStore::new(Arc::new(index));
+    let store = DocumentStore::new(Arc::new(index.clone()));
     let doc_id = store.add_document(request.document).await?;
+
+    // Refresh index to make document immediately available
+    state
+        .index_manager
+        .refresh_index(&index_name)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to refresh index: {e}")))?;
 
     // Record indexing operation
     state.metrics.record_indexing_op().await;
@@ -122,13 +129,24 @@ pub async fn update_document(
         .get_index(&index_name)
         .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
 
-    let store = DocumentStore::new(Arc::new(index));
+    let store = DocumentStore::new(Arc::new(index.clone()));
     store
         .update_document(
-            &lexum_core::types::DocumentId::new(doc_id),
+            &lexum_core::types::DocumentId::new(doc_id.clone()),
             request.document,
         )
-        .await?;
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to update document: {e}")))?;
+
+    // Refresh index to make changes immediately available
+    state
+        .index_manager
+        .refresh_index(&index_name)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to refresh index: {e}")))?;
+
+    // Record indexing operation
+    state.metrics.record_indexing_op().await;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -157,10 +175,29 @@ pub async fn delete_document(
         .get_index(&index_name)
         .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
 
-    let store = DocumentStore::new(Arc::new(index));
+    let store = DocumentStore::new(Arc::new(index.clone()));
     store
-        .delete_document(&lexum_core::types::DocumentId::new(doc_id))
-        .await?;
+        .delete_document(&lexum_core::types::DocumentId::new(doc_id.clone()))
+        .await
+        .map_err(|e| {
+            // Check if error is "not found" and return 404, otherwise 500
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::DocumentNotFound(doc_id)
+            } else {
+                ApiError::Internal(format!("Failed to delete document: {e}"))
+            }
+        })?;
+
+    // Refresh index to make changes immediately available
+    state
+        .index_manager
+        .refresh_index(&index_name)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to refresh index: {e}")))?;
+
+    // Record indexing operation
+    state.metrics.record_indexing_op().await;
 
     Ok(StatusCode::NO_CONTENT)
 }

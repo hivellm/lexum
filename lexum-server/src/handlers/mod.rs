@@ -9,6 +9,7 @@ pub mod cluster;
 pub mod document;
 pub mod health;
 pub mod index;
+pub mod mapping;
 pub mod metrics;
 pub mod profiling;
 pub mod progress;

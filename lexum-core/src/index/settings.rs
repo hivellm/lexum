@@ -113,6 +113,30 @@ impl IndexSettings {
         self
     }
 
+    /// Merge another settings into this one
+    /// Settings from the other will overwrite settings in this one if they are non-default values
+    pub fn merge(&mut self, other: IndexSettings) {
+        // Merge shards (use other if not default)
+        if other.number_of_shards != default_shards() {
+            self.number_of_shards = other.number_of_shards;
+        }
+        // Merge replicas (use other if not default)
+        if other.number_of_replicas != default_replicas() {
+            self.number_of_replicas = other.number_of_replicas;
+        }
+        // Merge refresh interval (use other if not default)
+        if other.refresh_interval != default_refresh_interval() {
+            self.refresh_interval = other.refresh_interval;
+        }
+        // Merge storage settings
+        if other.storage.enable_memory_mapped_storage != default_enable_memory_mapped_storage() {
+            self.storage.enable_memory_mapped_storage = other.storage.enable_memory_mapped_storage;
+        }
+        if other.storage.read_ahead_bytes.is_some() {
+            self.storage.read_ahead_bytes = other.storage.read_ahead_bytes;
+        }
+    }
+
     /// Validate settings
     pub fn validate(&self) -> crate::Result<()> {
         if self.number_of_shards == 0 {
@@ -241,5 +265,31 @@ mod tests {
         assert_eq!(settings.number_of_replicas, 1); // Default
         assert_eq!(settings.refresh_interval, 1); // Default
         assert!(settings.storage.enable_memory_mapped_storage);
+    }
+
+    #[test]
+    fn test_settings_merge() {
+        let mut settings1 = IndexSettings::default();
+        let settings2 = IndexSettings::new()
+            .with_shards(3)
+            .with_replicas(2)
+            .with_refresh_interval(5);
+
+        settings1.merge(settings2);
+
+        assert_eq!(settings1.number_of_shards, 3);
+        assert_eq!(settings1.number_of_replicas, 2);
+        assert_eq!(settings1.refresh_interval, 5);
+    }
+
+    #[test]
+    fn test_settings_merge_with_defaults() {
+        let mut settings1 = IndexSettings::new().with_shards(3);
+        let settings2 = IndexSettings::default(); // All defaults
+
+        settings1.merge(settings2);
+
+        // Should keep original values since settings2 has defaults
+        assert_eq!(settings1.number_of_shards, 3);
     }
 }

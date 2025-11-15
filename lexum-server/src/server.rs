@@ -96,7 +96,15 @@ impl Server {
 
     /// Run server
     pub async fn run(self) -> anyhow::Result<()> {
-        tracing::info!("Starting Lexum server on {}", self.config.bind_addr);
+        let (host, port) = {
+            let addr = self.config.bind_addr;
+            (addr.ip().to_string(), addr.port())
+        };
+
+        tracing::info!("Starting Lexum Server on {}:{}", host, port);
+
+        // Create MCP router (main server) using StreamableHTTP transport
+        tracing::info!("Creating MCP router with StreamableHTTP transport (rmcp 0.8)...");
 
         let state = AppState {
             index_manager: self.index_manager,
@@ -113,10 +121,21 @@ impl Server {
         };
 
         let app = build_router(state, &self.config.http2_push);
+        tracing::info!("MCP router created (StreamableHTTP)");
 
         let listener = TcpListener::bind(&self.config.bind_addr).await?;
 
-        tracing::info!("Lexum server listening on {}", self.config.bind_addr);
+        tracing::info!("Lexum Server available at:");
+        tracing::info!("   MCP StreamableHTTP: http://{}:{}/mcp", host, port);
+        tracing::info!("   REST API: http://{}:{}", host, port);
+        tracing::info!("   UMICP: http://{}:{}/umicp", host, port);
+        tracing::info!("   Metrics: http://{}:{}/_metrics", host, port);
+        tracing::info!("   Health: http://{}:{}/health", host, port);
+        tracing::info!(
+            "MCP server (StreamableHTTP) with REST API listening on {}:{}",
+            host,
+            port
+        );
 
         // Start configuration hot-reload task if enabled
         if let Some(config_manager) = &self.config_manager {
@@ -145,11 +164,25 @@ impl Server {
 
         // Serve with graceful shutdown
         // Hyper (used by Axum) automatically handles connection pooling and keep-alive
-        axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown_signal())
-            .await?;
+        let server_handle = axum::serve(listener, app).with_graceful_shutdown(shutdown_signal());
 
-        tracing::info!("Lexum server shutdown complete");
+        // Wait for server to complete or shutdown signal
+        tokio::select! {
+            result = server_handle => {
+                match result {
+                    Ok(_) => tracing::info!("Server completed normally"),
+                    Err(e) => tracing::error!("Server error: {}", e),
+                }
+            }
+            _ = async {
+                // This branch is handled by shutdown_signal
+                std::future::pending::<()>().await
+            } => {
+                tracing::info!("Shutdown signal received, stopping server...");
+            }
+        }
+
+        tracing::info!("Server stopped gracefully");
 
         Ok(())
     }
@@ -178,10 +211,10 @@ async fn shutdown_signal() {
 
     tokio::select! {
         _ = ctrl_c => {
-            tracing::info!("Received Ctrl+C signal");
+            tracing::info!("Received shutdown signal (Ctrl+C)");
         },
         _ = terminate => {
-            tracing::info!("Received SIGTERM signal");
+            tracing::info!("Received shutdown signal (SIGTERM)");
         },
     }
 
