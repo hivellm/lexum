@@ -1,8 +1,10 @@
 //! Search result types
 
+use crate::aggregation::AggregationResult;
 use crate::types::{DocumentId, Score};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
+use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Sort order for search results
@@ -75,6 +77,9 @@ pub struct SearchResult {
     pub total: usize,
     /// Time taken in milliseconds
     pub took_ms: u64,
+    /// Aggregation results (if any)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aggregations: Option<HashMap<String, AggregationResult>>,
 }
 
 impl SearchResult {
@@ -84,6 +89,7 @@ impl SearchResult {
             hits,
             total,
             took_ms,
+            aggregations: None,
         }
     }
 
@@ -93,7 +99,14 @@ impl SearchResult {
             hits: Vec::new(),
             total: 0,
             took_ms: 0,
+            aggregations: None,
         }
+    }
+
+    /// Add aggregation results
+    pub fn with_aggregations(mut self, aggregations: HashMap<String, AggregationResult>) -> Self {
+        self.aggregations = Some(aggregations);
+        self
     }
 }
 

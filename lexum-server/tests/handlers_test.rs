@@ -204,6 +204,7 @@ fn test_search_request_defaults() {
         explain: false,
         min_score: None,
         q: None,
+        aggregations: None,
     };
 
     assert_eq!(request.limit, 10);
@@ -224,6 +225,7 @@ fn test_search_request_with_sort() {
         explain: false,
         min_score: None,
         q: None,
+        aggregations: None,
     };
 
     assert_eq!(request.limit, 20);
@@ -248,6 +250,7 @@ fn test_search_request_with_fuzzy_query() {
         explain: false,
         min_score: None,
         q: None,
+        aggregations: None,
     };
 
     assert!(matches!(request.query, Query::Fuzzy(_)));
@@ -266,6 +269,7 @@ fn test_search_request_with_phrase_query() {
         explain: false,
         min_score: None,
         q: None,
+        aggregations: None,
     };
 
     assert!(matches!(request.query, Query::Phrase(_)));
@@ -288,6 +292,7 @@ fn test_search_request_with_bool_query() {
         explain: false,
         min_score: None,
         q: None,
+        aggregations: None,
     };
 
     assert_eq!(request.limit, 50);
@@ -333,6 +338,7 @@ fn test_search_request_serialization() {
         explain: false,
         min_score: None,
         q: None,
+        aggregations: None,
     };
 
     let json = serde_json::to_string(&request).unwrap();

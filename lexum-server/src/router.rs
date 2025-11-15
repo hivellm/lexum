@@ -3,7 +3,7 @@
 use crate::handlers::index::AppState;
 use crate::handlers::{
     admin, alias, auth, batch, bottleneck, document, health, index, profiling, progress,
-    progress_bulk, reindex, rollover, search, snapshot, template,
+    progress_bulk, reindex, rollover, search, snapshot, suggest, template,
 };
 use crate::middleware::http2_push::{Http2PushConfig, Http2PushLayer};
 use crate::middleware::ip_filter::{IpFilterConfig, IpFilterLayer};
@@ -74,6 +74,12 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
         .route(
             "/api/v1/indices/{index}/_explain/{id}",
             get(search::explain),
+        )
+        // Search suggestions
+        .route("/api/v1/indices/{index}/_suggest", get(suggest::suggest))
+        .route(
+            "/api/v1/indices/{index}/_suggest",
+            post(suggest::suggest_post),
         )
         // Snapshot repositories
         .route(

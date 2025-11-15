@@ -215,6 +215,7 @@ fn test_search_request() {
         explain: false,
         min_score: None,
         q: None,
+        aggregations: None,
     };
 
     assert_eq!(request.limit, 20);

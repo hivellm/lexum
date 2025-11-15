@@ -5,11 +5,12 @@ use crate::handlers::index::AppState;
 use crate::middleware::query_complexity::QueryComplexityLimitLayer;
 use axum::Json;
 use axum::extract::{Path, State};
+use lexum_core::aggregation::AggregationSpec;
 use lexum_core::search::{Highlighter, HighlighterConfig};
 use lexum_core::{Query, SearchExecutor, SearchResult, SortOption};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// Search request
@@ -44,6 +45,9 @@ pub struct SearchRequest {
     /// Query string for simple text search
     #[serde(default)]
     pub q: Option<String>,
+    /// Aggregations to compute
+    #[serde(default)]
+    pub aggregations: Option<HashMap<String, AggregationSpec>>,
 }
 
 fn default_limit() -> usize {
@@ -244,6 +248,13 @@ pub async fn search(
     // Clone final_query for highlighting (before it's moved)
     let final_query_for_highlighting = final_query.clone();
 
+    // Prepare aggregations if provided
+    let aggregations: Option<Vec<AggregationSpec>> = request
+        .aggregations
+        .as_ref()
+        .map(|aggs| aggs.values().cloned().collect());
+    let aggregations_slice: Option<&[AggregationSpec]> = aggregations.as_deref();
+
     // Use single index search for now (multi-index search not implemented yet)
     let mut result = if target_indices.len() > 1 {
         // For now, just search the first index
@@ -254,11 +265,12 @@ pub async fn search(
 
         let executor = SearchExecutor::new(Arc::new(index));
         executor
-            .search(
+            .search_with_aggregations(
                 final_query.clone(),
                 request.limit,
                 request.offset,
                 request.sort,
+                aggregations_slice,
             )
             .await?
     } else {
@@ -270,7 +282,13 @@ pub async fn search(
 
         let executor = SearchExecutor::new(Arc::new(index));
         executor
-            .search(final_query, request.limit, request.offset, request.sort)
+            .search_with_aggregations(
+                final_query,
+                request.limit,
+                request.offset,
+                request.sort,
+                aggregations_slice,
+            )
             .await?
     };
 
@@ -649,6 +667,7 @@ pub async fn search_get(
         explain: params.explain.unwrap_or(false),
         min_score: params.min_score,
         q: params.q,
+        aggregations: None,
     };
 
     // Use single index search for now (multi-index search not implemented yet)
@@ -817,6 +836,7 @@ mod tests {
             explain: false,
             min_score: None,
             q: None,
+            aggregations: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -845,6 +865,7 @@ mod tests {
             explain: false,
             min_score: None,
             q: None,
+            aggregations: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -872,6 +893,7 @@ mod tests {
             explain: false,
             min_score: None,
             q: None,
+            aggregations: None,
         };
 
         assert_eq!(request.limit, 50);
@@ -903,6 +925,7 @@ mod tests {
             explain: false,
             min_score: None,
             q: None,
+            aggregations: None,
         };
 
         assert!(request.filter.is_some());
@@ -934,6 +957,7 @@ mod tests {
             explain: false,
             min_score: None,
             q: None,
+            aggregations: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -959,6 +983,7 @@ mod tests {
             explain: false,
             min_score: None,
             q: None,
+            aggregations: None,
         };
 
         assert!(request.filter.is_none());

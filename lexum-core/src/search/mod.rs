@@ -9,6 +9,7 @@ pub mod optimizer;
 pub mod query_cache;
 pub mod regex_cache;
 pub mod result;
+pub mod suggester;
 
 pub use field_cache::{FieldAggregationStats, FieldCache, FieldCacheStats, FieldValue};
 
@@ -19,3 +20,4 @@ pub use multi_executor::MultiIndexSearchExecutor;
 pub use optimizer::{QueryAnalysis, QueryOptimizer};
 pub use query_cache::{QueryCache, QueryCacheStats};
 pub use result::{SearchHit, SearchResult, SortOption, SortOrder};
+pub use suggester::{Suggester, SuggesterConfig, Suggestion, SuggestionType};

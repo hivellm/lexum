@@ -1,5 +1,6 @@
 //! Search execution engine
 
+use crate::aggregation::{AggregationExecutor, AggregationSpec};
 use crate::error::{Error, Result};
 use crate::index::Index;
 use crate::memory::{BufferPool, QueryPool, StringBufferPool};
@@ -243,6 +244,19 @@ impl SearchExecutor {
         offset: usize,
         sort: Option<SortOption>,
     ) -> Result<SearchResult> {
+        self.search_with_aggregations(query, limit, offset, sort, None)
+            .await
+    }
+
+    /// Execute a search query with optional aggregations
+    pub async fn search_with_aggregations(
+        &self,
+        query: Query,
+        limit: usize,
+        offset: usize,
+        sort: Option<SortOption>,
+        aggregations: Option<&[AggregationSpec]>,
+    ) -> Result<SearchResult> {
         let start = Instant::now();
 
         // Optimize query for better performance
@@ -421,6 +435,14 @@ impl SearchExecutor {
 
         let mut result = result?;
         result.took_ms = start.elapsed().as_millis() as u64;
+
+        // Execute aggregations if provided
+        if let Some(aggs) = aggregations {
+            let agg_executor =
+                AggregationExecutor::new(self.index.clone(), self.field_cache.clone());
+            let agg_results = agg_executor.execute(aggs, &result.hits)?;
+            result = result.with_aggregations(agg_results);
+        }
 
         // Store in cache if enabled
         let key = Self::cache_key(&optimized_query, limit, offset, &sort);

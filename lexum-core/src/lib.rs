@@ -40,6 +40,9 @@
 /// Configuration management
 pub mod config;
 
+/// Aggregation framework
+pub mod aggregation;
+
 /// Document operations
 pub mod document;
 
