@@ -142,7 +142,10 @@ async fn create_test_index(state: &AppState, index_name: &str) {
     }
 }
 
+/// Protocol test: StreamableHTTP streaming with large result set
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_streamable_http_streaming_large_result_set() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -199,7 +202,10 @@ async fn test_streamable_http_streaming_large_result_set() {
     }
 }
 
+/// Protocol test: MCP search operation
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_mcp_search_operation() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -241,7 +247,10 @@ async fn test_mcp_search_operation() {
     );
 }
 
+/// Protocol test: MCP retrieve operation
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_mcp_retrieve_operation() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -275,7 +284,10 @@ async fn test_mcp_retrieve_operation() {
     assert!(response.status() == StatusCode::OK || response.status() == StatusCode::NOT_ACCEPTABLE);
 }
 
+/// Protocol test: StreamableHTTP protocol detection
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_protocol_detection_streamable_http() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -299,7 +311,10 @@ async fn test_protocol_detection_streamable_http() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
+/// Protocol test: MCP protocol detection
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_protocol_detection_mcp() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -324,7 +339,10 @@ async fn test_protocol_detection_mcp() {
     assert!(response.status() == StatusCode::OK || response.status() == StatusCode::NOT_ACCEPTABLE);
 }
 
+/// Protocol test: UMICP protocol detection
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_protocol_detection_umicp() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -343,7 +361,10 @@ async fn test_protocol_detection_umicp() {
     assert!(response.status() == StatusCode::OK || response.status() == StatusCode::BAD_REQUEST);
 }
 
+/// Protocol test: Protocol switching between REST, StreamableHTTP, and MCP
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_protocol_switching() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -404,7 +425,10 @@ async fn test_protocol_switching() {
     );
 }
 
+/// Protocol test: UMICP binary protocol search operation
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_umicp_binary_protocol_search() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -501,7 +525,10 @@ async fn test_umicp_binary_protocol_search() {
     assert_eq!(response_request_id, Some(request_id));
 }
 
+/// Protocol test: UMICP binary protocol retrieve operation
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_umicp_binary_protocol_retrieve() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -574,7 +601,10 @@ async fn test_umicp_binary_protocol_retrieve() {
     assert_eq!(status, StatusCode::OK);
 }
 
+/// Protocol test: UMICP binary protocol bulk operation
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_umicp_binary_protocol_bulk() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -667,7 +697,10 @@ async fn test_umicp_binary_protocol_bulk() {
     assert_eq!(status, StatusCode::OK);
 }
 
+/// Protocol test: UMICP multiplexing (concurrent requests)
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_umicp_multiplexing() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());
@@ -754,7 +787,10 @@ async fn test_umicp_multiplexing() {
     }
 }
 
+/// Protocol test: UMICP flow control request
+/// Requires server setup - use feature "s2s" to enable
 #[tokio::test]
+#[cfg_attr(not(feature = "s2s"), ignore)]
 async fn test_umicp_flow_control_request() {
     let (state, _temp_dir) = setup_test_server().await;
     let app = build_router(state.clone(), &Http2PushConfig::default());

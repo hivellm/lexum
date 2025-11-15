@@ -74,6 +74,10 @@ criterion = { workspace = true }
 clap = { version = "4.4", features = ["derive"] }
 lexum-macros = { workspace = true }
 
+[features]
+default = []
+s2s = []  # Enable server-to-server tests
+
 [lints]
 workspace = true
 
