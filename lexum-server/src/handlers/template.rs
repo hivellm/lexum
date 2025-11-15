@@ -247,6 +247,7 @@ mod tests {
             ),
             query_complexity_config:
                 crate::middleware::query_complexity::QueryComplexityLimitConfig::default(),
+            metrics: Arc::new(crate::handlers::metrics::PrometheusMetrics::new()),
         }
     }
 

@@ -2,7 +2,7 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{
-    admin, alias, auth, batch, bottleneck, document, health, index, profiling, progress,
+    admin, alias, auth, batch, bottleneck, document, health, index, metrics, profiling, progress,
     progress_bulk, reindex, rollover, search, snapshot, suggest, template,
 };
 use crate::middleware::http2_push::{Http2PushConfig, Http2PushLayer};
@@ -20,9 +20,16 @@ use tower_http::trace::TraceLayer;
 
 /// Build application router
 pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Router {
+    let metrics_state = state.metrics.clone();
     Router::new()
         // Health check
         .route("/health", get(health::health_check))
+        .route("/_ready", get(health::readiness_check))
+        // Metrics endpoint
+        .route(
+            "/_metrics",
+            get(metrics::metrics_handler).with_state(metrics_state),
+        )
         // Cluster endpoints
         .route("/", get(admin::get_cluster_info))
         .route("/_cluster/health", get(admin::get_cluster_health))

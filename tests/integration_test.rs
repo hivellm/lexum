@@ -41,6 +41,7 @@ async fn test_full_workflow() -> Result<()> {
         ),
         query_complexity_config:
             lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
+        metrics: Arc::new(lexum_server::handlers::metrics::PrometheusMetrics::new()),
     };
 
     // Test 1: Create an index
@@ -86,6 +87,7 @@ async fn test_server_integration() -> Result<()> {
         ),
         query_complexity_config:
             lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
+        metrics: Arc::new(lexum_server::handlers::metrics::PrometheusMetrics::new()),
     };
 
     // Test that we can create the app state

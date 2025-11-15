@@ -9,6 +9,7 @@ pub mod cluster;
 pub mod document;
 pub mod health;
 pub mod index;
+pub mod metrics;
 pub mod profiling;
 pub mod progress;
 pub mod progress_bulk;
@@ -27,4 +28,4 @@ pub mod snapshot;
 pub mod suggest;
 pub mod template;
 
-pub use health::health_check;
+pub use health::{health_check, readiness_check};

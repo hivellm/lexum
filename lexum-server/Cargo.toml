@@ -42,6 +42,7 @@ uuid = { workspace = true }
 dashmap = { workspace = true }
 clap = { version = "4.4", features = ["derive"] }
 sys-info = "0.9"
+num_cpus = "1.16"
 rand = "0.8"
 reqwest = { version = "0.12", features = ["json"] }
 url = "2.5"

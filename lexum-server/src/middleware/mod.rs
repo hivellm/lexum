@@ -4,6 +4,7 @@ pub mod auth;
 pub mod connection_pool;
 pub mod http2_push;
 pub mod ip_filter;
+pub mod metrics;
 pub mod query_complexity;
 pub mod rate_limit;
 pub mod request_size;

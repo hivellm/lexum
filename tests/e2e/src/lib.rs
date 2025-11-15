@@ -102,6 +102,7 @@ impl E2ETestRunner {
             ),
             query_complexity_config:
                 lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
+            metrics: Arc::new(lexum_server::handlers::metrics::PrometheusMetrics::new()),
         };
 
         Ok(Self {

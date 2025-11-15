@@ -52,6 +52,9 @@ pub async fn add_document(
     let store = DocumentStore::new(Arc::new(index));
     let doc_id = store.add_document(request.document).await?;
 
+    // Record indexing operation
+    state.metrics.record_indexing_op().await;
+
     Ok((
         StatusCode::CREATED,
         Json(AddDocumentResponse {

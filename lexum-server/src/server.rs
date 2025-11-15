@@ -109,6 +109,7 @@ impl Server {
             ),
             query_complexity_config:
                 crate::middleware::query_complexity::QueryComplexityLimitConfig::default(),
+            metrics: Arc::new(crate::handlers::metrics::PrometheusMetrics::new()),
         };
 
         let app = build_router(state, &self.config.http2_push);

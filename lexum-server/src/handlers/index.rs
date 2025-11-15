@@ -13,6 +13,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::ToSchema;
 
+use crate::handlers::metrics::PrometheusMetrics;
 use crate::handlers::reindex::TaskManager;
 use crate::middleware::auth::AuthState;
 use crate::middleware::query_complexity::QueryComplexityLimitConfig;
@@ -34,6 +35,8 @@ pub struct AppState {
     pub auth_state: AuthState,
     /// Query complexity limit configuration
     pub query_complexity_config: QueryComplexityLimitConfig,
+    /// Prometheus metrics collector
+    pub metrics: Arc<PrometheusMetrics>,
 }
 
 impl Default for AppState {
@@ -69,6 +72,7 @@ impl Default for AppState {
             progress_tracker: Arc::new(ProgressTracker::new()),
             auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
             query_complexity_config: QueryComplexityLimitConfig::default(),
+            metrics: Arc::new(PrometheusMetrics::new()),
         }
     }
 }
@@ -510,6 +514,7 @@ mod tests {
             progress_tracker: Arc::new(lexum_core::ProgressTracker::new()),
             auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
             query_complexity_config: QueryComplexityLimitConfig::default(),
+            metrics: Arc::new(PrometheusMetrics::new()),
         }
     }
 

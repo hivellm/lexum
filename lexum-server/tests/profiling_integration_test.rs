@@ -49,6 +49,7 @@ async fn setup_test_server() -> (AppState, TempDir) {
         ),
         query_complexity_config:
             lexum_server::middleware::query_complexity::QueryComplexityLimitConfig::default(),
+        metrics: Arc::new(lexum_server::handlers::metrics::PrometheusMetrics::new()),
     };
     (state, temp_dir)
 }

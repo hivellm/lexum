@@ -256,6 +256,7 @@ pub async fn search(
     let aggregations_slice: Option<&[AggregationSpec]> = aggregations.as_deref();
 
     // Use single index search for now (multi-index search not implemented yet)
+    let search_start = std::time::Instant::now();
     let mut result = if target_indices.len() > 1 {
         // For now, just search the first index
         let index = state
@@ -291,6 +292,21 @@ pub async fn search(
             )
             .await?
     };
+
+    // Record search metrics and slow query logging
+    let search_duration = search_start.elapsed();
+    state.metrics.record_search_query(search_duration).await;
+
+    // Slow query logging (threshold: 1 second)
+    const SLOW_QUERY_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(1);
+    if search_duration > SLOW_QUERY_THRESHOLD {
+        tracing::warn!(
+            duration_ms = search_duration.as_millis(),
+            index = %index_name,
+            query = ?final_query_for_highlighting,
+            "Slow query detected"
+        );
+    }
 
     // Apply minimum score filtering
     if let Some(min_score) = request.min_score {
@@ -671,6 +687,7 @@ pub async fn search_get(
     };
 
     // Use single index search for now (multi-index search not implemented yet)
+    let search_start = std::time::Instant::now();
     if target_indices.len() > 1 {
         // For now, just search the first index
         let index = state
@@ -682,6 +699,21 @@ pub async fn search_get(
         let mut result = executor
             .search(query.clone(), request.limit, request.offset, request.sort)
             .await?;
+
+        // Record search metrics and slow query logging
+        let search_duration = search_start.elapsed();
+        state.metrics.record_search_query(search_duration).await;
+
+        // Slow query logging (threshold: 1 second)
+        const SLOW_QUERY_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(1);
+        if search_duration > SLOW_QUERY_THRESHOLD {
+            tracing::warn!(
+                duration_ms = search_duration.as_millis(),
+                index = %index_name,
+                query = ?query,
+                "Slow query detected"
+            );
+        }
 
         // Apply minimum score filtering
         if let Some(min_score) = request.min_score {
