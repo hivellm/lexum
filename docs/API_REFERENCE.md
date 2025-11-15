@@ -1139,18 +1139,9 @@ curl -X POST http://localhost:9200/_lql/explain \
 
 ## MCP API
 
-### POST /_mcp
+See [MCP Protocol](#mcp-model-context-protocol) section for complete documentation.
 
-Execute MCP request.
-
-```bash
-curl -X POST http://localhost:9200/_mcp \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "method": "search",
-    "params": {
-      "index": "knowledge_base",
-      "## Admin API
+## Admin API
 
 ### PUT /_snapshot/{repository}
 
@@ -1393,9 +1384,9 @@ Create a snapshot. `search`: Semantic search
 
 ## UMICP API
 
-UMICP uses binary protocol over TCP/WebSocket.
+See [UMICP Protocol](#umicp-universal-microservice-communication-protocol) section for complete documentation.
 
-### Connecti### POST /_snapshot/{repository}/{snapshot}/_restore
+### POST /_snapshot/{repository}/{snapshot}/_restore
 
 Restore indices from a snapshot. This operation restores the indices that were included in the snapshot back to the system.
 
@@ -1801,6 +1792,215 @@ ws.send(JSON.stringify({
   type: 'subscribe',
   index: 'my_index'
 }));
+```
+
+## Protocol Support
+
+Lexum supports multiple protocols for different use cases:
+
+### StreamableHTTP Protocol
+
+StreamableHTTP provides streaming search results over HTTP with chunked transfer encoding, ideal for large result sets.
+
+#### POST /{index}/_search/stream
+
+Stream search results as they are found, using chunked transfer encoding.
+
+**Request:**
+```bash
+curl -X POST http://localhost:9200/my_index/_search/stream \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "q": "search term",
+    "limit": 100
+  }'
+```
+
+**Response Headers:**
+- `Transfer-Encoding: chunked` - Indicates streaming response
+- `Content-Type: application/x-ndjson` - Newline-delimited JSON format
+- `Connection: keep-alive` - Connection reuse
+
+**Response Format:**
+Each line is a JSON object:
+```json
+{"hit": {...}, "offset": 0}
+{"hit": {...}, "offset": 1}
+...
+```
+
+**Features:**
+- Progressive result delivery
+- Backpressure handling (10ms delay between chunks)
+- Connection keep-alive support
+- NDJSON format for easy parsing
+
+### MCP (Model Context Protocol)
+
+MCP provides a standardized interface for AI tools and agents to interact with Lexum.
+
+#### POST /mcp
+
+Execute MCP tool calls using StreamableHTTP transport.
+
+**Request:**
+```bash
+curl -X POST http://localhost:9200/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'x-mcp-protocol: true' \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "search",
+      "arguments": {
+        "index": "my_index",
+        "q": "search term",
+        "limit": 10
+      }
+    }
+  }'
+```
+
+**Available Tools:**
+- `search` - Search documents
+- `retrieve` - Retrieve document by ID
+- `aggregate` - Perform aggregations
+- `list_indices` - List all indices
+- `create_index` - Create a new index
+- `get_mapping` - Get index mapping
+- `update_mapping` - Update index mapping
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"hits\": [...], \"total\": 100}"
+      }
+    ]
+  }
+}
+```
+
+### UMICP (Universal Microservice Communication Protocol)
+
+UMICP is a binary protocol optimized for high-performance inter-service communication with multiplexing and flow control.
+
+#### POST /umicp
+
+Execute binary protocol requests with bincode serialization and optional zstd compression.
+
+**Protocol Format:**
+- Header: 9 bytes (1 byte compression flag + 8 bytes request ID)
+- Payload: Compressed (zstd) or uncompressed bincode-serialized request
+
+**Request Structure:**
+```rust
+struct UmicpRequest {
+    header: UmicpHeader {
+        request_id: u64,
+        flow_token: Option<u32>,
+        message_type: UmicpMessageType,
+    },
+    payload_json: Vec<u8>, // JSON payload as bytes
+}
+```
+
+**Message Types:**
+- `Search` - Search operation
+- `Retrieve` - Retrieve document by ID
+- `Bulk` - Bulk operations (index, update, delete)
+- `Aggregate` - Aggregation operation
+- `FlowControlRequest` - Request flow control tokens
+
+**Example (Python):**
+```python
+import requests
+import bincode
+import zstd
+import json
+
+# Create request
+request = {
+    "header": {
+        "request_id": 12345,
+        "flow_token": None,
+        "message_type": "Search"
+    },
+    "payload_json": json.dumps({
+        "index": "my_index",
+        "q": "search term",
+        "limit": 10
+    }).encode('utf-8')
+}
+
+# Serialize with bincode
+request_bytes = bincode.serialize(request)
+
+# Compress with zstd
+compressed = zstd.compress(request_bytes, level=3)
+
+# Build binary message
+binary_message = bytes([1]) + (12345).to_bytes(8, 'little') + compressed
+
+# Send request
+response = requests.post(
+    'http://localhost:9200/umicp',
+    data=binary_message,
+    headers={'Content-Type': 'application/x-umicp-binary'}
+)
+```
+
+**Response Format:**
+Binary response with same structure:
+- Header: 9 bytes (compression flag + request ID)
+- Payload: Compressed bincode-serialized response
+
+**Features:**
+- Connection multiplexing (multiple concurrent requests)
+- Flow control (max 100 concurrent requests)
+- Zstd compression for reduced bandwidth
+- Binary format for efficient serialization
+
+### Protocol Detection
+
+Lexum automatically detects the protocol from request headers:
+
+- `x-streamable-http: true` → StreamableHTTP protocol
+- `x-mcp-protocol: true` or path starts with `/mcp` → MCP protocol
+- `x-umicp-protocol: true` or path is `/umicp` → UMICP protocol
+- Default → REST API
+
+**Example:**
+```bash
+# REST API (default)
+curl -X POST http://localhost:9200/my_index/_search \
+  -H 'Content-Type: application/json' \
+  -d '{"q": "test"}'
+
+# StreamableHTTP
+curl -X POST http://localhost:9200/my_index/_search/stream \
+  -H 'Content-Type: application/json' \
+  -H 'x-streamable-http: true' \
+  -d '{"q": "test"}'
+
+# MCP
+curl -X POST http://localhost:9200/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'x-mcp-protocol: true' \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
+
+# UMICP
+curl -X POST http://localhost:9200/umicp \
+  -H 'Content-Type: application/x-umicp-binary' \
+  -H 'x-umicp-protocol: true' \
+  --data-binary @request.bin
 ```
 
 ## Best Practices

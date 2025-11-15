@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  lexum-node-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-0.1.0-alpha}
+    image: lexum:${VERSION:-0.1.0-alpha}
+    container_name: lexum-node-1
+    hostname: lexum-node-1
+    ports:
+      - "9200:9200"
+    environment:
+      - LEXUM_DATA_DIR=/data
+      - LEXUM_NETWORK_HOST=0.0.0.0
+      - LEXUM_NETWORK_HTTP_PORT=9200
+      - LEXUM_CLUSTER_NAME=lexum-cluster
+      - LEXUM_NODE_NAME=lexum-node-1
+      - RUST_LOG=${RUST_LOG:-info}
+    volumes:
+      - lexum-node-1-data:/data
+      - lexum-node-1-snapshots:/snapshots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - lexum-cluster
+
+  lexum-node-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-0.1.0-alpha}
+    image: lexum:${VERSION:-0.1.0-alpha}
+    container_name: lexum-node-2
+    hostname: lexum-node-2
+    ports:
+      - "9201:9200"
+    environment:
+      - LEXUM_DATA_DIR=/data
+      - LEXUM_NETWORK_HOST=0.0.0.0
+      - LEXUM_NETWORK_HTTP_PORT=9200
+      - LEXUM_CLUSTER_NAME=lexum-cluster
+      - LEXUM_NODE_NAME=lexum-node-2
+      - RUST_LOG=${RUST_LOG:-info}
+    volumes:
+      - lexum-node-2-data:/data
+      - lexum-node-2-snapshots:/snapshots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - lexum-cluster
+    depends_on:
+      - lexum-node-1
+
+  lexum-node-3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-0.1.0-alpha}
+    image: lexum:${VERSION:-0.1.0-alpha}
+    container_name: lexum-node-3
+    hostname: lexum-node-3
+    ports:
+      - "9202:9200"
+    environment:
+      - LEXUM_DATA_DIR=/data
+      - LEXUM_NETWORK_HOST=0.0.0.0
+      - LEXUM_NETWORK_HTTP_PORT=9200
+      - LEXUM_CLUSTER_NAME=lexum-cluster
+      - LEXUM_NODE_NAME=lexum-node-3
+      - RUST_LOG=${RUST_LOG:-info}
+    volumes:
+      - lexum-node-3-data:/data
+      - lexum-node-3-snapshots:/snapshots
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - lexum-cluster
+    depends_on:
+      - lexum-node-1
+      - lexum-node-2
+
+volumes:
+  lexum-node-1-data:
+    driver: local
+  lexum-node-1-snapshots:
+    driver: local
+  lexum-node-2-data:
+    driver: local
+  lexum-node-2-snapshots:
+    driver: local
+  lexum-node-3-data:
+    driver: local
+  lexum-node-3-snapshots:
+    driver: local
+
+networks:
+  lexum-cluster:
+    driver: bridge
+

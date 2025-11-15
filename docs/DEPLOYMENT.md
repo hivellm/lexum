@@ -7,53 +7,69 @@ Complete guide for deploying Lexum in production using Docker, Kubernetes, and b
 ### Docker
 
 ```bash
-# Pull image
-docker pull lexum/lexum:latest
+# Build image
+docker build -t lexum:latest .
 
 # Run single node
 docker run -d \
-  --name lexum \
+  --name lexum-server \
   -p 9200:9200 \
   -v lexum-data:/data \
-  lexum/lexum:latest
+  -v lexum-snapshots:/snapshots \
+  -e LEXUM_NETWORK_HOST=0.0.0.0 \
+  -e LEXUM_NETWORK_HTTP_PORT=9200 \
+  lexum:latest
+
+# Check health
+curl http://localhost:9200/_cluster/health
+
+# View logs
+docker logs lexum-server -f
 ```
+
+See [Dockerfile](../Dockerfile) for detailed usage instructions.
 
 ### Docker Compose
 
-```yaml
-version: '3.8'
-services:
-  lexum:
-    image: lexum/lexum:latest
-    ports:
-      - "9200:9200"
-    volumes:
-      - lexum-data:/data
-    environment:
-      - CLUSTER_NAME=lexum-prod
-      - NODE_NAME=lexum-node-1
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200/_health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+**Single node:**
 
-volumes:
-  lexum-data:
+```bash
+docker-compose -f docker-compose.yml up -d
 ```
+
+**Multi-node cluster:**
+
+```bash
+docker-compose -f docker-compose.cluster.yml up -d
+```
+
+See [docker-compose.yml](../docker-compose.yml) and [docker-compose.cluster.yml](../docker-compose.cluster.yml) for configuration details.
 
 ### Kubernetes (Helm)
 
 ```bash
-# Add Helm repository
-helm repo add lexum https://charts.lexum.io
-helm repo update
+# Install from local chart
+helm install lexum ./helm/lexum \
+  --namespace lexum \
+  --create-namespace
 
-# Install
-helm install lexum lexum/lexum \
-  --set replicas=3 \
-  --set persistence.size=100Gi
+# Install with custom values
+helm install lexum ./helm/lexum \
+  --namespace lexum \
+  --create-namespace \
+  -f my-values.yaml
+
+# Upgrade
+helm upgrade lexum ./helm/lexum \
+  --namespace lexum \
+  -f my-values.yaml
+
+# Check status
+kubectl get pods -n lexum
+kubectl get svc -n lexum
 ```
+
+See [helm/lexum/README.md](../helm/lexum/README.md) for detailed Helm chart documentation.
 
 ## Architecture Patterns
 
@@ -70,6 +86,7 @@ helm install lexum lexum/lexum \
 **Use Case:** Development, testing, small datasets
 
 **Configuration:**
+
 ```yaml
 # config.yml
 cluster:
@@ -105,6 +122,7 @@ path:
 **Configuration:**
 
 Master nodes:
+
 ```yaml
 # master-node.yml
 cluster:
@@ -117,6 +135,7 @@ node:
 ```
 
 Data nodes:
+
 ```yaml
 # data-node.yml
 cluster:
@@ -155,6 +174,7 @@ node:
 ```
 
 **Node Roles:**
+
 - **Master**: Cluster management, shard allocation
 - **Data**: Store data, execute queries
 - **Ingest**: Document preprocessing
@@ -210,7 +230,7 @@ docker push lexum/lexum:latest
 ### Docker Compose - Production
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   # Master nodes
@@ -365,19 +385,19 @@ http {
 
     server {
         listen 80;
-        
+
         location / {
             proxy_pass http://lexum_cluster;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            
+
             # Timeouts for long-running queries
             proxy_connect_timeout 60s;
             proxy_send_timeout 300s;
             proxy_read_timeout 300s;
         }
-        
+
         location /_health {
             access_log off;
             proxy_pass http://lexum_cluster/_health;
@@ -387,6 +407,38 @@ http {
 ```
 
 ## Kubernetes Deployment
+
+### Using Kustomize
+
+```bash
+# Deploy with default settings
+kubectl apply -k k8s/
+
+# Customize and deploy
+kubectl kustomize k8s/ | kubectl apply -f -
+```
+
+### Using Helm
+
+See [Helm Chart](#kubernetes-helm) section above.
+
+### Manual Deployment
+
+All Kubernetes manifests are available in the `k8s/` directory:
+
+- `namespace.yaml` - Namespace definition
+- `configmap.yaml` - Configuration
+- `secret.yaml` - Secrets template
+- `statefulset.yaml` - StatefulSet for pods
+- `service.yaml` - ClusterIP service
+- `service-headless.yaml` - Headless service for StatefulSet
+- `service-loadbalancer.yaml` - LoadBalancer service (optional)
+- `ingress.yaml` - Ingress configuration
+- `hpa.yaml` - Horizontal Pod Autoscaler
+- `servicemonitor.yaml` - Prometheus ServiceMonitor
+- `pvc.yaml` - PersistentVolumeClaim templates
+
+See [k8s/README.md](../k8s/README.md) for detailed instructions.
 
 ### Namespace
 
@@ -411,16 +463,16 @@ data:
   config.yml: |
     cluster:
       name: ${CLUSTER_NAME}
-    
+
     node:
       name: ${NODE_NAME}
       roles: ${NODE_ROLES}
-    
+
     network:
       host: 0.0.0.0
       http_port: 9200
       transport_port: 9300
-    
+
     path:
       data: /data
       logs: /var/log/lexum
@@ -451,79 +503,79 @@ spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: role
-                operator: In
-                values:
-                - master
-            topologyKey: kubernetes.io/hostname
-      
+            - labelSelector:
+                matchExpressions:
+                  - key: role
+                    operator: In
+                    values:
+                      - master
+              topologyKey: kubernetes.io/hostname
+
       containers:
-      - name: lexum
-        image: lexum/lexum:latest
-        env:
-        - name: CLUSTER_NAME
-          value: "lexum-k8s"
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: NODE_ROLES
-          value: "master"
-        - name: DISCOVERY_SEED_HOSTS
-          value: "lexum-master-0.lexum-master,lexum-master-1.lexum-master,lexum-master-2.lexum-master"
-        - name: INITIAL_MASTER_NODES
-          value: "lexum-master-0,lexum-master-1,lexum-master-2"
-        
-        ports:
-        - containerPort: 9200
-          name: http
-        - containerPort: 9300
-          name: transport
-        
-        volumeMounts:
-        - name: data
-          mountPath: /data
+        - name: lexum
+          image: lexum/lexum:latest
+          env:
+            - name: CLUSTER_NAME
+              value: "lexum-k8s"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODE_ROLES
+              value: "master"
+            - name: DISCOVERY_SEED_HOSTS
+              value: "lexum-master-0.lexum-master,lexum-master-1.lexum-master,lexum-master-2.lexum-master"
+            - name: INITIAL_MASTER_NODES
+              value: "lexum-master-0,lexum-master-1,lexum-master-2"
+
+          ports:
+            - containerPort: 9200
+              name: http
+            - containerPort: 9300
+              name: transport
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/lexum
+
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+
+          livenessProbe:
+            httpGet:
+              path: /_health
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /_health
+              port: 9200
+            initialDelaySeconds: 15
+            periodSeconds: 5
+
+      volumes:
         - name: config
-          mountPath: /etc/lexum
-        
+          configMap:
+            name: lexum-config
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: fast-ssd
         resources:
           requests:
-            memory: "1Gi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "1000m"
-        
-        livenessProbe:
-          httpGet:
-            path: /_health
-            port: 9200
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        
-        readinessProbe:
-          httpGet:
-            path: /_health
-            port: 9200
-          initialDelaySeconds: 15
-          periodSeconds: 5
-      
-      volumes:
-      - name: config
-        configMap:
-          name: lexum-config
-  
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      storageClassName: fast-ssd
-      resources:
-        requests:
-          storage: 10Gi
+            storage: 10Gi
 ```
 
 ### StatefulSet - Data Nodes
@@ -551,79 +603,79 @@ spec:
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 100
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: role
-                  operator: In
-                  values:
-                  - data
-              topologyKey: kubernetes.io/hostname
-      
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: role
+                      operator: In
+                      values:
+                        - data
+                topologyKey: kubernetes.io/hostname
+
       containers:
-      - name: lexum
-        image: lexum/lexum:latest
-        env:
-        - name: CLUSTER_NAME
-          value: "lexum-k8s"
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: NODE_ROLES
-          value: "data,ingest"
-        - name: DISCOVERY_SEED_HOSTS
-          value: "lexum-master-0.lexum-master,lexum-master-1.lexum-master,lexum-master-2.lexum-master"
-        
-        ports:
-        - containerPort: 9200
-          name: http
-        - containerPort: 9300
-          name: transport
-        
-        volumeMounts:
-        - name: data
-          mountPath: /data
+        - name: lexum
+          image: lexum/lexum:latest
+          env:
+            - name: CLUSTER_NAME
+              value: "lexum-k8s"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODE_ROLES
+              value: "data,ingest"
+            - name: DISCOVERY_SEED_HOSTS
+              value: "lexum-master-0.lexum-master,lexum-master-1.lexum-master,lexum-master-2.lexum-master"
+
+          ports:
+            - containerPort: 9200
+              name: http
+            - containerPort: 9300
+              name: transport
+
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: config
+              mountPath: /etc/lexum
+
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2000m"
+            limits:
+              memory: "8Gi"
+              cpu: "4000m"
+
+          livenessProbe:
+            httpGet:
+              path: /_health
+              port: 9200
+            initialDelaySeconds: 60
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /_health
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 5
+
+      volumes:
         - name: config
-          mountPath: /etc/lexum
-        
+          configMap:
+            name: lexum-config
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: fast-ssd
         resources:
           requests:
-            memory: "4Gi"
-            cpu: "2000m"
-          limits:
-            memory: "8Gi"
-            cpu: "4000m"
-        
-        livenessProbe:
-          httpGet:
-            path: /_health
-            port: 9200
-          initialDelaySeconds: 60
-          periodSeconds: 10
-        
-        readinessProbe:
-          httpGet:
-            path: /_health
-            port: 9200
-          initialDelaySeconds: 30
-          periodSeconds: 5
-      
-      volumes:
-      - name: config
-        configMap:
-          name: lexum-config
-  
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      storageClassName: fast-ssd
-      resources:
-        requests:
-          storage: 100Gi
+            storage: 100Gi
 ```
 
 ### Services
@@ -642,10 +694,10 @@ spec:
     app: lexum
     role: master
   ports:
-  - name: http
-    port: 9200
-  - name: transport
-    port: 9300
+    - name: http
+      port: 9200
+    - name: transport
+      port: 9300
 
 ---
 apiVersion: v1
@@ -659,10 +711,10 @@ spec:
     app: lexum
     role: data
   ports:
-  - name: http
-    port: 9200
-  - name: transport
-    port: 9300
+    - name: http
+      port: 9200
+    - name: transport
+      port: 9300
 
 ---
 apiVersion: v1
@@ -676,9 +728,9 @@ spec:
     app: lexum
     role: data
   ports:
-  - name: http
-    port: 9200
-    targetPort: 9200
+    - name: http
+      port: 9200
+      targetPort: 9200
 ```
 
 ### Ingress
@@ -697,20 +749,20 @@ metadata:
 spec:
   ingressClassName: nginx
   tls:
-  - hosts:
-    - search.example.com
-    secretName: lexum-tls
+    - hosts:
+        - search.example.com
+      secretName: lexum-tls
   rules:
-  - host: search.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: lexum
-            port:
-              number: 9200
+    - host: search.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: lexum
+                port:
+                  number: 9200
 ```
 
 ### Helm Chart
@@ -783,6 +835,7 @@ helm uninstall lexum -n lexum
 ### System Requirements
 
 **Per Node:**
+
 - CPU: 4+ cores
 - RAM: 8GB+ (16GB+ recommended)
 - Disk: 100GB+ SSD
@@ -928,7 +981,7 @@ performance:
     bulk:
       size: 4
       queue_size: 200
-  
+
   # Caching
   cache:
     query_cache:
@@ -940,10 +993,10 @@ performance:
     filter_cache:
       enabled: true
       size: 256mb
-  
+
   # Memory
   heap_size: 4g
-  
+
   # Disk
   merge_policy:
     max_merged_segment: 5gb
@@ -1073,6 +1126,7 @@ openssl x509 -req -days 365 -in node.csr -CA ca.crt -CAkey ca.key -CAcreateseria
 ### Common Issues
 
 **Port already in use:**
+
 ```bash
 # Find process
 sudo lsof -i :9200
@@ -1081,12 +1135,14 @@ sudo kill -9 <PID>
 ```
 
 **Out of memory:**
+
 ```bash
 # Increase heap size
 export LEXUM_HEAP_SIZE=4g
 ```
 
 **Disk full:**
+
 ```bash
 # Check disk usage
 df -h /data
@@ -1096,6 +1152,7 @@ find /var/log/lexum -mtime +7 -delete
 ```
 
 **Split brain:**
+
 ```bash
 # Ensure minimum_master_nodes = (master_nodes / 2) + 1
 ```
@@ -1118,4 +1175,3 @@ find /var/log/lexum -mtime +7 -delete
 - [Architecture](./ARCHITECTURE.md)
 - [Telemetry](./TELEMETRY.md)
 - [Development](./DEVELOPMENT.md)
-

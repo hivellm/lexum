@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test data
+tests/
+test_*/
+data/test_*/
+coverage/
+*.log
+
+# Build artifacts
+*.pdb
+*.exe
+*.dll
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Scripts (not needed in container)
+scripts/
+
+# Snapshots (mounted as volume)
+snapshots/
+
+# Rulebook (development only)
+rulebook/
+

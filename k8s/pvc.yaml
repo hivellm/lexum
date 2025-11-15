@@ -1,0 +1,33 @@
+# PersistentVolumeClaim templates for manual creation
+# Note: StatefulSet automatically creates PVCs, but these can be used for manual setup
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lexum-data-pvc
+  namespace: lexum
+  labels:
+    app: lexum-search-engine
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard  # Change to your storage class
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lexum-snapshots-pvc
+  namespace: lexum
+  labels:
+    app: lexum-search-engine
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard  # Change to your storage class
+  resources:
+    requests:
+      storage: 20Gi
+

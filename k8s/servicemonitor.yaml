@@ -1,0 +1,23 @@
+# ServiceMonitor for Prometheus Operator
+# Requires: prometheus-operator installed in cluster
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lexum-metrics
+  namespace: lexum
+  labels:
+    app: lexum-search-engine
+spec:
+  selector:
+    matchLabels:
+      app: lexum-search-engine
+  endpoints:
+  - port: http
+    path: /metrics  # Prometheus metrics endpoint
+    interval: 30s
+    scrapeTimeout: 10s
+    scheme: http
+    # TLS configuration (if using HTTPS)
+    # tlsConfig:
+    #   insecureSkipVerify: false
+
