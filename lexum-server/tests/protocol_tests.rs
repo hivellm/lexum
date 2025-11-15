@@ -15,6 +15,8 @@ use tower::ServiceExt;
 
 async fn setup_test_server() -> (AppState, TempDir) {
     use std::env;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     // Detect WSL and use Linux native filesystem to avoid Tantivy compatibility issues
     let is_wsl = env::var("WSL_DISTRO_NAME").is_ok()
@@ -22,12 +24,23 @@ async fn setup_test_server() -> (AppState, TempDir) {
             .unwrap_or_default()
             .contains("/mnt/");
 
+    // Create unique directory per test using timestamp + atomic counter
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let unique_id = format!(
+        "{}-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+
     let data_dir = if is_wsl {
         // Use Linux native filesystem (HOME directory) to avoid WSL/Tantivy issues
         let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
         let mut linux_path = std::path::PathBuf::from(home);
         linux_path.push(".lexum-test-data");
-        linux_path.push(format!("test-{}", std::process::id()));
+        linux_path.push(format!("test-{unique_id}"));
         tokio::fs::create_dir_all(&linux_path).await.unwrap();
         linux_path
     } else {
