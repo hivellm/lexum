@@ -110,7 +110,7 @@ $fuzzyBody = @{
     query = @{
         fuzzy = @{
             field = "title"
-            value = "progamming"
+            value = "programming"
             fuzziness = 2
         }
     }

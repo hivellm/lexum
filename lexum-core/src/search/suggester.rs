@@ -485,9 +485,9 @@ mod tests {
         let suggester = Suggester::with_config(index, config);
 
         let fields = vec!["title".to_string()];
-        let suggestions = suggester.suggest("Te", &fields).unwrap();
+        let suggestions = suggester.suggest("Ab", &fields).unwrap();
 
-        // Should return empty because "Te" is shorter than min_prefix_length (3)
+        // Should return empty because "Ab" is shorter than min_prefix_length (3)
         assert!(suggestions.is_empty());
     }
 }
