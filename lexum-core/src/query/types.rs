@@ -37,6 +37,8 @@ pub enum Query {
     Script(ScriptQuery),
     /// Multi-match query (search across multiple fields)
     MultiMatch(MultiMatchQuery),
+    /// Constant score query (fixed score for all matches)
+    ConstantScore(ConstantScoreQuery),
 }
 
 /// Match query for full-text search
@@ -839,6 +841,32 @@ impl MultiMatchQuery {
     }
 }
 
+/// Constant score query for applying a fixed score to all matching documents
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ConstantScoreQuery {
+    /// Filter query (matches get constant score)
+    pub filter: Box<Query>,
+    /// Constant score value (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl ConstantScoreQuery {
+    /// Create new constant score query with default boost of 1.0
+    pub fn new(filter: Query) -> Self {
+        Self {
+            filter: Box::new(filter),
+            boost: 1.0,
+        }
+    }
+
+    /// Set the constant score/boost value
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1467,5 +1495,37 @@ mod tests {
         let phrase_prefix =
             MultiMatchQuery::new(base_fields, base_query).r#type(MultiMatchType::PhrasePrefix);
         assert!(matches!(phrase_prefix.r#type, MultiMatchType::PhrasePrefix));
+    }
+
+    #[test]
+    fn test_constant_score_query() {
+        let filter_query = Query::Term(TermQuery::new("status", "active"));
+        let constant_score = ConstantScoreQuery::new(filter_query);
+
+        assert!(matches!(*constant_score.filter, Query::Term(_)));
+        assert_eq!(constant_score.boost, 1.0);
+    }
+
+    #[test]
+    fn test_constant_score_query_with_boost() {
+        let filter_query = Query::Match(MatchQuery::new("title", "test"));
+        let constant_score = ConstantScoreQuery::new(filter_query).boost(2.5);
+
+        assert!(matches!(*constant_score.filter, Query::Match(_)));
+        assert_eq!(constant_score.boost, 2.5);
+    }
+
+    #[test]
+    fn test_constant_score_query_serialization() {
+        let filter_query = Query::Range(RangeQuery::new("age").gte(serde_json::json!(18)));
+        let constant_score = ConstantScoreQuery::new(filter_query).boost(1.5);
+
+        let json = serde_json::to_string(&constant_score).unwrap();
+        assert!(json.contains("filter"));
+        assert!(json.contains("boost"));
+
+        let deserialized: ConstantScoreQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.boost, 1.5);
+        assert!(matches!(*deserialized.filter, Query::Range(_)));
     }
 }

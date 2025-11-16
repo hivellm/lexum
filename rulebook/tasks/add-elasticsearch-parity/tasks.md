@@ -92,7 +92,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Multi-match query ✅ **IMPLEMENTED**
 - [ ] Common terms query - **MISSING**
 - [ ] Dis Max query - **MISSING**
-- [ ] Constant Score query - **MISSING**
+- [x] Constant Score query ✅ **IMPLEMENTED**
 
 **Tasks**:
 
@@ -120,7 +120,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [ ] 1.3.5 Implement Dis Max Query
   - Multiple queries with tie breaker
   - Best matching query selection
-- [ ] 1.3.6 Implement Constant Score Query
+- [x] 1.3.6 Implement Constant Score Query ✅ **COMPLETED**
   - Fixed score for all matches
   - Filter-based scoring
 

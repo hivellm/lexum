@@ -1,6 +1,6 @@
 //! Query builder for constructing queries
 
-use super::types::{MultiMatchQuery, *};
+use super::types::{ConstantScoreQuery, MultiMatchQuery, *};
 
 /// Builder for creating queries
 pub struct QueryBuilder;
@@ -55,6 +55,11 @@ impl QueryBuilder {
     pub fn multi_match_query(fields: Vec<String>, query: impl Into<String>) -> Query {
         Query::MultiMatch(MultiMatchQuery::new(fields, query))
     }
+
+    /// Create a constant score query
+    pub fn constant_score_query(filter: Query) -> Query {
+        Query::ConstantScore(ConstantScoreQuery::new(filter))
+    }
 }
 
 #[cfg(test)]
@@ -104,5 +109,12 @@ mod tests {
             "search terms",
         );
         assert!(matches!(query, Query::MultiMatch(_)));
+    }
+
+    #[test]
+    fn test_constant_score_query_builder() {
+        let filter = QueryBuilder::term_query("status", "active");
+        let query = QueryBuilder::constant_score_query(filter);
+        assert!(matches!(query, Query::ConstantScore(_)));
     }
 }

@@ -16,8 +16,8 @@ use std::sync::Arc;
 use std::time::Instant;
 use tantivy::TantivyDocument;
 use tantivy::query::{
-    AllQuery, BooleanQuery, FuzzyTermQuery, Occur, PhraseQuery, QueryParser, RangeQuery,
-    RegexQuery as TantivyRegexQuery, TermQuery,
+    AllQuery, BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, QueryParser,
+    RangeQuery, RegexQuery as TantivyRegexQuery, TermQuery,
 };
 use tantivy::schema::*;
 
@@ -464,6 +464,7 @@ impl SearchExecutor {
             Query::Wildcard(w) => w.boost,
             Query::Regex(r) => r.boost,
             Query::MultiMatch(m) => m.boost,
+            Query::ConstantScore(c) => c.boost,
             Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
@@ -694,6 +695,26 @@ impl SearchExecutor {
                 // Geo queries are not yet implemented in Tantivy integration
                 // Return a match all query for now
                 Ok(Box::new(AllQuery))
+            }
+
+            Query::ConstantScore(constant_score_query) => {
+                // Build the filter query
+                let filter_query = Self::build_tantivy_query(
+                    tantivy_index,
+                    constant_score_query.filter.as_ref(),
+                    regex_cache,
+                )?;
+
+                // Apply constant boost using BoostQuery
+                // If boost is 1.0, return the query as-is
+                if (constant_score_query.boost - 1.0).abs() < f32::EPSILON {
+                    Ok(filter_query)
+                } else {
+                    Ok(Box::new(BoostQuery::new(
+                        filter_query,
+                        constant_score_query.boost,
+                    )))
+                }
             }
 
             Query::Script(_script_query) => {
@@ -1365,6 +1386,76 @@ mod tests {
         let query = Query::MultiMatch(multi_match);
 
         assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_constant_score() {
+        use crate::query::{ConstantScoreQuery, TermQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let filter_query = Query::Term(TermQuery::new("title", "test"));
+        let constant_score = ConstantScoreQuery::new(filter_query).boost(2.0);
+        let query = Query::ConstantScore(constant_score);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_constant_score_with_match() {
+        use crate::query::{ConstantScoreQuery, MatchQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let filter_query = Query::Match(MatchQuery::new("title", "search terms"));
+        let constant_score = ConstantScoreQuery::new(filter_query).boost(1.5);
+        let query = Query::ConstantScore(constant_score);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_constant_score_default_boost() {
+        use crate::query::{ConstantScoreQuery, RangeQuery};
+
+        let (schema, _) = SchemaBuilder::new().add_i64_field("age").build().unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        // Use both gte and lte for range query
+        let filter_query = Query::Range(
+            RangeQuery::new("age")
+                .gte(serde_json::json!(18))
+                .lte(serde_json::json!(100)),
+        );
+        let constant_score = ConstantScoreQuery::new(filter_query);
+        let query = Query::ConstantScore(constant_score);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_constant_score() {
+        use crate::query::{ConstantScoreQuery, TermQuery};
+
+        let filter_query = Query::Term(TermQuery::new("status", "active"));
+        let constant_score = ConstantScoreQuery::new(filter_query).boost(3.0);
+        let query = Query::ConstantScore(constant_score);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 3.0);
     }
 
     #[test]
