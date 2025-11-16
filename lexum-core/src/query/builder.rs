@@ -1,8 +1,8 @@
 //! Query builder for constructing queries
 
 use super::types::{
-    CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, MoreLikeThisQuery, MultiMatchQuery,
-    NestedQuery, PinnedQuery, ScriptQuery, WrapperQuery, *,
+    CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, HasChildQuery, HasParentQuery,
+    MoreLikeThisQuery, MultiMatchQuery, NestedQuery, PinnedQuery, ScriptQuery, WrapperQuery, *,
 };
 
 /// Builder for creating queries
@@ -97,6 +97,16 @@ impl QueryBuilder {
     /// Create a script query
     pub fn script_query(source: impl Into<String>) -> Query {
         Query::Script(ScriptQuery::new(source))
+    }
+
+    /// Create a has child query
+    pub fn has_child_query(r#type: impl Into<String>, query: Query) -> Query {
+        Query::HasChild(HasChildQuery::new(r#type, query))
+    }
+
+    /// Create a has parent query
+    pub fn has_parent_query(parent_type: impl Into<String>, query: Query) -> Query {
+        Query::HasParent(HasParentQuery::new(parent_type, query))
     }
 }
 
@@ -203,5 +213,19 @@ mod tests {
     fn test_script_query_builder() {
         let query = QueryBuilder::script_query("doc['field'].value > 10");
         assert!(matches!(query, Query::Script(_)));
+    }
+
+    #[test]
+    fn test_has_child_query_builder() {
+        let child_query = QueryBuilder::match_query("status", "active");
+        let query = QueryBuilder::has_child_query("comment", child_query);
+        assert!(matches!(query, Query::HasChild(_)));
+    }
+
+    #[test]
+    fn test_has_parent_query_builder() {
+        let parent_query = QueryBuilder::match_query("status", "published");
+        let query = QueryBuilder::has_parent_query("blog", parent_query);
+        assert!(matches!(query, Query::HasParent(_)));
     }
 }

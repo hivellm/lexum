@@ -47,6 +47,10 @@ pub enum Query {
     Wrapper(WrapperQuery),
     /// Pinned query (promotes specific documents)
     Pinned(PinnedQuery),
+    /// Has child query (find parent documents with matching children)
+    HasChild(HasChildQuery),
+    /// Has parent query (find child documents with matching parents)
+    HasParent(HasParentQuery),
 }
 
 /// Match query for full-text search
@@ -1128,6 +1132,121 @@ impl PinnedQuery {
     }
 }
 
+/// Has child query for finding parent documents with matching children
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct HasChildQuery {
+    /// Child document type (relationship type)
+    pub r#type: String,
+    /// Query to match child documents
+    pub query: Box<Query>,
+    /// Score mode for parent documents
+    #[serde(default)]
+    pub score_mode: ParentChildScoreMode,
+    /// Minimum number of matching children required
+    #[serde(default)]
+    pub min_children: Option<u32>,
+    /// Maximum number of matching children to consider
+    #[serde(default)]
+    pub max_children: Option<u32>,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl HasChildQuery {
+    /// Create new has child query
+    pub fn new(r#type: impl Into<String>, query: Query) -> Self {
+        Self {
+            r#type: r#type.into(),
+            query: Box::new(query),
+            score_mode: ParentChildScoreMode::None,
+            min_children: None,
+            max_children: None,
+            boost: 1.0,
+        }
+    }
+
+    /// Set score mode
+    pub fn score_mode(mut self, mode: ParentChildScoreMode) -> Self {
+        self.score_mode = mode;
+        self
+    }
+
+    /// Set minimum number of children
+    pub fn min_children(mut self, min: u32) -> Self {
+        self.min_children = Some(min);
+        self
+    }
+
+    /// Set maximum number of children
+    pub fn max_children(mut self, max: u32) -> Self {
+        self.max_children = Some(max);
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Has parent query for finding child documents with matching parents
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct HasParentQuery {
+    /// Parent document type (relationship type)
+    pub parent_type: String,
+    /// Query to match parent documents
+    pub query: Box<Query>,
+    /// Score mode for child documents
+    #[serde(default)]
+    pub score_mode: ParentChildScoreMode,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl HasParentQuery {
+    /// Create new has parent query
+    pub fn new(parent_type: impl Into<String>, query: Query) -> Self {
+        Self {
+            parent_type: parent_type.into(),
+            query: Box::new(query),
+            score_mode: ParentChildScoreMode::None,
+            boost: 1.0,
+        }
+    }
+
+    /// Set score mode
+    pub fn score_mode(mut self, mode: ParentChildScoreMode) -> Self {
+        self.score_mode = mode;
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Score mode for parent-child queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum ParentChildScoreMode {
+    /// No scoring (filter only)
+    #[default]
+    None,
+    /// Average score of matching children/parents
+    Avg,
+    /// Sum of scores from matching children/parents
+    Sum,
+    /// Maximum score among matching children/parents
+    Max,
+    /// Minimum score among matching children/parents
+    Min,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2101,5 +2220,115 @@ mod tests {
 
         assert_eq!(nested.path, "nested");
         assert!(matches!(nested.score_mode, NestedScoreMode::Max));
+    }
+
+    #[test]
+    fn test_has_child_query() {
+        let child_query = Query::Match(MatchQuery::new("status", "active"));
+        let has_child = HasChildQuery::new("comment", child_query);
+
+        assert_eq!(has_child.r#type, "comment");
+        assert!(matches!(has_child.query.as_ref(), Query::Match(_)));
+        assert!(matches!(has_child.score_mode, ParentChildScoreMode::None));
+        assert_eq!(has_child.boost, 1.0);
+    }
+
+    #[test]
+    fn test_has_child_query_with_score_mode() {
+        let child_query = Query::Term(TermQuery::new("status", "active"));
+        let has_child =
+            HasChildQuery::new("comment", child_query).score_mode(ParentChildScoreMode::Avg);
+
+        assert!(matches!(has_child.score_mode, ParentChildScoreMode::Avg));
+    }
+
+    #[test]
+    fn test_has_child_query_with_min_max_children() {
+        let child_query = Query::Match(MatchQuery::new("status", "active"));
+        let has_child = HasChildQuery::new("comment", child_query)
+            .min_children(2)
+            .max_children(10);
+
+        assert_eq!(has_child.min_children, Some(2));
+        assert_eq!(has_child.max_children, Some(10));
+    }
+
+    #[test]
+    fn test_has_child_query_with_boost() {
+        let child_query = Query::Match(MatchQuery::new("status", "active"));
+        let has_child = HasChildQuery::new("comment", child_query).boost(2.5);
+
+        assert_eq!(has_child.boost, 2.5);
+    }
+
+    #[test]
+    fn test_has_child_query_serialization() {
+        let child_query = Query::Match(MatchQuery::new("status", "active"));
+        let has_child = HasChildQuery::new("comment", child_query)
+            .score_mode(ParentChildScoreMode::Avg)
+            .min_children(2)
+            .boost(1.5);
+
+        let json = serde_json::to_string(&has_child).unwrap();
+        assert!(json.contains("type"));
+        assert!(json.contains("comment"));
+        assert!(json.contains("query"));
+        assert!(json.contains("score_mode"));
+        assert!(json.contains("min_children"));
+        assert!(json.contains("boost"));
+
+        let deserialized: HasChildQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.r#type, "comment");
+        assert!(matches!(deserialized.score_mode, ParentChildScoreMode::Avg));
+        assert_eq!(deserialized.min_children, Some(2));
+        assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_has_parent_query() {
+        let parent_query = Query::Match(MatchQuery::new("status", "published"));
+        let has_parent = HasParentQuery::new("blog", parent_query);
+
+        assert_eq!(has_parent.parent_type, "blog");
+        assert!(matches!(has_parent.query.as_ref(), Query::Match(_)));
+        assert!(matches!(has_parent.score_mode, ParentChildScoreMode::None));
+        assert_eq!(has_parent.boost, 1.0);
+    }
+
+    #[test]
+    fn test_has_parent_query_with_score_mode() {
+        let parent_query = Query::Term(TermQuery::new("status", "published"));
+        let has_parent =
+            HasParentQuery::new("blog", parent_query).score_mode(ParentChildScoreMode::Max);
+
+        assert!(matches!(has_parent.score_mode, ParentChildScoreMode::Max));
+    }
+
+    #[test]
+    fn test_has_parent_query_with_boost() {
+        let parent_query = Query::Match(MatchQuery::new("status", "published"));
+        let has_parent = HasParentQuery::new("blog", parent_query).boost(2.0);
+
+        assert_eq!(has_parent.boost, 2.0);
+    }
+
+    #[test]
+    fn test_has_parent_query_serialization() {
+        let parent_query = Query::Match(MatchQuery::new("status", "published"));
+        let has_parent = HasParentQuery::new("blog", parent_query)
+            .score_mode(ParentChildScoreMode::Sum)
+            .boost(1.5);
+
+        let json = serde_json::to_string(&has_parent).unwrap();
+        assert!(json.contains("parent_type"));
+        assert!(json.contains("blog"));
+        assert!(json.contains("query"));
+        assert!(json.contains("score_mode"));
+        assert!(json.contains("boost"));
+
+        let deserialized: HasParentQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.parent_type, "blog");
+        assert!(matches!(deserialized.score_mode, ParentChildScoreMode::Sum));
+        assert_eq!(deserialized.boost, 1.5);
     }
 }

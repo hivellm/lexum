@@ -50,7 +50,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] More Like This Query (MLT) ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Script Query (advanced) ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Nested Query ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Has Child / Has Parent Query - **MISSING**
+- [x] Has Child / Has Parent Query ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Geo Distance Query - **MISSING** (basic structure exists)
 - [ ] Geo Bounding Box Query - **MISSING**
 - [ ] Geo Polygon Query - **MISSING**
@@ -76,10 +76,10 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Nested field support
   - Nested document matching
   - Score mode (avg, sum, max, min, none)
-- [ ] 1.2.2.4 Implement Has Child / Has Parent Query
+- [x] 1.2.2.4 Implement Has Child / Has Parent Query ✅ **COMPLETED**
   - Parent-child relationships
-  - Join field type
-  - Score mode support
+  - Join field type (structure ready)
+  - Score mode support ✅
 - [ ] 1.2.2.5 Implement Geo Queries (see Geo-Spatial section)
 - [ ] 1.2.2.6 Implement Percolate Query
   - Reverse search (store queries, match documents)

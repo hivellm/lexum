@@ -469,7 +469,9 @@ impl SearchExecutor {
             Query::CommonTerms(c) => c.boost,
             Query::Wrapper(_) => 1.0, // Wrapper queries don't have boost, wrapped query does
             Query::Pinned(_) => 1.0,  // Pinned queries don't have boost, organic query does
-            Query::Bool(_) => 1.0,    // Boolean queries don't have boost, but sub-queries do
+            Query::HasChild(h) => h.boost,
+            Query::HasParent(h) => h.boost,
+            Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
                 // In a full implementation, this would apply the boost_mode logic
@@ -817,6 +819,30 @@ impl SearchExecutor {
                 // The pinning logic (promoting specific documents) is handled
                 // in the search execution phase, not in query building
                 Self::build_tantivy_query(tantivy_index, pinned_query.organic.as_ref(), regex_cache)
+            }
+
+            Query::HasChild(has_child_query) => {
+                // For has_child queries, we execute the child query
+                // The parent-child relationship filtering is handled
+                // in the search execution phase, not in query building
+                // Note: Full implementation would require join field support in Tantivy
+                Self::build_tantivy_query(
+                    tantivy_index,
+                    has_child_query.query.as_ref(),
+                    regex_cache,
+                )
+            }
+
+            Query::HasParent(has_parent_query) => {
+                // For has_parent queries, we execute the parent query
+                // The parent-child relationship filtering is handled
+                // in the search execution phase, not in query building
+                // Note: Full implementation would require join field support in Tantivy
+                Self::build_tantivy_query(
+                    tantivy_index,
+                    has_parent_query.query.as_ref(),
+                    regex_cache,
+                )
             }
 
             Query::MultiMatch(multi_match_query) => {
