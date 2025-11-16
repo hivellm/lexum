@@ -449,7 +449,9 @@ mod tests {
     async fn test_metrics_collector_reset() {
         let collector = MetricsCollector::new();
 
-        collector.record_timing("test", Duration::from_millis(100)).await;
+        collector
+            .record_timing("test", Duration::from_millis(100))
+            .await;
         collector.increment_counter("counter", 5).await;
         collector.record_gauge("gauge", 10.0).await;
 
@@ -486,7 +488,7 @@ mod tests {
     fn test_metrics_record_timing() {
         let mut metrics = Metrics::new();
         metrics.record_timing("test", Duration::from_millis(100));
-        
+
         let stats = metrics.get_timing_stats("test").unwrap();
         assert_eq!(stats.count, 1);
     }
@@ -496,7 +498,7 @@ mod tests {
         let mut metrics = Metrics::new();
         metrics.increment_counter("counter", 5);
         metrics.increment_counter("counter", 3);
-        
+
         assert_eq!(metrics.get_counter("counter"), Some(8));
     }
 
@@ -504,7 +506,7 @@ mod tests {
     fn test_metrics_record_gauge() {
         let mut metrics = Metrics::new();
         metrics.record_gauge("gauge", 42.5);
-        
+
         assert_eq!(metrics.get_gauge("gauge"), Some(42.5));
     }
 
@@ -531,7 +533,7 @@ mod tests {
         let mut metrics = Metrics::new();
         metrics.record_timing("op1", Duration::from_millis(100));
         metrics.record_timing("op2", Duration::from_millis(200));
-        
+
         let timings = metrics.get_all_timings();
         assert_eq!(timings.len(), 2);
     }
@@ -541,7 +543,7 @@ mod tests {
         let mut metrics = Metrics::new();
         metrics.increment_counter("counter1", 10);
         metrics.increment_counter("counter2", 20);
-        
+
         let counters = metrics.get_all_counters();
         assert_eq!(counters.len(), 2);
     }
@@ -551,7 +553,7 @@ mod tests {
         let mut metrics = Metrics::new();
         metrics.record_gauge("gauge1", 10.0);
         metrics.record_gauge("gauge2", 20.0);
-        
+
         let gauges = metrics.get_all_gauges();
         assert_eq!(gauges.len(), 2);
     }
@@ -576,7 +578,7 @@ mod tests {
     fn test_system_metrics_update() {
         let mut system = SystemMetrics::new();
         system.update();
-        
+
         // Should have placeholder values after update
         assert!(system.memory_usage > 0);
         assert!(system.cpu_usage > 0.0);
@@ -603,12 +605,12 @@ mod tests {
     #[test]
     fn test_timing_stats_recent_limit() {
         let mut stats = TimingStats::new();
-        
+
         // Add more than 1000 measurements
         for _ in 0..1100 {
             stats.add_measurement(Duration::from_millis(100));
         }
-        
+
         // Recent measurements should be limited
         // The implementation keeps last 900 after draining
         assert!(stats.count == 1100);

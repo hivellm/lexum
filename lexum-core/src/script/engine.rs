@@ -1274,7 +1274,10 @@ mod tests {
         let engine = ScriptEngine::new(operations);
         engine.execute(&mut context).unwrap();
 
-        assert_eq!(context.get_field("high_priority_active"), Some(&json!(true)));
+        assert_eq!(
+            context.get_field("high_priority_active"),
+            Some(&json!(true))
+        );
     }
 
     #[test]
