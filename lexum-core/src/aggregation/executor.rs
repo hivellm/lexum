@@ -79,6 +79,12 @@ impl AggregationExecutor {
                 super::AggregationSpec::Composite(composite_agg) => {
                     composite_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::Sampler(sampler_agg) => {
+                    sampler_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::DiversifiedSampler(diversified_sampler_agg) => {
+                    diversified_sampler_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -110,6 +116,10 @@ impl AggregationExecutor {
             super::AggregationSpec::Missing(missing_agg) => missing_agg.merge(results),
             super::AggregationSpec::Global(global_agg) => global_agg.merge(results),
             super::AggregationSpec::Composite(composite_agg) => composite_agg.merge(results),
+            super::AggregationSpec::Sampler(sampler_agg) => sampler_agg.merge(results),
+            super::AggregationSpec::DiversifiedSampler(diversified_sampler_agg) => {
+                diversified_sampler_agg.merge(results)
+            }
         }
     }
 }

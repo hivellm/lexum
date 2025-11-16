@@ -142,8 +142,8 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [ ] Geo Distance Aggregation - **MISSING**
 - [ ] Geo Bounds Aggregation - **MISSING**
 - [x] Composite Aggregation ✅ **IMPLEMENTED**
-- [ ] Sampler Aggregation - **MISSING**
-- [ ] Diversified Sampler Aggregation - **MISSING**
+- [x] Sampler Aggregation ✅ **IMPLEMENTED**
+- [x] Diversified Sampler Aggregation ✅ **IMPLEMENTED**
 - [x] Global Aggregation ✅ **IMPLEMENTED**
 - [x] Missing Aggregation ✅ **IMPLEMENTED**
 - [ ] Nested Aggregation - **PARTIAL** (exists but needs enhancement)
@@ -177,10 +177,11 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Multi-level grouping
   - After key pagination
   - Size limits
-- [ ] 2.1.8 Implement Sampler Aggregations
+- [x] 2.1.8 Implement Sampler Aggregations ✅ **COMPLETED**
   - Random sampling
   - Diversified sampling
   - Shard size configuration
+  - Max documents per value for diversification
 - [x] 2.1.9 Implement Global Aggregation ✅ **COMPLETED**
   - Global scope (ignore query)
   - Sub-aggregations support

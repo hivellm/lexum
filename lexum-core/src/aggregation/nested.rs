@@ -87,6 +87,12 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::Composite(composite_agg) => {
                     composite_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::Sampler(sampler_agg) => {
+                    sampler_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::DiversifiedSampler(diversified_sampler_agg) => {
+                    diversified_sampler_agg.execute(&nested_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }

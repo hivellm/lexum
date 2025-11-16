@@ -12,10 +12,11 @@ use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Scoring method for significant terms
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum SignificantTermsScoring {
     /// Mutual Information scoring
+    #[default]
     MutualInformation,
     /// Chi-square scoring
     ChiSquare,
@@ -23,12 +24,6 @@ pub enum SignificantTermsScoring {
     GTest,
     /// Percentage scoring (simple ratio)
     Percentage,
-}
-
-impl Default for SignificantTermsScoring {
-    fn default() -> Self {
-        Self::MutualInformation
-    }
 }
 
 /// Significant terms aggregation configuration

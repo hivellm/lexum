@@ -25,6 +25,7 @@ pub mod percentile;
 pub mod pipeline;
 pub mod range;
 pub mod result;
+pub mod sampler;
 pub mod significant_terms;
 pub mod stats;
 pub mod terms;
@@ -47,6 +48,7 @@ pub use result::{
     AggregationResult, Bucket, BucketAggregationResult, MetricAggregationResult,
     SingleBucketAggregationResult,
 };
+pub use sampler::{DiversifiedSamplerAggregation, SamplerAggregation};
 pub use significant_terms::SignificantTermsAggregation;
 pub use stats::StatsAggregation;
 pub use terms::TermsAggregation;
@@ -106,6 +108,10 @@ pub enum AggregationSpec {
     Global(GlobalAggregation),
     /// Composite aggregation (multi-level grouping)
     Composite(CompositeAggregation),
+    /// Sampler aggregation (random sampling)
+    Sampler(SamplerAggregation),
+    /// Diversified sampler aggregation (diversified sampling)
+    DiversifiedSampler(DiversifiedSamplerAggregation),
 }
 
 impl AggregationSpec {
@@ -128,6 +134,8 @@ impl AggregationSpec {
             AggregationSpec::Missing(agg) => agg.name(),
             AggregationSpec::Global(agg) => agg.name(),
             AggregationSpec::Composite(agg) => agg.name(),
+            AggregationSpec::Sampler(agg) => agg.name(),
+            AggregationSpec::DiversifiedSampler(agg) => agg.name(),
         }
     }
 }
