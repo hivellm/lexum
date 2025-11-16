@@ -47,6 +47,33 @@
 
 ### Installation
 
+#### One-Liner Installation (Recommended)
+
+**Linux / macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/hivellm/lexum/main/install.sh | bash
+```
+
+**Windows:**
+```powershell
+powershell -c "irm https://raw.githubusercontent.com/hivellm/lexum/main/install.ps1 | iex"
+```
+
+The installation script will:
+- ✅ Install dependencies (Git, Rust, build tools)
+- ✅ Clone and compile Lexum from source
+- ✅ Set up Lexum as a system service (auto-starts on boot)
+- ✅ Make CLI available in your PATH
+- ✅ Configure default settings
+
+After installation:
+- **Linux**: Service runs as `lexum` user, CLI available as `lexum`
+- **Windows**: Service runs as Windows Service, CLI available as `lexum-server`
+
+See [scripts/INSTALL.md](scripts/INSTALL.md) for detailed instructions and troubleshooting.
+
+#### Manual Installation
+
 ```bash
 # Clone repository
 git clone https://github.com/hivellm/lexum.git
@@ -59,7 +86,7 @@ cargo build --release
 ./target/release/lexum-server
 
 # Use CLI
-./target/release/lexum-cli --help
+./target/release/lexum-server --help
 ```
 
 ### Using the CLI

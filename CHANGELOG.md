@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Installation Scripts (2025-01-16)
+- **One-Liner Installation**: Created installation scripts for easy setup directly from GitHub
+  - **Linux/macOS**: `curl -fsSL https://raw.githubusercontent.com/hivellm/lexum/main/install.sh | bash`
+  - **Windows**: `powershell -c "irm https://raw.githubusercontent.com/hivellm/lexum/main/install.ps1 | iex"`
+- **Automatic Service Setup**: Scripts configure Lexum as a system service
+  - **Linux**: Creates systemd service that auto-starts on boot
+  - **Windows**: Creates Windows Service using NSSM with auto-restart
+- **CLI Availability**: Installs CLI in system PATH for easy access
+  - Linux: Symlink at `/usr/local/bin/lexum`
+  - Windows: Added to system PATH
+- **Direct GitHub Installation**: No custom domain required, downloads directly from repository
+- **Comprehensive Documentation**: Added `scripts/INSTALL.md` with detailed installation instructions
+- **Features**:
+  - Automatic dependency installation (Git, Rust, build tools)
+  - Automatic compilation from source
+  - Service user creation (Linux)
+  - Configuration file setup
+  - Log directory creation
+  - Custom installation paths via environment variables
+
 ### Fixed - API Route Stability (2025-11-13)
 - **100% API Route Success Rate**: Fixed all 7 failing routes, achieving 100% success rate (39/39 routes working)
   - **Bug #1 - Document Retrieval (404)**: Fixed document ID handling in `add_document()` to use provided `_id` from JSON document
