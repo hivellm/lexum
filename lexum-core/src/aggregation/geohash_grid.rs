@@ -5,7 +5,6 @@
 use super::AggregationTrait;
 use super::result::{AggregationResult, Bucket, BucketAggregationResult};
 use crate::error::Result;
-use crate::query::GeoPoint;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
