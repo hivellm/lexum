@@ -10,6 +10,7 @@
 //! - Nested aggregations
 //! - Pipeline aggregations
 
+pub mod average;
 pub mod cardinality;
 pub mod composite;
 pub mod date_histogram;
@@ -19,6 +20,8 @@ pub mod filters;
 pub mod global;
 pub mod histogram;
 pub mod ip_range;
+pub mod max;
+pub mod min;
 pub mod missing;
 pub mod nested;
 pub mod percentile;
@@ -29,8 +32,11 @@ pub mod reverse_nested;
 pub mod sampler;
 pub mod significant_terms;
 pub mod stats;
+pub mod sum;
 pub mod terms;
+pub mod value_count;
 
+pub use average::AverageAggregation;
 pub use cardinality::CardinalityAggregation;
 pub use composite::CompositeAggregation;
 pub use date_histogram::DateHistogramAggregation;
@@ -40,6 +46,8 @@ pub use filters::FiltersAggregation;
 pub use global::GlobalAggregation;
 pub use histogram::HistogramAggregation;
 pub use ip_range::IpRangeAggregation;
+pub use max::MaxAggregation;
+pub use min::MinAggregation;
 pub use missing::MissingAggregation;
 pub use nested::NestedAggregation;
 pub use percentile::PercentileAggregation;
@@ -53,7 +61,9 @@ pub use reverse_nested::ReverseNestedAggregation;
 pub use sampler::{DiversifiedSamplerAggregation, SamplerAggregation};
 pub use significant_terms::SignificantTermsAggregation;
 pub use stats::StatsAggregation;
+pub use sum::SumAggregation;
 pub use terms::TermsAggregation;
+pub use value_count::ValueCountAggregation;
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -116,6 +126,16 @@ pub enum AggregationSpec {
     Sampler(SamplerAggregation),
     /// Diversified sampler aggregation (diversified sampling)
     DiversifiedSampler(DiversifiedSamplerAggregation),
+    /// Value count aggregation (counts number of values)
+    ValueCount(ValueCountAggregation),
+    /// Average aggregation (mean value)
+    Avg(AverageAggregation),
+    /// Sum aggregation (sum of values)
+    Sum(SumAggregation),
+    /// Min aggregation (minimum value)
+    Min(MinAggregation),
+    /// Max aggregation (maximum value)
+    Max(MaxAggregation),
 }
 
 impl AggregationSpec {
@@ -141,6 +161,11 @@ impl AggregationSpec {
             AggregationSpec::Composite(agg) => agg.name(),
             AggregationSpec::Sampler(agg) => agg.name(),
             AggregationSpec::DiversifiedSampler(agg) => agg.name(),
+            AggregationSpec::ValueCount(agg) => agg.name(),
+            AggregationSpec::Avg(agg) => agg.name(),
+            AggregationSpec::Sum(agg) => agg.name(),
+            AggregationSpec::Min(agg) => agg.name(),
+            AggregationSpec::Max(agg) => agg.name(),
         }
     }
 }

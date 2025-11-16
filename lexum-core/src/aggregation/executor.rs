@@ -88,6 +88,13 @@ impl AggregationExecutor {
                 super::AggregationSpec::DiversifiedSampler(diversified_sampler_agg) => {
                     diversified_sampler_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::ValueCount(value_count_agg) => {
+                    value_count_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Avg(avg_agg) => avg_agg.execute(hits, &self.field_cache)?,
+                super::AggregationSpec::Sum(sum_agg) => sum_agg.execute(hits, &self.field_cache)?,
+                super::AggregationSpec::Min(min_agg) => min_agg.execute(hits, &self.field_cache)?,
+                super::AggregationSpec::Max(max_agg) => max_agg.execute(hits, &self.field_cache)?,
             };
 
             results.insert(agg.name().to_string(), result);
@@ -126,6 +133,11 @@ impl AggregationExecutor {
             super::AggregationSpec::DiversifiedSampler(diversified_sampler_agg) => {
                 diversified_sampler_agg.merge(results)
             }
+            super::AggregationSpec::ValueCount(value_count_agg) => value_count_agg.merge(results),
+            super::AggregationSpec::Avg(avg_agg) => avg_agg.merge(results),
+            super::AggregationSpec::Sum(sum_agg) => sum_agg.merge(results),
+            super::AggregationSpec::Min(min_agg) => min_agg.merge(results),
+            super::AggregationSpec::Max(max_agg) => max_agg.merge(results),
         }
     }
 }

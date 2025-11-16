@@ -106,6 +106,13 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::ReverseNested(reverse_nested_agg) => {
                     reverse_nested_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::ValueCount(value_count_agg) => {
+                    value_count_agg.execute(&parent_hits, field_cache)?
+                }
+                AggregationSpec::Avg(avg_agg) => avg_agg.execute(&parent_hits, field_cache)?,
+                AggregationSpec::Sum(sum_agg) => sum_agg.execute(&parent_hits, field_cache)?,
+                AggregationSpec::Min(min_agg) => min_agg.execute(&parent_hits, field_cache)?,
+                AggregationSpec::Max(max_agg) => max_agg.execute(&parent_hits, field_cache)?,
                 AggregationSpec::Pipeline(pipeline_agg) => {
                     pipeline_agg.execute(&parent_hits, field_cache)?
                 }
@@ -196,6 +203,18 @@ impl AggregationTrait for ReverseNestedAggregation {
                                                 reverse_nested_agg
                                                     .merge(&[existing.clone(), agg_result.clone()])
                                             }
+                                            AggregationSpec::ValueCount(value_count_agg) => {
+                                                value_count_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
+                                            AggregationSpec::Avg(avg_agg) => avg_agg
+                                                .merge(&[existing.clone(), agg_result.clone()]),
+                                            AggregationSpec::Sum(sum_agg) => sum_agg
+                                                .merge(&[existing.clone(), agg_result.clone()]),
+                                            AggregationSpec::Min(min_agg) => min_agg
+                                                .merge(&[existing.clone(), agg_result.clone()]),
+                                            AggregationSpec::Max(max_agg) => max_agg
+                                                .merge(&[existing.clone(), agg_result.clone()]),
                                             AggregationSpec::Pipeline(pipeline_agg) => pipeline_agg
                                                 .merge(&[existing.clone(), agg_result.clone()]),
                                         } {

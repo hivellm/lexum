@@ -96,6 +96,13 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::DiversifiedSampler(diversified_sampler_agg) => {
                     diversified_sampler_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::ValueCount(value_count_agg) => {
+                    value_count_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::Avg(avg_agg) => avg_agg.execute(&nested_hits, field_cache)?,
+                AggregationSpec::Sum(sum_agg) => sum_agg.execute(&nested_hits, field_cache)?,
+                AggregationSpec::Min(min_agg) => min_agg.execute(&nested_hits, field_cache)?,
+                AggregationSpec::Max(max_agg) => max_agg.execute(&nested_hits, field_cache)?,
             };
             sub_results.insert(name.clone(), result);
         }
