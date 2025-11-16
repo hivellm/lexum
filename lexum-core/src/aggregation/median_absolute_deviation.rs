@@ -93,7 +93,7 @@ impl AggregationTrait for MedianAbsoluteDeviationAggregation {
         let median = calculate_median(&values);
 
         // Calculate absolute deviations from median
-        let mut deviations: Vec<f64> = values.iter().map(|v| (v - median).abs()).collect();
+        let deviations: Vec<f64> = values.iter().map(|v| (v - median).abs()).collect();
 
         // Calculate median of absolute deviations (MAD)
         let mad = calculate_median(&deviations);

@@ -185,7 +185,7 @@ fn extract_numeric_value(value: &JsonValue) -> Option<f64> {
 /// Convert rate based on unit
 /// Note: This is a simplified conversion. Full implementation would
 /// use actual time range from the aggregation context.
-fn convert_rate(rate: f64, unit: &str) -> f64 {
+fn convert_rate(rate: f64, _unit: &str) -> f64 {
     // Parse unit (e.g., "1s", "1m", "1h", "1d")
     // For now, return rate as-is (full implementation would convert)
     // Full implementation would:

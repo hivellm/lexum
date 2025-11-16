@@ -179,7 +179,7 @@ impl AggregationTrait for StringStatsAggregation {
                     if let (Some(ref mut merged_dist), Some(ref stats_dist)) =
                         (merged_distribution.as_mut(), stats.distribution.as_ref())
                     {
-                        for (ch, count) in stats_dist {
+                        for (ch, count) in stats_dist.iter() {
                             *merged_dist.entry(*ch).or_insert(0) += count;
                         }
                     }
