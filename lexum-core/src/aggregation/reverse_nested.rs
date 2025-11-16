@@ -125,6 +125,9 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::GeoDistance(geo_distance_agg) => {
                     geo_distance_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::ExtendedStats(extended_stats_agg) => {
+                    extended_stats_agg.execute(&parent_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
@@ -236,6 +239,10 @@ impl AggregationTrait for ReverseNestedAggregation {
                                             }
                                             AggregationSpec::GeoDistance(geo_distance_agg) => {
                                                 geo_distance_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
+                                            AggregationSpec::ExtendedStats(extended_stats_agg) => {
+                                                extended_stats_agg
                                                     .merge(&[existing.clone(), agg_result.clone()])
                                             }
                                         } {

@@ -16,6 +16,7 @@ pub mod composite;
 pub mod date_histogram;
 pub mod date_range;
 pub mod executor;
+pub mod extended_stats;
 pub mod filters;
 pub mod geo_bounds;
 pub mod geo_distance;
@@ -45,6 +46,7 @@ pub use composite::CompositeAggregation;
 pub use date_histogram::DateHistogramAggregation;
 pub use date_range::DateRangeAggregation;
 pub use executor::AggregationExecutor;
+pub use extended_stats::{ExtendedStatsAggregation, ExtendedStatsResult};
 pub use filters::FiltersAggregation;
 pub use geo_bounds::{GeoBoundsAggregation, GeoBoundsResult};
 pub use geo_distance::{DistanceRange, GeoDistanceAggregation, GeoDistanceBucket};
@@ -148,6 +150,8 @@ pub enum AggregationSpec {
     GeoBounds(GeoBoundsAggregation),
     /// Geo distance aggregation (distance-based buckets)
     GeoDistance(GeoDistanceAggregation),
+    /// Extended stats aggregation (variance, std deviation, sum of squares)
+    ExtendedStats(ExtendedStatsAggregation),
 }
 
 impl AggregationSpec {
@@ -181,6 +185,7 @@ impl AggregationSpec {
             AggregationSpec::GeohashGrid(agg) => agg.name(),
             AggregationSpec::GeoBounds(agg) => agg.name(),
             AggregationSpec::GeoDistance(agg) => agg.name(),
+            AggregationSpec::ExtendedStats(agg) => agg.name(),
         }
     }
 }

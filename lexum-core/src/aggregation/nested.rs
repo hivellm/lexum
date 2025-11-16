@@ -112,6 +112,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::GeoDistance(geo_distance_agg) => {
                     geo_distance_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::ExtendedStats(extended_stats_agg) => {
+                    extended_stats_agg.execute(&nested_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }

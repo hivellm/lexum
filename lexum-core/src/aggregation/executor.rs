@@ -104,6 +104,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::GeoDistance(geo_distance_agg) => {
                     geo_distance_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::ExtendedStats(extended_stats_agg) => {
+                    extended_stats_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -153,6 +156,9 @@ impl AggregationExecutor {
             super::AggregationSpec::GeoBounds(geo_bounds_agg) => geo_bounds_agg.merge(results),
             super::AggregationSpec::GeoDistance(geo_distance_agg) => {
                 geo_distance_agg.merge(results)
+            }
+            super::AggregationSpec::ExtendedStats(extended_stats_agg) => {
+                extended_stats_agg.merge(results)
             }
         }
     }

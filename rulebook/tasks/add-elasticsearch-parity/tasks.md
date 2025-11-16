@@ -232,7 +232,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Sum Aggregation ✅ **IMPLEMENTED** (separate from stats)
 - [x] Min Aggregation ✅ **IMPLEMENTED** (separate from stats)
 - [x] Max Aggregation ✅ **IMPLEMENTED** (separate from stats)
-- [ ] Extended Stats Aggregation - **MISSING**
+- [x] Extended Stats Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Median Absolute Deviation - **MISSING**
 - [ ] Top Hits Aggregation - **MISSING**
 - [ ] Scripted Metric Aggregation - **MISSING**
@@ -248,9 +248,11 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Separate avg, sum, min, max aggregations
   - Value count aggregation
   - Comprehensive test coverage (19 tests total)
-- [ ] 2.2.2 Implement Extended Stats
-  - Variance, std deviation
-  - Sum of squares
+- [x] 2.2.2 Implement Extended Stats ✅ **COMPLETED**
+  - Variance, std deviation ✅
+  - Sum of squares ✅
+  - Standard deviation bounds (upper/lower) ✅
+  - Sigma parameter for bounds calculation ✅
 - [ ] 2.2.3 Implement Median Absolute Deviation
   - MAD calculation
   - Compression parameter
