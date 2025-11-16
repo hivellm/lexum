@@ -10,5 +10,6 @@ pub use types::{
     GeoShapeRelation, HasChildQuery, HasParentQuery, MatchQuery, MoreLikeThisQuery,
     MultiMatchOperator, MultiMatchQuery, MultiMatchType, NestedQuery, NestedScoreMode,
     ParentChildScoreMode, PercolateQuery, PhraseQuery, PinnedQuery, Query, RangeQuery, RegexQuery,
-    TermQuery, WildcardQuery, WrapperQuery,
+    SimpleQueryStringFlags, SimpleQueryStringOperator, SimpleQueryStringQuery, TermQuery,
+    WildcardQuery, WrapperQuery,
 };

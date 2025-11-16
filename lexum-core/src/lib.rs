@@ -107,7 +107,8 @@ pub use query::{
     GeoShapeRelation, HasChildQuery, HasParentQuery, MatchQuery, MoreLikeThisQuery,
     MultiMatchOperator, MultiMatchQuery, MultiMatchType, NestedQuery, NestedScoreMode,
     ParentChildScoreMode, PercolateQuery, PhraseQuery, PinnedQuery, Query, QueryBuilder,
-    RangeQuery, TermQuery, WrapperQuery,
+    RangeQuery, SimpleQueryStringFlags, SimpleQueryStringOperator, SimpleQueryStringQuery,
+    TermQuery, WrapperQuery,
 };
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};

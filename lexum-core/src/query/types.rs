@@ -59,6 +59,8 @@ pub enum Query {
     GeoShape(GeoShapeQuery),
     /// Percolate query (reverse search - match stored queries against document)
     Percolate(PercolateQuery),
+    /// Simple query string query (simplified syntax for end users)
+    SimpleQueryString(SimpleQueryStringQuery),
 }
 
 /// Match query for full-text search
@@ -960,6 +962,205 @@ impl PercolateQuery {
     /// Set preferred document sources
     pub fn preferred_sources(mut self, sources: Vec<String>) -> Self {
         self.preferred_sources = Some(sources);
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Simple query string query for simplified syntax
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SimpleQueryStringQuery {
+    /// Query string to parse
+    pub query: String,
+    /// Fields to search (defaults to all fields if empty)
+    #[serde(default)]
+    pub fields: Vec<String>,
+    /// Default operator (AND/OR)
+    #[serde(default)]
+    pub default_operator: SimpleQueryStringOperator,
+    /// Analyze wildcard (whether to analyze wildcard terms)
+    #[serde(default)]
+    pub analyze_wildcard: bool,
+    /// Auto generate synonyms phrase query
+    #[serde(default)]
+    pub auto_generate_synonyms_phrase_query: bool,
+    /// Flags to control which features are enabled
+    #[serde(default = "default_simple_query_string_flags")]
+    pub flags: SimpleQueryStringFlags,
+    /// Fuzzy max expansions
+    #[serde(default = "default_fuzzy_max_expansions")]
+    pub fuzzy_max_expansions: u32,
+    /// Fuzzy prefix length
+    #[serde(default = "default_fuzzy_prefix_length")]
+    pub fuzzy_prefix_length: u32,
+    /// Fuzzy transpositions
+    #[serde(default)]
+    pub fuzzy_transpositions: bool,
+    /// Lenient (ignore format-based errors)
+    #[serde(default)]
+    pub lenient: bool,
+    /// Minimum should match
+    #[serde(default)]
+    pub minimum_should_match: Option<String>,
+    /// Quote field suffix
+    #[serde(default)]
+    pub quote_field_suffix: Option<String>,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+/// Default operator for simple query string
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum SimpleQueryStringOperator {
+    /// AND operator (all terms must match)
+    #[default]
+    And,
+    /// OR operator (any term can match)
+    Or,
+}
+
+/// Flags for simple query string features
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+pub struct SimpleQueryStringFlags {
+    /// Enable AND operator
+    #[serde(default = "default_true")]
+    pub and: bool,
+    /// Enable OR operator
+    #[serde(default = "default_true")]
+    pub or: bool,
+    /// Enable NOT operator
+    #[serde(default = "default_true")]
+    pub not: bool,
+    /// Enable prefix matching
+    #[serde(default = "default_true")]
+    pub prefix: bool,
+    /// Enable phrase matching
+    #[serde(default = "default_true")]
+    pub phrase: bool,
+    /// Enable precedence
+    #[serde(default = "default_true")]
+    pub precedence: bool,
+    /// Enable escape
+    #[serde(default = "default_true")]
+    pub escape: bool,
+    /// Enable whitespace
+    #[serde(default = "default_true")]
+    pub whitespace: bool,
+    /// Enable fuzzy matching
+    #[serde(default = "default_true")]
+    pub fuzzy: bool,
+    /// Enable near matching
+    #[serde(default = "default_true")]
+    pub near: bool,
+    /// Enable slop
+    #[serde(default = "default_true")]
+    pub slop: bool,
+}
+
+fn default_simple_query_string_flags() -> SimpleQueryStringFlags {
+    SimpleQueryStringFlags::default()
+}
+
+fn default_fuzzy_max_expansions() -> u32 {
+    50
+}
+
+fn default_fuzzy_prefix_length() -> u32 {
+    0
+}
+
+// Note: default_true() is already defined earlier in the file
+
+impl SimpleQueryStringQuery {
+    /// Create new simple query string query
+    pub fn new(query: impl Into<String>) -> Self {
+        Self {
+            query: query.into(),
+            fields: Vec::new(),
+            default_operator: SimpleQueryStringOperator::Or,
+            analyze_wildcard: false,
+            auto_generate_synonyms_phrase_query: true,
+            flags: SimpleQueryStringFlags::default(),
+            fuzzy_max_expansions: 50,
+            fuzzy_prefix_length: 0,
+            fuzzy_transpositions: true,
+            lenient: false,
+            minimum_should_match: None,
+            quote_field_suffix: None,
+            boost: 1.0,
+        }
+    }
+
+    /// Set fields to search
+    pub fn fields(mut self, fields: Vec<String>) -> Self {
+        self.fields = fields;
+        self
+    }
+
+    /// Set default operator
+    pub fn default_operator(mut self, operator: SimpleQueryStringOperator) -> Self {
+        self.default_operator = operator;
+        self
+    }
+
+    /// Set analyze wildcard
+    pub fn analyze_wildcard(mut self, analyze: bool) -> Self {
+        self.analyze_wildcard = analyze;
+        self
+    }
+
+    /// Set auto generate synonyms phrase query
+    pub fn auto_generate_synonyms_phrase_query(mut self, auto: bool) -> Self {
+        self.auto_generate_synonyms_phrase_query = auto;
+        self
+    }
+
+    /// Set flags
+    pub fn flags(mut self, flags: SimpleQueryStringFlags) -> Self {
+        self.flags = flags;
+        self
+    }
+
+    /// Set fuzzy max expansions
+    pub fn fuzzy_max_expansions(mut self, max: u32) -> Self {
+        self.fuzzy_max_expansions = max;
+        self
+    }
+
+    /// Set fuzzy prefix length
+    pub fn fuzzy_prefix_length(mut self, length: u32) -> Self {
+        self.fuzzy_prefix_length = length;
+        self
+    }
+
+    /// Set fuzzy transpositions
+    pub fn fuzzy_transpositions(mut self, transpositions: bool) -> Self {
+        self.fuzzy_transpositions = transpositions;
+        self
+    }
+
+    /// Set lenient mode
+    pub fn lenient(mut self, lenient: bool) -> Self {
+        self.lenient = lenient;
+        self
+    }
+
+    /// Set minimum should match
+    pub fn minimum_should_match(mut self, msm: impl Into<String>) -> Self {
+        self.minimum_should_match = Some(msm.into());
+        self
+    }
+
+    /// Set quote field suffix
+    pub fn quote_field_suffix(mut self, suffix: impl Into<String>) -> Self {
+        self.quote_field_suffix = Some(suffix.into());
         self
     }
 
@@ -2915,6 +3116,101 @@ mod tests {
         assert_eq!(deserialized.document, document);
         assert_eq!(deserialized.index, Some("queries".to_string()));
         assert_eq!(deserialized.document_type, Some("alert".to_string()));
+        assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_simple_query_string_query() {
+        let query = SimpleQueryStringQuery::new("quick brown fox");
+
+        assert_eq!(query.query, "quick brown fox");
+        assert!(query.fields.is_empty());
+        assert!(matches!(
+            query.default_operator,
+            SimpleQueryStringOperator::Or
+        ));
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_simple_query_string_query_with_fields() {
+        let query = SimpleQueryStringQuery::new("test")
+            .fields(vec!["title".to_string(), "content".to_string()]);
+
+        assert_eq!(query.fields.len(), 2);
+        assert_eq!(query.fields[0], "title");
+    }
+
+    #[test]
+    fn test_simple_query_string_query_with_default_operator() {
+        let query =
+            SimpleQueryStringQuery::new("test").default_operator(SimpleQueryStringOperator::And);
+
+        assert!(matches!(
+            query.default_operator,
+            SimpleQueryStringOperator::And
+        ));
+    }
+
+    #[test]
+    fn test_simple_query_string_query_with_flags() {
+        let flags = SimpleQueryStringFlags {
+            fuzzy: false,
+            ..Default::default()
+        };
+        let query = SimpleQueryStringQuery::new("test").flags(flags);
+
+        assert!(!query.flags.fuzzy);
+    }
+
+    #[test]
+    fn test_simple_query_string_query_with_fuzzy_options() {
+        let query = SimpleQueryStringQuery::new("test")
+            .fuzzy_max_expansions(100)
+            .fuzzy_prefix_length(3)
+            .fuzzy_transpositions(false);
+
+        assert_eq!(query.fuzzy_max_expansions, 100);
+        assert_eq!(query.fuzzy_prefix_length, 3);
+        assert!(!query.fuzzy_transpositions);
+    }
+
+    #[test]
+    fn test_simple_query_string_query_with_minimum_should_match() {
+        let query = SimpleQueryStringQuery::new("test").minimum_should_match("75%");
+
+        assert_eq!(query.minimum_should_match, Some("75%".to_string()));
+    }
+
+    #[test]
+    fn test_simple_query_string_query_with_boost() {
+        let query = SimpleQueryStringQuery::new("test").boost(2.0);
+
+        assert_eq!(query.boost, 2.0);
+    }
+
+    #[test]
+    fn test_simple_query_string_query_serialization() {
+        let query = SimpleQueryStringQuery::new("quick brown fox")
+            .fields(vec!["title".to_string()])
+            .default_operator(SimpleQueryStringOperator::And)
+            .fuzzy_max_expansions(100)
+            .boost(1.5);
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("query"));
+        assert!(json.contains("fields"));
+        assert!(json.contains("default_operator"));
+        assert!(json.contains("fuzzy_max_expansions"));
+        assert!(json.contains("boost"));
+
+        let deserialized: SimpleQueryStringQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.query, "quick brown fox");
+        assert_eq!(deserialized.fields.len(), 1);
+        assert!(matches!(
+            deserialized.default_operator,
+            SimpleQueryStringOperator::And
+        ));
         assert_eq!(deserialized.boost, 1.5);
     }
 }

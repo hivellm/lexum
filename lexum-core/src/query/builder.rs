@@ -4,7 +4,7 @@ use super::types::{
     CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, GeoBoundingBoxQuery, GeoDistanceQuery,
     GeoPoint, GeoPolygonQuery, GeoShape, GeoShapeQuery, HasChildQuery, HasParentQuery,
     MoreLikeThisQuery, MultiMatchQuery, NestedQuery, PercolateQuery, PinnedQuery, ScriptQuery,
-    WrapperQuery, *,
+    SimpleQueryStringQuery, WrapperQuery, *,
 };
 
 /// Builder for creating queries
@@ -143,6 +143,11 @@ impl QueryBuilder {
     /// Create a percolate query
     pub fn percolate_query(field: impl Into<String>, document: serde_json::Value) -> Query {
         Query::Percolate(PercolateQuery::new(field, document))
+    }
+
+    /// Create a simple query string query
+    pub fn simple_query_string_query(query: impl Into<String>) -> Query {
+        Query::SimpleQueryString(SimpleQueryStringQuery::new(query))
     }
 }
 
@@ -312,5 +317,11 @@ mod tests {
         let document = serde_json::json!({"title": "test"});
         let query = QueryBuilder::percolate_query("document", document);
         assert!(matches!(query, Query::Percolate(_)));
+    }
+
+    #[test]
+    fn test_simple_query_string_query_builder() {
+        let query = QueryBuilder::simple_query_string_query("quick brown fox");
+        assert!(matches!(query, Query::SimpleQueryString(_)));
     }
 }
