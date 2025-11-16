@@ -95,6 +95,15 @@ impl AggregationExecutor {
                 super::AggregationSpec::Sum(sum_agg) => sum_agg.execute(hits, &self.field_cache)?,
                 super::AggregationSpec::Min(min_agg) => min_agg.execute(hits, &self.field_cache)?,
                 super::AggregationSpec::Max(max_agg) => max_agg.execute(hits, &self.field_cache)?,
+                super::AggregationSpec::GeohashGrid(geohash_grid_agg) => {
+                    geohash_grid_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::GeoBounds(geo_bounds_agg) => {
+                    geo_bounds_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::GeoDistance(geo_distance_agg) => {
+                    geo_distance_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);

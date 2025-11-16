@@ -17,6 +17,9 @@ pub mod date_histogram;
 pub mod date_range;
 pub mod executor;
 pub mod filters;
+pub mod geo_bounds;
+pub mod geo_distance;
+pub mod geohash_grid;
 pub mod global;
 pub mod histogram;
 pub mod ip_range;
@@ -43,6 +46,9 @@ pub use date_histogram::DateHistogramAggregation;
 pub use date_range::DateRangeAggregation;
 pub use executor::AggregationExecutor;
 pub use filters::FiltersAggregation;
+pub use geo_bounds::{GeoBoundsAggregation, GeoBoundsResult};
+pub use geo_distance::{DistanceRange, GeoDistanceAggregation, GeoDistanceBucket};
+pub use geohash_grid::{GeohashGridAggregation, GeohashGridBucket};
 pub use global::GlobalAggregation;
 pub use histogram::HistogramAggregation;
 pub use ip_range::IpRangeAggregation;
@@ -136,6 +142,12 @@ pub enum AggregationSpec {
     Min(MinAggregation),
     /// Max aggregation (maximum value)
     Max(MaxAggregation),
+    /// Geohash grid aggregation (geo grid cells)
+    GeohashGrid(GeohashGridAggregation),
+    /// Geo bounds aggregation (bounding box)
+    GeoBounds(GeoBoundsAggregation),
+    /// Geo distance aggregation (distance-based buckets)
+    GeoDistance(GeoDistanceAggregation),
 }
 
 impl AggregationSpec {
@@ -166,6 +178,9 @@ impl AggregationSpec {
             AggregationSpec::Sum(agg) => agg.name(),
             AggregationSpec::Min(agg) => agg.name(),
             AggregationSpec::Max(agg) => agg.name(),
+            AggregationSpec::GeohashGrid(agg) => agg.name(),
+            AggregationSpec::GeoBounds(agg) => agg.name(),
+            AggregationSpec::GeoDistance(agg) => agg.name(),
         }
     }
 }

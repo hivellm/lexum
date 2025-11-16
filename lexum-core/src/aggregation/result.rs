@@ -11,10 +11,14 @@ use utoipa::ToSchema;
 pub enum AggregationResult {
     /// Bucket-based aggregation (terms, histogram, etc.)
     Buckets(BucketAggregationResult),
+    /// Bucket aggregation (alternative format)
+    Bucket(BucketAggregationResult),
     /// Metric aggregation (stats, percentile, cardinality)
     Metric(MetricAggregationResult),
     /// Single bucket aggregation (filter, etc.)
     SingleBucket(SingleBucketAggregationResult),
+    /// Geo bounds aggregation result
+    GeoBounds(crate::aggregation::geo_bounds::GeoBoundsResult),
 }
 
 /// Bucket aggregation result

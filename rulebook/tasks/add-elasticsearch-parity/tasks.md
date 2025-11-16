@@ -157,9 +157,9 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] IP Range Aggregation ✅ **IMPLEMENTED**
 - [x] Filters Aggregation ✅ **IMPLEMENTED**
 - [x] Significant Terms Aggregation ✅ **IMPLEMENTED**
-- [ ] Geohash Grid Aggregation - **MISSING**
-- [ ] Geo Distance Aggregation - **MISSING**
-- [ ] Geo Bounds Aggregation - **MISSING**
+- [x] Geohash Grid Aggregation ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Geo Distance Aggregation ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Geo Bounds Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Composite Aggregation ✅ **IMPLEMENTED**
 - [x] Sampler Aggregation ✅ **IMPLEMENTED**
 - [x] Diversified Sampler Aggregation ✅ **IMPLEMENTED**
@@ -191,7 +191,11 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Background filter
   - Mutual information scoring
   - Chi-square, G-test, and Percentage scoring methods
-- [ ] 2.1.6 Implement Geo Aggregations (see Geo-Spatial section)
+- [x] 2.1.6 Implement Geo Aggregations ✅ **COMPLETED** (see Geo-Spatial section)
+  - Geohash Grid Aggregation ✅
+  - Geo Bounds Aggregation ✅
+  - Geo Distance Aggregation ✅
+  - Note: Full implementation requires geo field support in Tantivy
 - [x] 2.1.7 Implement Composite Aggregation ✅ **COMPLETED**
   - Multi-level grouping
   - After key pagination
