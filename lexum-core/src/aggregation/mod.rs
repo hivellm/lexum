@@ -33,6 +33,7 @@ pub mod nested;
 pub mod percentile;
 pub mod pipeline;
 pub mod range;
+pub mod rate;
 pub mod result;
 pub mod reverse_nested;
 pub mod sampler;
@@ -69,6 +70,7 @@ pub use nested::NestedAggregation;
 pub use percentile::PercentileAggregation;
 pub use pipeline::PipelineAggregation;
 pub use range::RangeAggregation;
+pub use rate::{RateAggregation, RateResult};
 pub use result::{
     AggregationResult, Bucket, BucketAggregationResult, MetricAggregationResult,
     SingleBucketAggregationResult,
@@ -170,6 +172,8 @@ pub enum AggregationSpec {
     StringStats(StringStatsAggregation),
     /// Boxplot aggregation (quartiles, IQR, whiskers)
     Boxplot(BoxplotAggregation),
+    /// Rate aggregation (time-based rate calculation)
+    Rate(RateAggregation),
 }
 
 impl AggregationSpec {
@@ -208,6 +212,7 @@ impl AggregationSpec {
             AggregationSpec::WeightedAverage(agg) => agg.name(),
             AggregationSpec::StringStats(agg) => agg.name(),
             AggregationSpec::Boxplot(agg) => agg.name(),
+            AggregationSpec::Rate(agg) => agg.name(),
         }
     }
 }

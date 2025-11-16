@@ -119,6 +119,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::Boxplot(boxplot_agg) => {
                     boxplot_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::Rate(rate_agg) => {
+                    rate_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -180,6 +183,7 @@ impl AggregationExecutor {
                 string_stats_agg.merge(results)
             }
             super::AggregationSpec::Boxplot(boxplot_agg) => boxplot_agg.merge(results),
+            super::AggregationSpec::Rate(rate_agg) => rate_agg.merge(results),
         }
     }
 }
