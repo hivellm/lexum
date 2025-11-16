@@ -194,4 +194,133 @@ mod tests {
             panic!("Expected Metric result");
         }
     }
+
+    #[test]
+    fn test_value_count_aggregation_empty_array() {
+        let hits = vec![create_test_hit("1", "field", serde_json::json!([]))];
+        let field_cache = FieldCache::new();
+
+        let agg = ValueCountAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 0);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_value_count_aggregation_mixed_types() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10)),
+            create_test_hit("2", "field", serde_json::json!("string")),
+            create_test_hit("3", "field", serde_json::json!(true)),
+            create_test_hit("4", "field", serde_json::json!({ "nested": "object" })),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = ValueCountAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 4); // All non-null values are counted
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_value_count_aggregation_array_with_null() {
+        let hits = vec![create_test_hit(
+            "1",
+            "field",
+            serde_json::json!([1, null, 3, null]),
+        )];
+        let field_cache = FieldCache::new();
+
+        let agg = ValueCountAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 4); // Array length, nulls are counted as elements
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_value_count_aggregation_merge_multiple_shards() {
+        let field_cache = FieldCache::new();
+        let agg = ValueCountAggregation::new("field");
+
+        let hits1 = vec![create_test_hit("1", "field", serde_json::json!([1, 2]))];
+        let hits2 = vec![create_test_hit("2", "field", serde_json::json!([3, 4, 5]))];
+        let hits3 = vec![create_test_hit("3", "field", serde_json::json!(10))];
+
+        let result1 = agg.execute(&hits1, &field_cache).unwrap();
+        let result2 = agg.execute(&hits2, &field_cache).unwrap();
+        let result3 = agg.execute(&hits3, &field_cache).unwrap();
+
+        let merged = agg.merge(&[result1, result2, result3]).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = merged {
+            assert_eq!(metric_result.value["value"], 6); // 2 + 3 + 1
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_value_count_aggregation_merge_empty_results() {
+        let agg = ValueCountAggregation::new("field");
+
+        let empty_result = AggregationResult::Metric(MetricAggregationResult::new(
+            serde_json::json!({ "value": 0 }),
+        ));
+
+        let merged = agg.merge(&[empty_result]).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = merged {
+            assert_eq!(metric_result.value["value"], 0);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_value_count_aggregation_string_values() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!("value1")),
+            create_test_hit("2", "field", serde_json::json!("value2")),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = ValueCountAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 2);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_value_count_aggregation_boolean_values() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(true)),
+            create_test_hit("2", "field", serde_json::json!(false)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = ValueCountAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 2);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
 }

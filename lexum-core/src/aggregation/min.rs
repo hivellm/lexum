@@ -153,4 +153,151 @@ mod tests {
             panic!("Expected Metric result");
         }
     }
+
+    #[test]
+    fn test_min_aggregation_negative_values() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(-10)),
+            create_test_hit("2", "field", serde_json::json!(-20)),
+            create_test_hit("3", "field", serde_json::json!(10)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = MinAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], -20.0);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_min_aggregation_decimal_values() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10.5)),
+            create_test_hit("2", "field", serde_json::json!(20.25)),
+            create_test_hit("3", "field", serde_json::json!(5.75)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = MinAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 5.75);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_min_aggregation_zero_value() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10)),
+            create_test_hit("2", "field", serde_json::json!(0)),
+            create_test_hit("3", "field", serde_json::json!(20)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = MinAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 0.0);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_min_aggregation_mixed_int_float() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10)),
+            create_test_hit("2", "field", serde_json::json!(5.5)),
+            create_test_hit("3", "field", serde_json::json!(30)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = MinAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 5.5);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_min_aggregation_single_value() {
+        let hits = vec![create_test_hit("1", "field", serde_json::json!(42))];
+        let field_cache = FieldCache::new();
+
+        let agg = MinAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 42.0);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_min_aggregation_merge_multiple_shards() {
+        let field_cache = FieldCache::new();
+        let agg = MinAggregation::new("field");
+
+        let hits1 = vec![create_test_hit("1", "field", serde_json::json!(20))];
+        let hits2 = vec![create_test_hit("2", "field", serde_json::json!(10))];
+        let hits3 = vec![create_test_hit("3", "field", serde_json::json!(15))];
+
+        let result1 = agg.execute(&hits1, &field_cache).unwrap();
+        let result2 = agg.execute(&hits2, &field_cache).unwrap();
+        let result3 = agg.execute(&hits3, &field_cache).unwrap();
+
+        let merged = agg.merge(&[result1, result2, result3]).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = merged {
+            assert_eq!(metric_result.value["value"], 10.0);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_min_aggregation_missing_field() {
+        let hits = vec![create_test_hit("1", "other_field", serde_json::json!(10))];
+        let field_cache = FieldCache::new();
+
+        let agg = MinAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert!(metric_result.value["value"].is_null());
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_min_aggregation_with_null_field() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10)),
+            create_test_hit("2", "field", serde_json::Value::Null),
+            create_test_hit("3", "field", serde_json::json!(5)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = MinAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            assert_eq!(metric_result.value["value"], 5.0); // Null values are ignored
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
 }

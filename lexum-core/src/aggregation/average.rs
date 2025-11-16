@@ -193,4 +193,172 @@ mod tests {
             panic!("Expected Metric result");
         }
     }
+
+    #[test]
+    fn test_average_aggregation_negative_values() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(-10)),
+            create_test_hit("2", "field", serde_json::json!(-20)),
+            create_test_hit("3", "field", serde_json::json!(10)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = AverageAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert!((avg - (-6.666666666666667)).abs() < 0.001);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_average_aggregation_decimal_values() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10.5)),
+            create_test_hit("2", "field", serde_json::json!(20.25)),
+            create_test_hit("3", "field", serde_json::json!(30.75)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = AverageAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert!((avg - 20.5).abs() < 0.001);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_average_aggregation_zero_values() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(0)),
+            create_test_hit("2", "field", serde_json::json!(0)),
+            create_test_hit("3", "field", serde_json::json!(0)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = AverageAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert_eq!(avg, 0.0);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_average_aggregation_mixed_int_float() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10)),
+            create_test_hit("2", "field", serde_json::json!(20.5)),
+            create_test_hit("3", "field", serde_json::json!(30)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = AverageAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert!((avg - 20.166666666666668).abs() < 0.001);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_average_aggregation_single_value() {
+        let hits = vec![create_test_hit("1", "field", serde_json::json!(42))];
+        let field_cache = FieldCache::new();
+
+        let agg = AverageAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert_eq!(avg, 42.0);
+            assert_eq!(metric_result.value["sum"], 42.0);
+            assert_eq!(metric_result.value["count"], 1);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_average_aggregation_merge_multiple_shards() {
+        let field_cache = FieldCache::new();
+        let agg = AverageAggregation::new("field");
+
+        let hits1 = vec![create_test_hit("1", "field", serde_json::json!(10))];
+        let hits2 = vec![create_test_hit("2", "field", serde_json::json!(20))];
+        let hits3 = vec![create_test_hit("3", "field", serde_json::json!(30))];
+
+        let result1 = agg.execute(&hits1, &field_cache).unwrap();
+        let result2 = agg.execute(&hits2, &field_cache).unwrap();
+        let result3 = agg.execute(&hits3, &field_cache).unwrap();
+
+        let merged = agg.merge(&[result1, result2, result3]).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = merged {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert!((avg - 20.0).abs() < 0.001);
+            assert_eq!(metric_result.value["sum"], 60.0);
+            assert_eq!(metric_result.value["count"], 3);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_average_aggregation_merge_with_empty() {
+        let field_cache = FieldCache::new();
+        let agg = AverageAggregation::new("field");
+
+        let hits1 = vec![create_test_hit("1", "field", serde_json::json!(10))];
+        let hits2: Vec<SearchHit> = vec![];
+
+        let result1 = agg.execute(&hits1, &field_cache).unwrap();
+        let result2 = agg.execute(&hits2, &field_cache).unwrap();
+
+        let merged = agg.merge(&[result1, result2]).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = merged {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert_eq!(avg, 10.0);
+            assert_eq!(metric_result.value["sum"], 10.0);
+            assert_eq!(metric_result.value["count"], 1);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
+
+    #[test]
+    fn test_average_aggregation_with_null_field() {
+        let hits = vec![
+            create_test_hit("1", "field", serde_json::json!(10)),
+            create_test_hit("2", "field", serde_json::Value::Null),
+            create_test_hit("3", "field", serde_json::json!(30)),
+        ];
+        let field_cache = FieldCache::new();
+
+        let agg = AverageAggregation::new("field");
+        let result = agg.execute(&hits, &field_cache).unwrap();
+
+        if let AggregationResult::Metric(metric_result) = result {
+            let avg = metric_result.value["value"].as_f64().unwrap();
+            assert_eq!(avg, 20.0); // Null values are ignored
+            assert_eq!(metric_result.value["sum"], 40.0);
+            assert_eq!(metric_result.value["count"], 2);
+        } else {
+            panic!("Expected Metric result");
+        }
+    }
 }
