@@ -61,6 +61,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::Nested(nested_agg) => {
                     nested_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::ReverseNested(reverse_nested_agg) => {
+                    reverse_nested_agg.execute(hits, &self.field_cache)?
+                }
                 super::AggregationSpec::Pipeline(pipeline_agg) => {
                     pipeline_agg.execute(hits, &self.field_cache)?
                 }
@@ -110,6 +113,9 @@ impl AggregationExecutor {
             super::AggregationSpec::Percentile(percentile_agg) => percentile_agg.merge(results),
             super::AggregationSpec::Cardinality(cardinality_agg) => cardinality_agg.merge(results),
             super::AggregationSpec::Nested(nested_agg) => nested_agg.merge(results),
+            super::AggregationSpec::ReverseNested(reverse_nested_agg) => {
+                reverse_nested_agg.merge(results)
+            }
             super::AggregationSpec::Pipeline(pipeline_agg) => pipeline_agg.merge(results),
             super::AggregationSpec::Range(range_agg) => range_agg.merge(results),
             super::AggregationSpec::Filters(filters_agg) => filters_agg.merge(results),

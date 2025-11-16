@@ -25,6 +25,7 @@ pub mod percentile;
 pub mod pipeline;
 pub mod range;
 pub mod result;
+pub mod reverse_nested;
 pub mod sampler;
 pub mod significant_terms;
 pub mod stats;
@@ -48,6 +49,7 @@ pub use result::{
     AggregationResult, Bucket, BucketAggregationResult, MetricAggregationResult,
     SingleBucketAggregationResult,
 };
+pub use reverse_nested::ReverseNestedAggregation;
 pub use sampler::{DiversifiedSamplerAggregation, SamplerAggregation};
 pub use significant_terms::SignificantTermsAggregation;
 pub use stats::StatsAggregation;
@@ -96,6 +98,8 @@ pub enum AggregationSpec {
     Cardinality(CardinalityAggregation),
     /// Nested aggregation (sub-aggregations)
     Nested(NestedAggregation),
+    /// Reverse nested aggregation (parent documents from nested)
+    ReverseNested(ReverseNestedAggregation),
     /// Pipeline aggregation (derived from other aggregations)
     Pipeline(PipelineAggregation),
     /// Range aggregation (numeric ranges)
@@ -128,6 +132,7 @@ impl AggregationSpec {
             AggregationSpec::Percentile(agg) => agg.name(),
             AggregationSpec::Cardinality(agg) => agg.name(),
             AggregationSpec::Nested(agg) => agg.name(),
+            AggregationSpec::ReverseNested(agg) => agg.name(),
             AggregationSpec::Pipeline(agg) => agg.name(),
             AggregationSpec::Range(agg) => agg.name(),
             AggregationSpec::Filters(agg) => agg.name(),

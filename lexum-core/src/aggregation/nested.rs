@@ -69,6 +69,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::Nested(nested_agg) => {
                     nested_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::ReverseNested(reverse_nested_agg) => {
+                    reverse_nested_agg.execute(&nested_hits, field_cache)?
+                }
                 AggregationSpec::Pipeline(pipeline_agg) => {
                     pipeline_agg.execute(&nested_hits, field_cache)?
                 }
