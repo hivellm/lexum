@@ -593,4 +593,315 @@ mod tests {
         assert!(runner.profiler().is_some());
         assert!(runner.metrics_collector().is_some());
     }
+
+    #[test]
+    fn test_reporter_default() {
+        let reporter = PerformanceReporter::new();
+        assert_eq!(reporter.format, ReportFormat::Text);
+        assert!(reporter.include_details);
+        assert!(reporter.include_system);
+    }
+
+    #[test]
+    fn test_reporter_with_format() {
+        let reporter = PerformanceReporter::new().with_format(ReportFormat::Json);
+        assert_eq!(reporter.format, ReportFormat::Json);
+
+        let reporter = PerformanceReporter::new().with_format(ReportFormat::Yaml);
+        assert_eq!(reporter.format, ReportFormat::Yaml);
+
+        let reporter = PerformanceReporter::new().with_format(ReportFormat::Html);
+        assert_eq!(reporter.format, ReportFormat::Html);
+
+        let reporter = PerformanceReporter::new().with_format(ReportFormat::Csv);
+        assert_eq!(reporter.format, ReportFormat::Csv);
+    }
+
+    #[test]
+    fn test_reporter_with_details() {
+        let reporter = PerformanceReporter::new().with_details(false);
+        assert!(!reporter.include_details);
+
+        let reporter = PerformanceReporter::new().with_details(true);
+        assert!(reporter.include_details);
+    }
+
+    #[test]
+    fn test_reporter_with_system() {
+        let reporter = PerformanceReporter::new().with_system(false);
+        assert!(!reporter.include_system);
+
+        let reporter = PerformanceReporter::new().with_system(true);
+        assert!(reporter.include_system);
+    }
+
+    #[test]
+    fn test_generate_json_report() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Json)
+            .with_details(true)
+            .with_system(true);
+
+        let mut metrics = Metrics::new();
+        metrics.system.memory_usage = 1024 * 1024 * 100; // 100 MB
+        metrics.system.cpu_usage = 25.5;
+
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.name = "test_operation".to_string();
+        profile.count = 100;
+        profile.total_time = Duration::from_millis(1000);
+        profiles.insert("test_operation".to_string(), profile);
+
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("\"analysis\""));
+        assert!(report.contains("\"metrics\""));
+        assert!(report.contains("\"profiles\""));
+    }
+
+    #[test]
+    fn test_generate_json_report_no_details() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Json)
+            .with_details(false)
+            .with_system(false);
+
+        let metrics = Metrics::new();
+        let profiles = HashMap::new();
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("\"analysis\""));
+        // Metrics and profiles should be null when details are disabled
+        assert!(
+            report.contains("null")
+                || report.contains("\"metrics\":null")
+                || report.contains("\"profiles\":null")
+        );
+    }
+
+    #[test]
+    fn test_generate_yaml_report() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Yaml)
+            .with_details(true)
+            .with_system(true);
+
+        let metrics = Metrics::new();
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.name = "test_operation".to_string();
+        profile.count = 50;
+        profiles.insert("test_operation".to_string(), profile);
+
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("analysis:"));
+        assert!(report.contains("metrics:") || report.contains("profiles:"));
+    }
+
+    #[test]
+    fn test_generate_html_report() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Html)
+            .with_details(true)
+            .with_system(true);
+
+        let mut metrics = Metrics::new();
+        metrics.system.memory_usage = 1024 * 1024 * 50;
+        metrics.system.cpu_usage = 15.0;
+
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.name = "search_operation".to_string();
+        profile.count = 200;
+        profile.total_time = Duration::from_millis(2000);
+        profiles.insert("search_operation".to_string(), profile);
+
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("<!DOCTYPE html>"));
+        assert!(report.contains("<h1>Lexum Performance Report</h1>"));
+        assert!(report.contains("<table>"));
+    }
+
+    #[test]
+    fn test_generate_html_report_no_details() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Html)
+            .with_details(false)
+            .with_system(true);
+
+        let metrics = Metrics::new();
+        let profiles = HashMap::new();
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("<!DOCTYPE html>"));
+        // Should not contain detailed profiles section
+        assert!(!report.contains("Detailed Profiles"));
+    }
+
+    #[test]
+    fn test_generate_csv_report() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Csv)
+            .with_details(true)
+            .with_system(true);
+
+        let metrics = Metrics::new();
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.name = "test_op".to_string();
+        profile.count = 100;
+        profile.total_time = Duration::from_millis(500);
+        profiles.insert("test_op".to_string(), profile);
+
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("Operation,Count"));
+        assert!(report.contains("test_op"));
+        assert!(report.contains("100"));
+    }
+
+    #[test]
+    fn test_generate_text_report_with_data() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Text)
+            .with_details(true)
+            .with_system(true);
+
+        let mut metrics = Metrics::new();
+        metrics.system.memory_usage = 1024 * 1024 * 200;
+        metrics.system.cpu_usage = 45.0;
+
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.name = "slow_operation".to_string();
+        profile.count = 50;
+        profile.total_time = Duration::from_millis(5000);
+        profiles.insert("slow_operation".to_string(), profile);
+
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("LEXUM PERFORMANCE REPORT"));
+        assert!(report.contains("SUMMARY:"));
+        assert!(report.contains("Total Operations:"));
+        assert!(report.contains("Memory Usage:"));
+        assert!(report.contains("CPU Usage:"));
+    }
+
+    #[test]
+    fn test_generate_text_report_no_system() {
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Text)
+            .with_details(true)
+            .with_system(false);
+
+        let metrics = Metrics::new();
+        let profiles = HashMap::new();
+        let analysis = AnalysisReport::new();
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("LEXUM PERFORMANCE REPORT"));
+        // Should not contain system metrics
+        assert!(!report.contains("Memory Usage:"));
+        assert!(!report.contains("CPU Usage:"));
+    }
+
+    #[test]
+    fn test_generate_text_report_with_analysis() {
+        use crate::performance::{HighFrequencyOperation, InconsistentOperation, SlowOperation};
+
+        let reporter = PerformanceReporter::new()
+            .with_format(ReportFormat::Text)
+            .with_details(true)
+            .with_system(true);
+
+        let metrics = Metrics::new();
+        let profiles = HashMap::new();
+
+        let mut analysis = AnalysisReport::new();
+        analysis.slow_operations.push(SlowOperation {
+            name: "slow_op".to_string(),
+            avg_time: Duration::from_millis(100),
+            count: 10,
+            recommendation: "Optimize".to_string(),
+        });
+        analysis
+            .inconsistent_operations
+            .push(InconsistentOperation {
+                name: "inconsistent_op".to_string(),
+                std_dev: Duration::from_millis(50),
+                coefficient_of_variation: 0.5,
+                recommendation: "Investigate".to_string(),
+            });
+        analysis
+            .high_frequency_operations
+            .push(HighFrequencyOperation {
+                name: "frequent_op".to_string(),
+                count: 1000,
+                avg_time: Duration::from_millis(5),
+                total_time: Duration::from_millis(5000),
+                recommendation: "Cache".to_string(),
+            });
+
+        let report = reporter.generate_report(&metrics, &profiles, &analysis);
+        assert!(report.contains("SLOW OPERATIONS:"));
+        assert!(report.contains("slow_op"));
+        assert!(report.contains("INCONSISTENT OPERATIONS:"));
+        assert!(report.contains("inconsistent_op"));
+        assert!(report.contains("HIGH FREQUENCY OPERATIONS:"));
+        assert!(report.contains("frequent_op"));
+    }
+
+    #[test]
+    fn test_benchmark_config_default() {
+        let config = BenchmarkConfig::default();
+        assert_eq!(config.iterations, 1000);
+        assert_eq!(config.warmup, 100);
+        assert_eq!(config.duration, Duration::from_secs(10));
+        assert!(config.enable_profiling);
+        assert!(config.enable_metrics);
+    }
+
+    #[test]
+    fn test_benchmark_runner_with_profiling_disabled() {
+        let config = BenchmarkConfig {
+            enable_profiling: false,
+            ..Default::default()
+        };
+        let runner = BenchmarkRunner::new(config);
+        assert!(runner.profiler().is_none());
+        assert!(runner.metrics_collector().is_some());
+    }
+
+    #[test]
+    fn test_benchmark_runner_with_metrics_disabled() {
+        let config = BenchmarkConfig {
+            enable_metrics: false,
+            ..Default::default()
+        };
+        let runner = BenchmarkRunner::new(config);
+        assert!(runner.profiler().is_some());
+        assert!(runner.metrics_collector().is_none());
+    }
+
+    #[test]
+    fn test_benchmark_runner_both_disabled() {
+        let config = BenchmarkConfig {
+            enable_profiling: false,
+            enable_metrics: false,
+            ..Default::default()
+        };
+        let runner = BenchmarkRunner::new(config);
+        assert!(runner.profiler().is_none());
+        assert!(runner.metrics_collector().is_none());
+    }
 }

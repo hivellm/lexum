@@ -1,6 +1,6 @@
 //! Query builder for constructing queries
 
-use super::types::*;
+use super::types::{MultiMatchQuery, *};
 
 /// Builder for creating queries
 pub struct QueryBuilder;
@@ -50,6 +50,11 @@ impl QueryBuilder {
     pub fn match_all() -> Query {
         Query::MatchAll
     }
+
+    /// Create a multi-match query
+    pub fn multi_match_query(fields: Vec<String>, query: impl Into<String>) -> Query {
+        Query::MultiMatch(MultiMatchQuery::new(fields, query))
+    }
 }
 
 #[cfg(test)]
@@ -90,5 +95,14 @@ mod tests {
     fn test_regex_query_builder() {
         let query = QueryBuilder::regex_query("content", "[A-Z][a-z]+");
         assert!(matches!(query, Query::Regex(_)));
+    }
+
+    #[test]
+    fn test_multi_match_query_builder() {
+        let query = QueryBuilder::multi_match_query(
+            vec!["title".to_string(), "content".to_string()],
+            "search terms",
+        );
+        assert!(matches!(query, Query::MultiMatch(_)));
     }
 }

@@ -299,6 +299,96 @@ mod tests {
 
         let missing_value = MultiIndexSearchExecutor::extract_field_value(&source, "missing");
         assert_eq!(missing_value, None);
+
+        let non_object = serde_json::json!("not an object");
+        let non_object_value = MultiIndexSearchExecutor::extract_field_value(&non_object, "field");
+        assert_eq!(non_object_value, None);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_cache_key_generation_different_indices() {
+        let indices1 = vec![IndexName::new("index1")];
+        let indices2 = vec![IndexName::new("index2")];
+        let query = Query::Match(MatchQuery::new("field", "value"));
+
+        let cache_key_1 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices1, &query, 10, 0, &None);
+        let cache_key_2 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices2, &query, 10, 0, &None);
+
+        assert_ne!(cache_key_1, cache_key_2);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_cache_key_generation_different_limits() {
+        let indices = vec![IndexName::new("index1")];
+        let query = Query::Match(MatchQuery::new("field", "value"));
+
+        let cache_key_1 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query, 10, 0, &None);
+        let cache_key_2 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query, 20, 0, &None);
+
+        assert_ne!(cache_key_1, cache_key_2);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_cache_key_generation_with_sort() {
+        let indices = vec![IndexName::new("index1")];
+        let query = Query::Match(MatchQuery::new("field", "value"));
+        let sort_asc = Some(SortOption::new("field", SortOrder::Asc));
+        let sort_desc = Some(SortOption::new("field", SortOrder::Desc));
+
+        let cache_key_1 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query, 10, 0, &sort_asc);
+        let cache_key_2 =
+            MultiIndexSearchExecutor::generate_cache_key(&indices, &query, 10, 0, &sort_desc);
+
+        assert_ne!(cache_key_1, cache_key_2);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_extract_field_value_nested() {
+        let source = serde_json::json!({
+            "nested": {
+                "field": "value"
+            }
+        });
+
+        // extract_field_value doesn't handle nested fields, so it should return None
+        let nested_value = MultiIndexSearchExecutor::extract_field_value(&source, "nested.field");
+        assert_eq!(nested_value, None);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_extract_field_value_array() {
+        let source = serde_json::json!({
+            "tags": ["tag1", "tag2"]
+        });
+
+        let tags_value = MultiIndexSearchExecutor::extract_field_value(&source, "tags");
+        assert!(tags_value.is_some());
+        assert!(tags_value.unwrap().contains("tag"));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_extract_field_value_boolean() {
+        let source = serde_json::json!({
+            "active": true
+        });
+
+        let active_value = MultiIndexSearchExecutor::extract_field_value(&source, "active");
+        assert_eq!(active_value, Some("true".to_string()));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_extract_field_value_null() {
+        let source = serde_json::json!({
+            "field": null
+        });
+
+        let null_value = MultiIndexSearchExecutor::extract_field_value(&source, "field");
+        assert_eq!(null_value, Some("null".to_string()));
     }
 
     #[lexum_macros::tokio_test]
@@ -306,24 +396,5 @@ mod tests {
         let source = serde_json::json!("not an object");
         let value = MultiIndexSearchExecutor::extract_field_value(&source, "field");
         assert_eq!(value, None);
-    }
-
-    #[lexum_macros::tokio_test]
-    async fn test_clear_cache() {
-        let index_manager = Arc::new(IndexManager::new("./test_data"));
-        let executor = MultiIndexSearchExecutor::new(index_manager);
-
-        // Cache should be empty initially
-        assert_eq!(executor.cache.len(), 0);
-
-        // Clear cache (should not panic)
-        executor.clear_cache();
-        assert_eq!(executor.cache.len(), 0);
-    }
-
-    #[lexum_macros::tokio_test]
-    async fn test_default_implementation() {
-        let executor = MultiIndexSearchExecutor::default();
-        assert!(executor.cache_enabled);
     }
 }

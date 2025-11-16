@@ -459,4 +459,267 @@ mod tests {
         let p50 = profile.get_p50();
         assert!(p50 >= Duration::from_millis(100) && p50 <= Duration::from_millis(300));
     }
+
+    #[test]
+    fn test_profiler_with_enabled() {
+        let profiler = Profiler::with_enabled(false);
+        assert!(!profiler.is_enabled());
+
+        let profiler = Profiler::with_enabled(true);
+        assert!(profiler.is_enabled());
+    }
+
+    #[test]
+    fn test_profiler_set_enabled() {
+        let mut profiler = Profiler::new();
+        assert!(profiler.is_enabled());
+
+        profiler.set_enabled(false);
+        assert!(!profiler.is_enabled());
+
+        profiler.set_enabled(true);
+        assert!(profiler.is_enabled());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_profiler_disabled() {
+        let profiler = Profiler::with_enabled(false);
+        let handle = profiler.start_profile("test").await;
+        assert!(handle.is_none());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_profiler_get_profile_not_found() {
+        let profiler = Profiler::new();
+        let profile = profiler.get_profile("nonexistent").await;
+        assert!(profile.is_none());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_profiler_clear() {
+        let profiler = Profiler::new();
+        
+        if let Some(handle) = profiler.start_profile("test").await {
+            handle.finish().await;
+        }
+        
+        assert!(profiler.get_profile("test").await.is_some());
+        
+        profiler.clear().await;
+        
+        assert!(profiler.get_profile("test").await.is_none());
+        let profiles = profiler.get_all_profiles().await;
+        assert!(profiles.is_empty());
+    }
+
+    #[test]
+    fn test_profile_start() {
+        let mut profile = Profile::new();
+        assert!(!profile.is_running);
+        
+        profile.start();
+        assert!(profile.is_running);
+    }
+
+    #[test]
+    fn test_profile_add_measurement_updates_running() {
+        let mut profile = Profile::new();
+        profile.start();
+        assert!(profile.is_running);
+        
+        profile.add_measurement(Duration::from_millis(100));
+        assert!(!profile.is_running);
+    }
+
+    #[test]
+    fn test_profile_get_percentile() {
+        let mut profile = Profile::new();
+        
+        // Empty profile
+        assert_eq!(profile.get_percentile(50.0), Duration::ZERO);
+        
+        // Add measurements
+        for i in 1..=10 {
+            profile.add_measurement(Duration::from_millis(i * 10));
+        }
+        
+        let p50 = profile.get_p50();
+        assert!(p50 >= Duration::from_millis(50) && p50 <= Duration::from_millis(60));
+        
+        let p95 = profile.get_p95();
+        assert!(p95 >= Duration::from_millis(90) && p95 <= Duration::from_millis(100));
+        
+        let p99 = profile.get_p99();
+        assert!(p99 >= Duration::from_millis(90) && p99 <= Duration::from_millis(100));
+    }
+
+    #[test]
+    fn test_profile_get_throughput() {
+        let mut profile = Profile::new();
+        
+        // Zero avg_time
+        assert_eq!(profile.get_throughput(), 0.0);
+        
+        // Add measurement
+        profile.add_measurement(Duration::from_millis(100));
+        
+        // Throughput should be approximately 10 ops/sec (1 / 0.1s)
+        let throughput = profile.get_throughput();
+        assert!(throughput > 9.0 && throughput < 11.0);
+    }
+
+    #[test]
+    fn test_profile_std_dev_calculation() {
+        let mut profile = Profile::new();
+        
+        // Single measurement - std dev should be zero
+        profile.add_measurement(Duration::from_millis(100));
+        assert_eq!(profile.std_dev, Duration::ZERO);
+        
+        // Multiple measurements - should have std dev
+        profile.add_measurement(Duration::from_millis(200));
+        assert!(profile.std_dev > Duration::ZERO);
+    }
+
+    #[test]
+    fn test_profile_measurements_limit() {
+        let mut profile = Profile::new();
+        
+        // Add more than 10000 measurements
+        for _ in 0..11000 {
+            profile.add_measurement(Duration::from_millis(100));
+        }
+        
+        // Should keep only last 9000 (after draining first 1000 when exceeding 10000)
+        // After 10000, it drains 1000, leaving 9000
+        // After 11000, it should have drained multiple times
+        assert!(profile.measurements.len() <= 10000);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_profiler_context() {
+        let profiler = Profiler::new();
+        let context = ProfilerContext::new(profiler, "test_operation");
+        
+        let handle = context.start().await;
+        assert!(handle.is_some());
+        
+        if let Some(h) = handle {
+            h.finish().await;
+        }
+    }
+
+    #[test]
+    fn test_performance_analyzer_with_few_samples() {
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.count = 5; // Less than 10
+        profiles.insert("test".to_string(), profile);
+        
+        let report = PerformanceAnalyzer::analyze_profiles(&profiles);
+        
+        // Should skip profiles with < 10 samples
+        assert!(report.slow_operations.is_empty());
+        assert!(report.inconsistent_operations.is_empty());
+        assert!(report.high_frequency_operations.is_empty());
+    }
+
+    #[test]
+    fn test_performance_analyzer_slow_operation() {
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.count = 20;
+        profile.avg_time = Duration::from_millis(200); // > 100ms
+        profiles.insert("slow_op".to_string(), profile);
+        
+        let report = PerformanceAnalyzer::analyze_profiles(&profiles);
+        
+        assert_eq!(report.slow_operations.len(), 1);
+        assert_eq!(report.slow_operations[0].name, "slow_op");
+    }
+
+    #[test]
+    fn test_performance_analyzer_inconsistent_operation() {
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.count = 20;
+        profile.avg_time = Duration::from_millis(100);
+        profile.std_dev = Duration::from_millis(60); // CV = 0.6 > 0.5
+        profiles.insert("inconsistent_op".to_string(), profile);
+        
+        let report = PerformanceAnalyzer::analyze_profiles(&profiles);
+        
+        assert_eq!(report.inconsistent_operations.len(), 1);
+        assert_eq!(report.inconsistent_operations[0].name, "inconsistent_op");
+    }
+
+    #[test]
+    fn test_performance_analyzer_high_frequency_operation() {
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.count = 2000; // > 1000
+        profile.avg_time = Duration::from_millis(20); // > 10ms
+        profile.total_time = Duration::from_secs(40);
+        profiles.insert("frequent_op".to_string(), profile);
+        
+        let report = PerformanceAnalyzer::analyze_profiles(&profiles);
+        
+        assert_eq!(report.high_frequency_operations.len(), 1);
+        assert_eq!(report.high_frequency_operations[0].name, "frequent_op");
+    }
+
+    #[test]
+    fn test_analysis_report_new() {
+        let report = AnalysisReport::new();
+        assert!(report.slow_operations.is_empty());
+        assert!(report.inconsistent_operations.is_empty());
+        assert!(report.high_frequency_operations.is_empty());
+    }
+
+    #[test]
+    fn test_slow_operation_fields() {
+        let op = SlowOperation {
+            name: "test".to_string(),
+            avg_time: Duration::from_millis(100),
+            count: 10,
+            recommendation: "Optimize".to_string(),
+        };
+        
+        assert_eq!(op.name, "test");
+        assert_eq!(op.avg_time, Duration::from_millis(100));
+        assert_eq!(op.count, 10);
+        assert_eq!(op.recommendation, "Optimize");
+    }
+
+    #[test]
+    fn test_inconsistent_operation_fields() {
+        let op = InconsistentOperation {
+            name: "test".to_string(),
+            std_dev: Duration::from_millis(50),
+            coefficient_of_variation: 0.5,
+            recommendation: "Investigate".to_string(),
+        };
+        
+        assert_eq!(op.name, "test");
+        assert_eq!(op.std_dev, Duration::from_millis(50));
+        assert_eq!(op.coefficient_of_variation, 0.5);
+        assert_eq!(op.recommendation, "Investigate");
+    }
+
+    #[test]
+    fn test_high_frequency_operation_fields() {
+        let op = HighFrequencyOperation {
+            name: "test".to_string(),
+            count: 1000,
+            avg_time: Duration::from_millis(5),
+            total_time: Duration::from_secs(5),
+            recommendation: "Cache".to_string(),
+        };
+        
+        assert_eq!(op.name, "test");
+        assert_eq!(op.count, 1000);
+        assert_eq!(op.avg_time, Duration::from_millis(5));
+        assert_eq!(op.total_time, Duration::from_secs(5));
+        assert_eq!(op.recommendation, "Cache");
+    }
 }

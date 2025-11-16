@@ -572,4 +572,212 @@ mod tests {
         assert_eq!(alerts[0].level, AlertLevel::Warning);
         assert_eq!(alerts[0].message, "Test alert");
     }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_stop_start() {
+        let dashboard = PerformanceDashboard::new(Duration::from_millis(50));
+
+        // Start dashboard
+        dashboard.start().await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Stop dashboard
+        dashboard.stop().await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        // Start again
+        dashboard.start().await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        dashboard.stop().await;
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_get_metrics_collector() {
+        let dashboard = PerformanceDashboard::new(Duration::from_secs(1));
+        let collector = dashboard.metrics_collector();
+        assert!(collector.get_metrics().await.timings.is_empty());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_get_profiler() {
+        let dashboard = PerformanceDashboard::new(Duration::from_secs(1));
+        let profiler = dashboard.profiler();
+        let profiles = profiler.get_all_profiles().await;
+        assert!(profiles.is_empty());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_clear_old_alerts() {
+        let dashboard = PerformanceDashboard::new(Duration::from_secs(1));
+
+        // Add an alert
+        dashboard
+            .add_alert(AlertLevel::Info, "Old alert".to_string(), None)
+            .await;
+
+        // Clear alerts older than 1 second
+        tokio::time::sleep(Duration::from_millis(1100)).await;
+        dashboard.clear_old_alerts(Duration::from_secs(1)).await;
+
+        let alerts = dashboard.get_alerts().await;
+        assert_eq!(alerts.len(), 0);
+    }
+
+    #[test]
+    fn test_health_status_new() {
+        let health = HealthStatus::new();
+        assert_eq!(health.overall_score, 100);
+        assert_eq!(health.search_health, 100);
+        assert_eq!(health.memory_health, 100);
+        assert_eq!(health.cpu_health, 100);
+        assert_eq!(health.disk_health, 100);
+        assert_eq!(health.status, "Excellent");
+    }
+
+    #[test]
+    fn test_dashboard_stats_new() {
+        let stats = DashboardStats::new();
+        assert_eq!(stats.total_operations, 0);
+        assert_eq!(stats.ops_per_second, 0.0);
+        assert_eq!(stats.avg_response_time, Duration::ZERO);
+        assert_eq!(stats.error_rate, 0.0);
+        assert_eq!(stats.cache_hit_rate, 0.0);
+        assert_eq!(stats.memory_usage, 0);
+        assert_eq!(stats.cpu_usage, 0.0);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_update_with_profiles() {
+        let mut data = DashboardData::new();
+        let mut metrics = Metrics::new();
+        metrics.system.memory_usage = 200 * 1024 * 1024; // 200MB
+        metrics.system.cpu_usage = 60.0;
+
+        let mut profiles = HashMap::new();
+        let mut profile = Profile::new();
+        profile.name = "search".to_string();
+        profile.add_measurement(Duration::from_millis(50));
+        profiles.insert("search".to_string(), profile);
+
+        data.update(metrics, profiles).await;
+
+        assert_eq!(data.profiles.len(), 1);
+        assert!(data.last_update > 0);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_update_health_status_poor() {
+        let mut data = DashboardData::new();
+        let mut metrics = Metrics::new();
+        metrics.system.memory_usage = 2 * 1024 * 1024 * 1024; // 2GB
+        metrics.system.cpu_usage = 95.0;
+        metrics.system.disk_usage = 25 * 1024 * 1024 * 1024; // 25GB
+
+        // Add slow search timing
+        metrics.record_timing("search", Duration::from_millis(500));
+
+        let profiles = HashMap::new();
+        data.update(metrics, profiles).await;
+
+        assert!(data.health_status.overall_score < 50);
+        assert!(data.health_status.memory_health < 50);
+        assert!(data.health_status.cpu_health < 50);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_check_alerts_slow_operation() {
+        let mut data = DashboardData::new();
+        let mut profile = Profile::new();
+        profile.name = "slow_op".to_string();
+        profile.add_measurement(Duration::from_millis(2000)); // 2 seconds
+        data.profiles.insert("slow_op".to_string(), profile);
+
+        data.check_alerts();
+
+        assert!(!data.alerts.is_empty());
+        assert!(data.alerts.iter().any(|a| a.message.contains("slow_op")));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_check_alerts_high_memory() {
+        let mut data = DashboardData::new();
+        data.metrics.system.memory_usage = 2 * 1024 * 1024 * 1024; // 2GB
+
+        data.check_alerts();
+
+        assert!(!data.alerts.is_empty());
+        assert!(data.alerts.iter().any(|a| a.message.contains("memory")));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_check_alerts_high_cpu() {
+        let mut data = DashboardData::new();
+        data.metrics.system.cpu_usage = 95.0;
+
+        data.check_alerts();
+
+        // Should have CPU alert when usage > 90%
+        assert!(data.alerts.iter().any(|a| a.message.contains("CPU")));
+        assert!(data.alerts.iter().any(|a| a.level == AlertLevel::Error));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_check_alerts_critical_health() {
+        let mut data = DashboardData::new();
+        data.health_status.overall_score = 30;
+
+        data.check_alerts();
+
+        assert!(!data.alerts.is_empty());
+        assert!(data.alerts.iter().any(|a| a.level == AlertLevel::Critical));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_update_stats_with_cache() {
+        let mut data = DashboardData::new();
+        let mut metrics = Metrics::new();
+        metrics.increment_counter("cache_hits", 80);
+        metrics.increment_counter("cache_misses", 20);
+
+        let profiles = HashMap::new();
+        data.update(metrics, profiles).await;
+
+        assert_eq!(data.stats.cache_hit_rate, 80.0); // 80/(80+20) * 100
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_dashboard_data_add_alert_limit() {
+        let mut data = DashboardData::new();
+
+        // Add more than 100 alerts
+        for i in 0..150 {
+            data.add_alert(AlertLevel::Info, format!("Alert {i}"), None);
+        }
+
+        // Should keep only last 100
+        assert_eq!(data.alerts.len(), 100);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_performance_monitoring_service() {
+        let service = PerformanceMonitoringService::new();
+
+        service.start().await;
+        tokio::time::sleep(Duration::from_millis(100)).await;
+
+        let dashboard = service.dashboard();
+        let data = dashboard.get_data().await;
+        assert!(data.last_update > 0);
+
+        service.stop().await;
+    }
+
+    #[test]
+    fn test_alert_level_equality() {
+        assert_eq!(AlertLevel::Info, AlertLevel::Info);
+        assert_eq!(AlertLevel::Warning, AlertLevel::Warning);
+        assert_eq!(AlertLevel::Error, AlertLevel::Error);
+        assert_eq!(AlertLevel::Critical, AlertLevel::Critical);
+        assert_ne!(AlertLevel::Info, AlertLevel::Warning);
+    }
 }

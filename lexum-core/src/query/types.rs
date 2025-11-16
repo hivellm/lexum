@@ -35,6 +35,8 @@ pub enum Query {
     GeoDistance(GeoDistanceQuery),
     /// Script query (custom script evaluation)
     Script(ScriptQuery),
+    /// Multi-match query (search across multiple fields)
+    MultiMatch(MultiMatchQuery),
 }
 
 /// Match query for full-text search
@@ -697,6 +699,146 @@ impl ScriptQuery {
     }
 }
 
+/// Multi-match query for searching across multiple fields
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct MultiMatchQuery {
+    /// Fields to search across
+    pub fields: Vec<String>,
+    /// Query text to search for
+    pub query: String,
+    /// Type of multi-match query
+    #[serde(default)]
+    pub r#type: MultiMatchType,
+    /// Tie breaker for best_fields type (0.0 to 1.0, default: 0.0)
+    #[serde(default)]
+    pub tie_breaker: f32,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+    /// Operator for boolean queries (AND/OR, default: OR)
+    #[serde(default)]
+    pub operator: MultiMatchOperator,
+    /// Minimum should match for should clauses
+    #[serde(default)]
+    pub minimum_should_match: Option<String>,
+    /// Analyzer to use for query parsing
+    #[serde(default)]
+    pub analyzer: Option<String>,
+    /// Field-specific boosts (field^boost format)
+    #[serde(default)]
+    pub field_boosts: std::collections::HashMap<String, f32>,
+}
+
+/// Type of multi-match query
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MultiMatchType {
+    /// Best matching field score (default)
+    #[default]
+    BestFields,
+    /// Sum of scores from all matching fields
+    MostFields,
+    /// Cross-fields matching (treats fields as one big field)
+    CrossFields,
+    /// Phrase matching across fields
+    Phrase,
+    /// Phrase prefix matching across fields
+    PhrasePrefix,
+}
+
+/// Operator for multi-match queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum MultiMatchOperator {
+    /// OR operator (default)
+    #[default]
+    Or,
+    /// AND operator
+    And,
+}
+
+impl MultiMatchQuery {
+    /// Create new multi-match query
+    pub fn new(fields: Vec<String>, query: impl Into<String>) -> Self {
+        Self {
+            fields,
+            query: query.into(),
+            r#type: MultiMatchType::BestFields,
+            tie_breaker: 0.0,
+            boost: 1.0,
+            operator: MultiMatchOperator::Or,
+            minimum_should_match: None,
+            analyzer: None,
+            field_boosts: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Set the type of multi-match query
+    pub fn r#type(mut self, r#type: MultiMatchType) -> Self {
+        self.r#type = r#type;
+        self
+    }
+
+    /// Set tie breaker for best_fields type
+    pub fn tie_breaker(mut self, tie_breaker: f32) -> Self {
+        self.tie_breaker = tie_breaker.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+
+    /// Set operator (AND/OR)
+    pub fn operator(mut self, operator: MultiMatchOperator) -> Self {
+        self.operator = operator;
+        self
+    }
+
+    /// Set minimum should match
+    pub fn minimum_should_match(mut self, msm: impl Into<String>) -> Self {
+        self.minimum_should_match = Some(msm.into());
+        self
+    }
+
+    /// Set analyzer
+    pub fn analyzer(mut self, analyzer: impl Into<String>) -> Self {
+        self.analyzer = Some(analyzer.into());
+        self
+    }
+
+    /// Add field boost
+    pub fn field_boost(mut self, field: impl Into<String>, boost: f32) -> Self {
+        self.field_boosts.insert(field.into(), boost);
+        self
+    }
+
+    /// Parse fields with boosts (e.g., "title^2.0,content^1.5")
+    pub fn parse_fields(fields_str: &str) -> (Vec<String>, std::collections::HashMap<String, f32>) {
+        let mut fields = Vec::new();
+        let mut boosts = std::collections::HashMap::new();
+
+        for field_part in fields_str.split(',') {
+            let field_part = field_part.trim();
+            if let Some((field, boost_str)) = field_part.split_once('^') {
+                let field = field.trim().to_string();
+                if let Ok(boost) = boost_str.trim().parse::<f32>() {
+                    boosts.insert(field.clone(), boost);
+                    fields.push(field);
+                } else {
+                    fields.push(field_part.to_string());
+                }
+            } else {
+                fields.push(field_part.to_string());
+            }
+        }
+
+        (fields, boosts)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1214,5 +1356,116 @@ mod tests {
         assert_eq!(deserialized.field, "content");
         assert_eq!(deserialized.pattern, "[A-Z]+");
         assert!(deserialized.case_sensitive);
+    }
+
+    #[test]
+    fn test_multi_match_query() {
+        let query = MultiMatchQuery::new(
+            vec!["title".to_string(), "content".to_string()],
+            "search terms",
+        );
+
+        assert_eq!(query.fields.len(), 2);
+        assert_eq!(query.query, "search terms");
+        assert!(matches!(query.r#type, MultiMatchType::BestFields));
+        assert_eq!(query.tie_breaker, 0.0);
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_multi_match_query_with_type() {
+        let query = MultiMatchQuery::new(vec!["title".to_string()], "test")
+            .r#type(MultiMatchType::MostFields)
+            .tie_breaker(0.3)
+            .boost(2.0);
+
+        assert!(matches!(query.r#type, MultiMatchType::MostFields));
+        assert_eq!(query.tie_breaker, 0.3);
+        assert_eq!(query.boost, 2.0);
+    }
+
+    #[test]
+    fn test_multi_match_query_operator() {
+        let query = MultiMatchQuery::new(vec!["title".to_string()], "test")
+            .operator(MultiMatchOperator::And);
+
+        assert!(matches!(query.operator, MultiMatchOperator::And));
+    }
+
+    #[test]
+    fn test_multi_match_query_field_boost() {
+        let query = MultiMatchQuery::new(vec!["title".to_string(), "content".to_string()], "test")
+            .field_boost("title", 2.0)
+            .field_boost("content", 1.5);
+
+        assert_eq!(query.field_boosts.get("title"), Some(&2.0));
+        assert_eq!(query.field_boosts.get("content"), Some(&1.5));
+    }
+
+    #[test]
+    fn test_multi_match_query_parse_fields() {
+        let (fields, boosts) = MultiMatchQuery::parse_fields("title^2.0,content^1.5,description");
+
+        assert_eq!(fields.len(), 3);
+        assert_eq!(fields[0], "title");
+        assert_eq!(fields[1], "content");
+        assert_eq!(fields[2], "description");
+        assert_eq!(boosts.get("title"), Some(&2.0));
+        assert_eq!(boosts.get("content"), Some(&1.5));
+        assert_eq!(boosts.get("description"), None);
+    }
+
+    #[test]
+    fn test_multi_match_query_tie_breaker_clamping() {
+        let query1 = MultiMatchQuery::new(vec!["title".to_string()], "test").tie_breaker(-0.5);
+        assert_eq!(query1.tie_breaker, 0.0);
+
+        let query2 = MultiMatchQuery::new(vec!["title".to_string()], "test").tie_breaker(1.5);
+        assert_eq!(query2.tie_breaker, 1.0);
+    }
+
+    #[test]
+    fn test_multi_match_query_serialization() {
+        let query =
+            MultiMatchQuery::new(vec!["title".to_string(), "content".to_string()], "search")
+                .r#type(MultiMatchType::CrossFields)
+                .tie_breaker(0.3)
+                .boost(2.0);
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("title"));
+        assert!(json.contains("content"));
+        assert!(json.contains("search"));
+
+        let deserialized: MultiMatchQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.fields.len(), 2);
+        assert_eq!(deserialized.query, "search");
+        assert!(matches!(deserialized.r#type, MultiMatchType::CrossFields));
+    }
+
+    #[test]
+    fn test_multi_match_query_all_types() {
+        let base_fields = vec!["title".to_string()];
+        let base_query = "test";
+
+        let best_fields = MultiMatchQuery::new(base_fields.clone(), base_query)
+            .r#type(MultiMatchType::BestFields);
+        assert!(matches!(best_fields.r#type, MultiMatchType::BestFields));
+
+        let most_fields = MultiMatchQuery::new(base_fields.clone(), base_query)
+            .r#type(MultiMatchType::MostFields);
+        assert!(matches!(most_fields.r#type, MultiMatchType::MostFields));
+
+        let cross_fields = MultiMatchQuery::new(base_fields.clone(), base_query)
+            .r#type(MultiMatchType::CrossFields);
+        assert!(matches!(cross_fields.r#type, MultiMatchType::CrossFields));
+
+        let phrase =
+            MultiMatchQuery::new(base_fields.clone(), base_query).r#type(MultiMatchType::Phrase);
+        assert!(matches!(phrase.r#type, MultiMatchType::Phrase));
+
+        let phrase_prefix =
+            MultiMatchQuery::new(base_fields, base_query).r#type(MultiMatchType::PhrasePrefix);
+        assert!(matches!(phrase_prefix.r#type, MultiMatchType::PhrasePrefix));
     }
 }

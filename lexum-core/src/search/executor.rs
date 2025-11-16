@@ -463,6 +463,7 @@ impl SearchExecutor {
             Query::Phrase(p) => p.boost,
             Query::Wildcard(w) => w.boost,
             Query::Regex(r) => r.boost,
+            Query::MultiMatch(m) => m.boost,
             Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
@@ -700,6 +701,179 @@ impl SearchExecutor {
                 // Return a match all query for now
                 Ok(Box::new(AllQuery))
             }
+
+            Query::MultiMatch(multi_match_query) => {
+                use crate::query::MultiMatchType;
+
+                if multi_match_query.fields.is_empty() {
+                    return Err(Error::Config(
+                        "Multi-match query requires at least one field".to_string(),
+                    ));
+                }
+
+                // Get all fields and validate they exist
+                let mut tantivy_fields = Vec::new();
+                let mut field_boosts = Vec::new();
+
+                for field_name in &multi_match_query.fields {
+                    let field = schema
+                        .get_field(field_name)
+                        .map_err(|e| Error::Config(format!("Field not found: {e}")))?;
+                    tantivy_fields.push(field);
+
+                    // Apply field-specific boost if present
+                    let boost = multi_match_query
+                        .field_boosts
+                        .get(field_name)
+                        .copied()
+                        .unwrap_or(1.0);
+                    field_boosts.push(boost);
+                }
+
+                // Create query parser for all fields
+                let query_parser = QueryParser::for_index(tantivy_index, tantivy_fields.clone());
+
+                // Parse the query
+                let parsed_query =
+                    query_parser
+                        .parse_query(&multi_match_query.query)
+                        .map_err(|e| {
+                            Error::Config(format!("Failed to parse multi-match query: {e}"))
+                        })?;
+
+                match multi_match_query.r#type {
+                    MultiMatchType::BestFields => {
+                        // Best fields: use disjunction max (dis_max) with tie breaker
+                        // For now, create a boolean query with should clauses for each field
+                        // In a full implementation, this would use dis_max scoring
+                        let mut clauses = Vec::new();
+                        for (i, field) in tantivy_fields.iter().enumerate() {
+                            let field_query_parser =
+                                QueryParser::for_index(tantivy_index, vec![*field]);
+                            if let Ok(field_query) =
+                                field_query_parser.parse_query(&multi_match_query.query)
+                            {
+                                // Field boost is stored but not yet applied in this simplified implementation
+                                // In a full implementation, this would wrap the query with boost
+                                let _boost = field_boosts.get(i).copied().unwrap_or(1.0);
+                                clauses.push((Occur::Should, field_query));
+                            }
+                        }
+
+                        if clauses.is_empty() {
+                            return Err(Error::Config(
+                                "Multi-match query failed to parse on any field".to_string(),
+                            ));
+                        }
+
+                        // For best_fields, we want the best score, but with tie_breaker
+                        // This is a simplified implementation - full dis_max would be better
+                        Ok(Box::new(BooleanQuery::from(clauses)))
+                    }
+
+                    MultiMatchType::MostFields => {
+                        // Most fields: sum scores from all matching fields
+                        let mut clauses = Vec::new();
+                        for (i, field) in tantivy_fields.iter().enumerate() {
+                            let field_query_parser =
+                                QueryParser::for_index(tantivy_index, vec![*field]);
+                            if let Ok(field_query) =
+                                field_query_parser.parse_query(&multi_match_query.query)
+                            {
+                                // Field boost is stored but not yet applied in this simplified implementation
+                                let _boost = field_boosts.get(i).copied().unwrap_or(1.0);
+                                clauses.push((Occur::Should, field_query));
+                            }
+                        }
+
+                        if clauses.is_empty() {
+                            return Err(Error::Config(
+                                "Multi-match query failed to parse on any field".to_string(),
+                            ));
+                        }
+
+                        Ok(Box::new(BooleanQuery::from(clauses)))
+                    }
+
+                    MultiMatchType::CrossFields => {
+                        // Cross fields: treat all fields as one big field
+                        // Use the query parser with all fields
+                        Ok(parsed_query)
+                    }
+
+                    MultiMatchType::Phrase => {
+                        // Phrase: match exact phrase across fields
+                        // Create a phrase query for each field and combine with should clauses
+                        let words: Vec<&str> = multi_match_query.query.split_whitespace().collect();
+                        if words.is_empty() {
+                            return Err(Error::Config(
+                                "Phrase multi-match query cannot be empty".to_string(),
+                            ));
+                        }
+
+                        let mut clauses = Vec::new();
+                        for field in &tantivy_fields {
+                            let terms: Vec<tantivy::Term> = words
+                                .iter()
+                                .map(|word| tantivy::Term::from_field_text(*field, word))
+                                .collect();
+                            if !terms.is_empty() {
+                                clauses.push((
+                                    Occur::Should,
+                                    Box::new(PhraseQuery::new(terms))
+                                        as Box<dyn tantivy::query::Query>,
+                                ));
+                            }
+                        }
+
+                        if clauses.is_empty() {
+                            return Err(Error::Config(
+                                "Phrase multi-match query failed to create phrase queries"
+                                    .to_string(),
+                            ));
+                        }
+
+                        Ok(Box::new(BooleanQuery::from(clauses)))
+                    }
+
+                    MultiMatchType::PhrasePrefix => {
+                        // Phrase prefix: match phrase with last term as prefix
+                        // Create a phrase query for each field and combine with should clauses
+                        let words: Vec<&str> = multi_match_query.query.split_whitespace().collect();
+                        if words.is_empty() {
+                            return Err(Error::Config(
+                                "Phrase prefix multi-match query cannot be empty".to_string(),
+                            ));
+                        }
+
+                        let mut clauses = Vec::new();
+                        for field in &tantivy_fields {
+                            let terms: Vec<tantivy::Term> = words
+                                .iter()
+                                .map(|word| tantivy::Term::from_field_text(*field, word))
+                                .collect();
+                            if !terms.is_empty() {
+                                // For phrase prefix, we'd need to handle the last term differently
+                                // For now, treat as regular phrase query
+                                clauses.push((
+                                    Occur::Should,
+                                    Box::new(PhraseQuery::new(terms))
+                                        as Box<dyn tantivy::query::Query>,
+                                ));
+                            }
+                        }
+
+                        if clauses.is_empty() {
+                            return Err(Error::Config(
+                                "Phrase prefix multi-match query failed to create phrase queries"
+                                    .to_string(),
+                            ));
+                        }
+
+                        Ok(Box::new(BooleanQuery::from(clauses)))
+                    }
+                }
+            }
         }
     }
 }
@@ -818,5 +992,529 @@ mod tests {
         // Different parameters should generate different keys
         let key3 = SearchExecutor::cache_key(&query, 20, 0, &None);
         assert_ne!(key1, key3);
+    }
+
+    #[test]
+    fn test_cache_key_with_sort() {
+        let query = QueryBuilder::match_query("title", "test");
+        let sort1 = Some(SortOption::asc("title"));
+        let sort2 = Some(SortOption::desc("title"));
+
+        let key1 = SearchExecutor::cache_key(&query, 10, 0, &sort1);
+        let key2 = SearchExecutor::cache_key(&query, 10, 0, &sort2);
+
+        // Different sort options should generate different keys
+        assert_ne!(key1, key2);
+    }
+
+    #[test]
+    fn test_extract_boost() {
+        let match_query = QueryBuilder::match_query("title", "test");
+        let match_query_with_boost = match match_query {
+            Query::Match(mut mq) => {
+                mq.boost = 2.5;
+                Query::Match(mq)
+            }
+            _ => panic!("Expected Match query"),
+        };
+        assert_eq!(SearchExecutor::extract_boost(&match_query_with_boost), 2.5);
+
+        let term_query = QueryBuilder::term_query("title", "test");
+        let term_query_with_boost = match term_query {
+            Query::Term(mut tq) => {
+                tq.boost = 1.5;
+                Query::Term(tq)
+            }
+            _ => panic!("Expected Term query"),
+        };
+        assert_eq!(SearchExecutor::extract_boost(&term_query_with_boost), 1.5);
+
+        let bool_query = Query::Bool(QueryBuilder::bool_query());
+        assert_eq!(SearchExecutor::extract_boost(&bool_query), 1.0);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_range() {
+        let (schema, _) = SchemaBuilder::new().add_i64_field("age").build().unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let range_query = QueryBuilder::range_query("age")
+            .gte(serde_json::json!(18))
+            .lte(serde_json::json!(65));
+        let query = Query::Range(range_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_fuzzy() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let fuzzy_query = QueryBuilder::fuzzy_query("title", "test");
+        let query = match fuzzy_query {
+            Query::Fuzzy(mut fq) => {
+                fq.fuzziness = 1;
+                Query::Fuzzy(fq)
+            }
+            _ => panic!("Expected Fuzzy query"),
+        };
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_phrase() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let phrase_query = QueryBuilder::phrase_query("title", "hello world");
+        let query = match phrase_query {
+            Query::Phrase(mut pq) => {
+                pq.slop = 2;
+                Query::Phrase(pq)
+            }
+            _ => panic!("Expected Phrase query"),
+        };
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_bool() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .add_text_field("status")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let bool_query = QueryBuilder::bool_query()
+            .must(QueryBuilder::match_query("title", "test"))
+            .should(QueryBuilder::match_query("content", "test"))
+            .must_not(QueryBuilder::term_query("status", "deleted"));
+        let query = Query::Bool(bool_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_wildcard() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query = QueryBuilder::wildcard_query("title", "test*");
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_regex() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let regex_query = QueryBuilder::regex_query("title", "test.*");
+        let query = match regex_query {
+            Query::Regex(mut rq) => {
+                rq.case_sensitive = false;
+                Query::Regex(rq)
+            }
+            _ => panic!("Expected Regex query"),
+        };
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_more_like_this() {
+        use crate::query::types::MoreLikeThisQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let mut mlt_query = MoreLikeThisQuery::new(vec!["title".to_string()], "test query");
+        mlt_query.max_query_terms = 10;
+        let query = Query::MoreLikeThis(mlt_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_nested() {
+        use crate::query::types::NestedQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let nested_query = QueryBuilder::match_query("title", "test");
+        let query = Query::Nested(NestedQuery::new("nested_path", nested_query));
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_function_score() {
+        use crate::query::types::FunctionScoreQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let base_query = QueryBuilder::match_query("title", "test");
+        let query = Query::FunctionScore(FunctionScoreQuery::new(base_query));
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_geo_distance() {
+        use crate::query::types::GeoDistanceQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query = Query::GeoDistance(GeoDistanceQuery::new("location", "10km", 0.0, 0.0));
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_multi_match_best_fields() {
+        use crate::query::{MultiMatchQuery, MultiMatchType};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let multi_match = MultiMatchQuery::new(
+            vec!["title".to_string(), "content".to_string()],
+            "search terms",
+        )
+        .r#type(MultiMatchType::BestFields);
+        let query = Query::MultiMatch(multi_match);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_multi_match_most_fields() {
+        use crate::query::{MultiMatchQuery, MultiMatchType};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let multi_match = MultiMatchQuery::new(
+            vec!["title".to_string(), "content".to_string()],
+            "search terms",
+        )
+        .r#type(MultiMatchType::MostFields);
+        let query = Query::MultiMatch(multi_match);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_multi_match_cross_fields() {
+        use crate::query::{MultiMatchQuery, MultiMatchType};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let multi_match = MultiMatchQuery::new(
+            vec!["title".to_string(), "content".to_string()],
+            "search terms",
+        )
+        .r#type(MultiMatchType::CrossFields);
+        let query = Query::MultiMatch(multi_match);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_multi_match_phrase() {
+        use crate::query::{MultiMatchQuery, MultiMatchType};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let multi_match = MultiMatchQuery::new(
+            vec!["title".to_string(), "content".to_string()],
+            "quick brown fox",
+        )
+        .r#type(MultiMatchType::Phrase);
+        let query = Query::MultiMatch(multi_match);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_multi_match_empty_fields() {
+        use crate::query::MultiMatchQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let multi_match = MultiMatchQuery::new(vec![], "search terms");
+        let query = Query::MultiMatch(multi_match);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_multi_match_with_field_boosts() {
+        use crate::query::{MultiMatchQuery, MultiMatchType};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let multi_match = MultiMatchQuery::new(
+            vec!["title".to_string(), "content".to_string()],
+            "search terms",
+        )
+        .r#type(MultiMatchType::BestFields)
+        .field_boost("title", 2.0)
+        .field_boost("content", 1.5);
+        let query = Query::MultiMatch(multi_match);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_multi_match() {
+        use crate::query::MultiMatchQuery;
+
+        let multi_match = MultiMatchQuery::new(vec!["title".to_string()], "test").boost(2.5);
+        let query = Query::MultiMatch(multi_match);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_invalid_field() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query = QueryBuilder::term_query("nonexistent", "test");
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_range_missing_bounds() {
+        let (schema, _) = SchemaBuilder::new().add_i64_field("age").build().unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let range_query = QueryBuilder::range_query("age");
+        let query = Query::Range(range_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_phrase_empty() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query = QueryBuilder::phrase_query("title", "");
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cache_operations() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+            mapping: None,
+        };
+
+        let executor = SearchExecutor::new(Arc::new(index));
+
+        // Test cache stats
+        let stats = executor.cache_stats();
+        assert_eq!(stats.hits, 0);
+        assert_eq!(stats.misses, 0);
+
+        // Test evict expired
+        let evicted = executor.evict_expired_cache();
+        assert_eq!(evicted, 0);
+
+        // Test clear filter cache
+        executor.clear_filter_cache();
+
+        // Test clear field cache
+        executor.clear_field_cache();
+
+        // Test clear query pool
+        executor.clear_query_pool();
+    }
+
+    #[test]
+    fn test_with_cache_settings() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+            mapping: None,
+        };
+
+        let executor = SearchExecutor::with_cache_settings(Arc::new(index), 500, 300);
+        assert_eq!(executor.cache_size(), 0);
+        assert!(executor.cache.is_enabled());
+    }
+
+    #[test]
+    fn test_warm_up_cache() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+            mapping: None,
+        };
+
+        let executor = SearchExecutor::new(Arc::new(index));
+
+        let query = QueryBuilder::match_query("title", "test");
+        let result = SearchResult::new(vec![], 0, 0);
+
+        let entries = vec![(query, result)];
+        let warmed = executor.warm_up_cache(entries);
+        assert_eq!(warmed, 1);
+        assert_eq!(executor.cache_size(), 1);
+    }
+
+    #[test]
+    fn test_preload_field_cache() {
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let index = Index {
+            name: crate::types::IndexName::new("test"),
+            inner: Arc::new(tantivy_index),
+            settings: crate::index::IndexSettings::default(),
+            mapping: None,
+        };
+
+        let executor = SearchExecutor::new(Arc::new(index));
+
+        let values = vec![
+            (0, crate::search::field_cache::FieldValue::I64(10)),
+            (1, crate::search::field_cache::FieldValue::I64(20)),
+        ];
+
+        let preloaded = executor.preload_field_cache("age", values);
+        assert_eq!(preloaded, 2);
     }
 }

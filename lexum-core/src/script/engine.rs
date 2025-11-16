@@ -527,4 +527,893 @@ mod tests {
             panic!("Expected Number, got {result:?}");
         }
     }
+
+    #[test]
+    fn test_execute_remove_field() {
+        let source = json!({
+            "title": "Test",
+            "content": "Some content"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::RemoveField {
+            path: "content".to_string(),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("title"), Some(&json!("Test")));
+        assert_eq!(context.get_field("content"), None);
+    }
+
+    #[test]
+    fn test_execute_add_field() {
+        let source = json!({
+            "title": "Test"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::AddField {
+            path: "status".to_string(),
+            value: json!("active"),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("status"), Some(&json!("active")));
+    }
+
+    #[test]
+    fn test_execute_add_field_existing() {
+        let source = json!({
+            "status": "inactive"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::AddField {
+            path: "status".to_string(),
+            value: json!("active"),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        // Should not overwrite existing field
+        assert_eq!(context.get_field("status"), Some(&json!("inactive")));
+    }
+
+    #[test]
+    fn test_execute_if_with_else() {
+        let source = json!({
+            "status": "inactive"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::FieldEquals {
+                path: "status".to_string(),
+                value: json!("active"),
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "priority".to_string(),
+                value: json!(1),
+            }],
+            else_ops: Some(vec![ScriptOp::SetField {
+                path: "priority".to_string(),
+                value: json!(0),
+            }]),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("priority"), Some(&json!(0)));
+    }
+
+    #[test]
+    fn test_execute_for_each() {
+        let source = json!({
+            "items": [{"value": 1}, {"value": 2}, {"value": 3}]
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::ForEach {
+            array_path: "items".to_string(),
+            var_name: "item".to_string(),
+            ops: vec![ScriptOp::SetField {
+                path: "item.processed".to_string(),
+                value: json!(true),
+            }],
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        // ForEach should have executed - check that items array still exists
+        assert!(context.get_field("items").is_some());
+    }
+
+    #[test]
+    fn test_execute_math_subtract() {
+        let source = json!({
+            "count": 10
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Subtract,
+            target: "count".to_string(),
+            value: json!(3),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        let result = context.get_field("count");
+        if let Some(Value::Number(n)) = result {
+            assert_eq!(n.as_f64(), Some(7.0));
+        } else {
+            panic!("Expected Number");
+        }
+    }
+
+    #[test]
+    fn test_execute_math_multiply() {
+        let source = json!({
+            "count": 5
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Multiply,
+            target: "count".to_string(),
+            value: json!(3),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        let result = context.get_field("count");
+        if let Some(Value::Number(n)) = result {
+            assert_eq!(n.as_f64(), Some(15.0));
+        } else {
+            panic!("Expected Number");
+        }
+    }
+
+    #[test]
+    fn test_execute_math_divide() {
+        let source = json!({
+            "count": 10
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Divide,
+            target: "count".to_string(),
+            value: json!(2),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        let result = context.get_field("count");
+        if let Some(Value::Number(n)) = result {
+            assert_eq!(n.as_f64(), Some(5.0));
+        } else {
+            panic!("Expected Number");
+        }
+    }
+
+    #[test]
+    fn test_execute_math_modulo() {
+        let source = json!({
+            "count": 10
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Modulo,
+            target: "count".to_string(),
+            value: json!(3),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        let result = context.get_field("count");
+        if let Some(Value::Number(n)) = result {
+            assert_eq!(n.as_f64(), Some(1.0));
+        } else {
+            panic!("Expected Number");
+        }
+    }
+
+    #[test]
+    fn test_execute_math_power() {
+        let source = json!({
+            "count": 2
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Power,
+            target: "count".to_string(),
+            value: json!(3),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        let result = context.get_field("count");
+        if let Some(Value::Number(n)) = result {
+            assert_eq!(n.as_f64(), Some(8.0));
+        } else {
+            panic!("Expected Number");
+        }
+    }
+
+    #[test]
+    fn test_execute_string_to_lowercase() {
+        let source = json!({
+            "title": "HELLO WORLD"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::StringOp {
+            operation: StringOp::ToLowerCase,
+            target: "title".to_string(),
+            value: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("title"), Some(&json!("hello world")));
+    }
+
+    #[test]
+    fn test_execute_string_to_uppercase() {
+        let source = json!({
+            "title": "hello world"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::StringOp {
+            operation: StringOp::ToUpperCase,
+            target: "title".to_string(),
+            value: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("title"), Some(&json!("HELLO WORLD")));
+    }
+
+    #[test]
+    fn test_execute_string_trim() {
+        let source = json!({
+            "title": "  hello world  "
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::StringOp {
+            operation: StringOp::Trim,
+            target: "title".to_string(),
+            value: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("title"), Some(&json!("hello world")));
+    }
+
+    #[test]
+    fn test_execute_string_replace() {
+        let source = json!({
+            "title": "hello world"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::StringOp {
+            operation: StringOp::Replace {
+                from: "world".to_string(),
+                to: "rust".to_string(),
+            },
+            target: "title".to_string(),
+            value: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("title"), Some(&json!("hello rust")));
+    }
+
+    #[test]
+    fn test_execute_string_concat() {
+        let source = json!({
+            "title": "hello"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::StringOp {
+            operation: StringOp::Concat {
+                value: " world".to_string(),
+            },
+            target: "title".to_string(),
+            value: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("title"), Some(&json!("hello world")));
+    }
+
+    #[test]
+    fn test_execute_string_substring() {
+        let source = json!({
+            "title": "hello world"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::StringOp {
+            operation: StringOp::Substring {
+                start: 0,
+                end: Some(5),
+            },
+            target: "title".to_string(),
+            value: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("title"), Some(&json!("hello")));
+    }
+
+    #[test]
+    fn test_condition_field_exists() {
+        let source = json!({
+            "title": "Test"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::FieldExists {
+                path: "title".to_string(),
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "has_title".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("has_title"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_condition_field_contains() {
+        let source = json!({
+            "tags": ["rust", "search", "engine"]
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::FieldContains {
+                path: "tags".to_string(),
+                value: json!("rust"),
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "has_rust".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("has_rust"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_condition_field_matches() {
+        let source = json!({
+            "email": "test@example.com"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::FieldMatches {
+                path: "email".to_string(),
+                pattern: r".*@.*".to_string(),
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "is_email".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("is_email"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_condition_field_gt() {
+        let source = json!({
+            "age": 25
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::FieldGt {
+                path: "age".to_string(),
+                value: json!(18),
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "is_adult".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("is_adult"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_condition_field_lt() {
+        let source = json!({
+            "age": 15
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::FieldLt {
+                path: "age".to_string(),
+                value: json!(18),
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "is_minor".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("is_minor"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_condition_and() {
+        let source = json!({
+            "status": "active",
+            "priority": 5
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::And {
+                conditions: vec![
+                    Condition::FieldEquals {
+                        path: "status".to_string(),
+                        value: json!("active"),
+                    },
+                    Condition::FieldGt {
+                        path: "priority".to_string(),
+                        value: json!(3),
+                    },
+                ],
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "high_priority_active".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("high_priority_active"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_condition_or() {
+        let source = json!({
+            "status": "pending"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::Or {
+                conditions: vec![
+                    Condition::FieldEquals {
+                        path: "status".to_string(),
+                        value: json!("active"),
+                    },
+                    Condition::FieldEquals {
+                        path: "status".to_string(),
+                        value: json!("pending"),
+                    },
+                ],
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "is_valid".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("is_valid"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_condition_not() {
+        let source = json!({
+            "status": "inactive"
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::If {
+            condition: Condition::Not {
+                condition: Box::new(Condition::FieldEquals {
+                    path: "status".to_string(),
+                    value: json!("active"),
+                }),
+            },
+            then_ops: vec![ScriptOp::SetField {
+                path: "is_not_active".to_string(),
+                value: json!(true),
+            }],
+            else_ops: None,
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        engine.execute(&mut context).unwrap();
+
+        assert_eq!(context.get_field("is_not_active"), Some(&json!(true)));
+    }
+
+    #[test]
+    fn test_math_divide_by_zero() {
+        let source = json!({
+            "count": 10
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Divide,
+            target: "count".to_string(),
+            value: json!(0),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        let result = engine.execute(&mut context);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_math_modulo_by_zero() {
+        let source = json!({
+            "count": 10
+        });
+
+        let mut context = ScriptContext::new(
+            source,
+            HashMap::new(),
+            DocumentMetadata {
+                id: "1".to_string(),
+                index: "test".to_string(),
+                doc_type: None,
+                version: None,
+                routing: None,
+            },
+        );
+
+        let operations = vec![ScriptOp::Math {
+            operation: MathOp::Modulo,
+            target: "count".to_string(),
+            value: json!(0),
+        }];
+
+        let engine = ScriptEngine::new(operations);
+        let result = engine.execute(&mut context);
+        assert!(result.is_err());
+    }
 }

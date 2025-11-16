@@ -408,4 +408,209 @@ mod tests {
         assert_eq!(stats.max, Duration::from_millis(300));
         assert_eq!(stats.avg, Duration::from_millis(200));
     }
+
+    #[test]
+    fn test_timing_stats_percentiles() {
+        let mut stats = TimingStats::new();
+
+        // Add measurements for percentile calculation
+        for i in 1..=100 {
+            stats.add_measurement(Duration::from_millis(i));
+        }
+
+        assert_eq!(stats.count, 100);
+        assert!(stats.p50 >= Duration::from_millis(50));
+        assert!(stats.p95 >= Duration::from_millis(95));
+        assert!(stats.p99 >= Duration::from_millis(99));
+    }
+
+    #[test]
+    fn test_timing_stats_empty() {
+        let stats = TimingStats::new();
+        assert_eq!(stats.count, 0);
+        assert_eq!(stats.total, Duration::ZERO);
+        assert_eq!(stats.min, Duration::MAX);
+        assert_eq!(stats.max, Duration::ZERO);
+    }
+
+    #[test]
+    fn test_timing_stats_single_measurement() {
+        let mut stats = TimingStats::new();
+        stats.add_measurement(Duration::from_millis(100));
+
+        assert_eq!(stats.count, 1);
+        assert_eq!(stats.total, Duration::from_millis(100));
+        assert_eq!(stats.min, Duration::from_millis(100));
+        assert_eq!(stats.max, Duration::from_millis(100));
+        assert_eq!(stats.avg, Duration::from_millis(100));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_metrics_collector_reset() {
+        let collector = MetricsCollector::new();
+
+        collector.record_timing("test", Duration::from_millis(100)).await;
+        collector.increment_counter("counter", 5).await;
+        collector.record_gauge("gauge", 10.0).await;
+
+        collector.reset().await;
+
+        let metrics = collector.get_metrics().await;
+        assert!(metrics.timings.is_empty());
+        assert!(metrics.counters.is_empty());
+        assert!(metrics.gauges.is_empty());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_metrics_collector_default() {
+        let collector = MetricsCollector::default();
+        let metrics = collector.get_metrics().await;
+        assert!(metrics.timings.is_empty());
+    }
+
+    #[test]
+    fn test_metrics_new() {
+        let metrics = Metrics::new();
+        assert!(metrics.timings.is_empty());
+        assert!(metrics.counters.is_empty());
+        assert!(metrics.gauges.is_empty());
+    }
+
+    #[test]
+    fn test_metrics_default() {
+        let metrics = Metrics::default();
+        assert!(metrics.timings.is_empty());
+    }
+
+    #[test]
+    fn test_metrics_record_timing() {
+        let mut metrics = Metrics::new();
+        metrics.record_timing("test", Duration::from_millis(100));
+        
+        let stats = metrics.get_timing_stats("test").unwrap();
+        assert_eq!(stats.count, 1);
+    }
+
+    #[test]
+    fn test_metrics_increment_counter() {
+        let mut metrics = Metrics::new();
+        metrics.increment_counter("counter", 5);
+        metrics.increment_counter("counter", 3);
+        
+        assert_eq!(metrics.get_counter("counter"), Some(8));
+    }
+
+    #[test]
+    fn test_metrics_record_gauge() {
+        let mut metrics = Metrics::new();
+        metrics.record_gauge("gauge", 42.5);
+        
+        assert_eq!(metrics.get_gauge("gauge"), Some(42.5));
+    }
+
+    #[test]
+    fn test_metrics_get_timing_stats_not_found() {
+        let metrics = Metrics::new();
+        assert!(metrics.get_timing_stats("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_metrics_get_counter_not_found() {
+        let metrics = Metrics::new();
+        assert_eq!(metrics.get_counter("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_metrics_get_gauge_not_found() {
+        let metrics = Metrics::new();
+        assert_eq!(metrics.get_gauge("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_metrics_get_all_timings() {
+        let mut metrics = Metrics::new();
+        metrics.record_timing("op1", Duration::from_millis(100));
+        metrics.record_timing("op2", Duration::from_millis(200));
+        
+        let timings = metrics.get_all_timings();
+        assert_eq!(timings.len(), 2);
+    }
+
+    #[test]
+    fn test_metrics_get_all_counters() {
+        let mut metrics = Metrics::new();
+        metrics.increment_counter("counter1", 10);
+        metrics.increment_counter("counter2", 20);
+        
+        let counters = metrics.get_all_counters();
+        assert_eq!(counters.len(), 2);
+    }
+
+    #[test]
+    fn test_metrics_get_all_gauges() {
+        let mut metrics = Metrics::new();
+        metrics.record_gauge("gauge1", 10.0);
+        metrics.record_gauge("gauge2", 20.0);
+        
+        let gauges = metrics.get_all_gauges();
+        assert_eq!(gauges.len(), 2);
+    }
+
+    #[test]
+    fn test_system_metrics_new() {
+        let system = SystemMetrics::new();
+        assert_eq!(system.memory_usage, 0);
+        assert_eq!(system.cpu_usage, 0.0);
+        assert_eq!(system.disk_usage, 0);
+        assert_eq!(system.open_files, 0);
+        assert_eq!(system.thread_count, 0);
+    }
+
+    #[test]
+    fn test_system_metrics_default() {
+        let system = SystemMetrics::default();
+        assert_eq!(system.memory_usage, 0);
+    }
+
+    #[test]
+    fn test_system_metrics_update() {
+        let mut system = SystemMetrics::new();
+        system.update();
+        
+        // Should have placeholder values after update
+        assert!(system.memory_usage > 0);
+        assert!(system.cpu_usage > 0.0);
+        assert!(system.disk_usage > 0);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_performance_timer_multiple() {
+        let collector = Arc::new(MetricsCollector::new());
+
+        let timer1 = PerformanceTimer::start("op1", collector.clone());
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        timer1.finish().await;
+
+        let timer2 = PerformanceTimer::start("op2", collector.clone());
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        timer2.finish().await;
+
+        let metrics = collector.get_metrics().await;
+        assert_eq!(metrics.get_timing_stats("op1").unwrap().count, 1);
+        assert_eq!(metrics.get_timing_stats("op2").unwrap().count, 1);
+    }
+
+    #[test]
+    fn test_timing_stats_recent_limit() {
+        let mut stats = TimingStats::new();
+        
+        // Add more than 1000 measurements
+        for _ in 0..1100 {
+            stats.add_measurement(Duration::from_millis(100));
+        }
+        
+        // Recent measurements should be limited
+        // The implementation keeps last 900 after draining
+        assert!(stats.count == 1100);
+    }
 }

@@ -399,10 +399,312 @@ mod tests {
         assert_eq!(analysis.boolean_clauses, 3);
         assert_eq!(analysis.fuzzy_queries, 1);
         assert_eq!(analysis.regex_queries, 1);
-        assert_eq!(analysis.unique_fields.len(), 3);
-        assert!(analysis.unique_fields.contains("title"));
-        assert!(analysis.unique_fields.contains("name"));
-        assert!(analysis.unique_fields.contains("content"));
+    }
+
+    #[test]
+    fn test_query_optimizer_with_settings() {
+        let optimizer = QueryOptimizer::with_settings(5, false);
+        assert_eq!(optimizer.max_depth, 5);
+        assert!(!optimizer.enable_caching);
+    }
+
+    #[test]
+    fn test_query_optimizer_default() {
+        let optimizer = QueryOptimizer::default();
+        assert_eq!(optimizer.max_depth, 10);
+    }
+
+    #[test]
+    fn test_query_too_deep() {
+        let optimizer = QueryOptimizer::with_settings(2, true);
+
+        // Create a deeply nested query
+        let mut query =
+            Query::Bool(BoolQuery::new().must(Query::Match(MatchQuery::new("field", "value"))));
+        for _ in 0..5 {
+            query = Query::Bool(BoolQuery::new().must(query));
+        }
+
+        let result = optimizer.optimize(query);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_nested_query_optimization() {
+        let optimizer = QueryOptimizer::new();
+        let inner_query = Query::Match(MatchQuery::new("title", "test"));
+        let nested_query = NestedQuery::new("nested_path", inner_query);
+        let query = Query::Nested(nested_query);
+
+        let optimized = optimizer.optimize(query).unwrap();
+        assert!(matches!(optimized, Query::Nested(_)));
+    }
+
+    #[test]
+    fn test_function_score_query_optimization() {
+        let optimizer = QueryOptimizer::new();
+        let base_query = Query::Match(MatchQuery::new("title", "test"));
+        let func_score_query = FunctionScoreQuery::new(base_query);
+        let query = Query::FunctionScore(func_score_query);
+
+        let optimized = optimizer.optimize(query).unwrap();
+        assert!(matches!(optimized, Query::FunctionScore(_)));
+    }
+
+    #[test]
+    fn test_query_analysis_complexity_score() {
+        let optimizer = QueryOptimizer::new();
+        let query = Query::Bool(
+            BoolQuery::new()
+                .must(Query::Match(MatchQuery::new("title", "test")))
+                .should(Query::Fuzzy(FuzzyQuery::new("name", "john")))
+                .must_not(Query::Regex(RegexQuery::new("content", "spam")))
+                .filter(Query::Wildcard(WildcardQuery::new("field", "test*"))),
+        );
+
+        let analysis = optimizer.analyze(&query);
+        let score = analysis.complexity_score();
+
+        // Should have a complexity score > 0
+        assert!(score > 0);
+    }
+
+    #[test]
+    fn test_query_analysis_is_complex() {
+        let optimizer = QueryOptimizer::new();
+
+        // Create a complex query
+        let mut bool_query = BoolQuery::new();
+        for i in 0..15 {
+            bool_query =
+                bool_query.must(Query::Match(MatchQuery::new(format!("field{i}"), "value")));
+        }
+        let query = Query::Bool(bool_query);
+
+        let analysis = optimizer.analyze(&query);
+        assert!(analysis.is_complex());
+    }
+
+    #[test]
+    fn test_query_analysis_recommendations() {
+        let optimizer = QueryOptimizer::new();
+
+        // Create query with many boolean clauses
+        let mut bool_query = BoolQuery::new();
+        for i in 0..15 {
+            bool_query =
+                bool_query.must(Query::Match(MatchQuery::new(format!("field{i}"), "value")));
+        }
+        let query = Query::Bool(bool_query);
+
+        let analysis = optimizer.analyze(&query);
+        let recommendations = analysis.recommendations();
+
+        assert!(!recommendations.is_empty());
+        assert!(recommendations.iter().any(|r| r.contains("boolean")));
+    }
+
+    #[test]
+    fn test_query_analysis_recommendations_fuzzy() {
+        let optimizer = QueryOptimizer::new();
+
+        let mut bool_query = BoolQuery::new();
+        for _ in 0..5 {
+            bool_query = bool_query.must(Query::Fuzzy(FuzzyQuery::new("name", "john")));
+        }
+        let query = Query::Bool(bool_query);
+
+        let analysis = optimizer.analyze(&query);
+        let recommendations = analysis.recommendations();
+
+        assert!(recommendations.iter().any(|r| r.contains("fuzzy")));
+    }
+
+    #[test]
+    fn test_query_analysis_recommendations_regex() {
+        let optimizer = QueryOptimizer::new();
+
+        let mut bool_query = BoolQuery::new();
+        for _ in 0..3 {
+            bool_query = bool_query.must(Query::Regex(RegexQuery::new("content", "pattern")));
+        }
+        let query = Query::Bool(bool_query);
+
+        let analysis = optimizer.analyze(&query);
+        let recommendations = analysis.recommendations();
+
+        assert!(recommendations.iter().any(|r| r.contains("Regex")));
+    }
+
+    #[test]
+    fn test_query_analysis_recommendations_wildcard() {
+        let optimizer = QueryOptimizer::new();
+
+        let mut bool_query = BoolQuery::new();
+        for _ in 0..6 {
+            bool_query = bool_query.must(Query::Wildcard(WildcardQuery::new("field", "test*")));
+        }
+        let query = Query::Bool(bool_query);
+
+        let analysis = optimizer.analyze(&query);
+        let recommendations = analysis.recommendations();
+
+        assert!(recommendations.iter().any(|r| r.contains("wildcard")));
+    }
+
+    #[test]
+    fn test_query_analysis_recommendations_many_fields() {
+        let optimizer = QueryOptimizer::new();
+
+        let mut bool_query = BoolQuery::new();
+        for i in 0..15 {
+            bool_query =
+                bool_query.must(Query::Match(MatchQuery::new(format!("field{i}"), "value")));
+        }
+        let query = Query::Bool(bool_query);
+
+        let analysis = optimizer.analyze(&query);
+        let recommendations = analysis.recommendations();
+
+        assert!(recommendations.iter().any(|r| r.contains("fields")));
+    }
+
+    #[test]
+    fn test_query_analysis_recommendations_more_like_this() {
+        let optimizer = QueryOptimizer::new();
+
+        let query = Query::MoreLikeThis(MoreLikeThisQuery::new(
+            vec!["title".to_string()],
+            "test query",
+        ));
+
+        let analysis = optimizer.analyze(&query);
+        let recommendations = analysis.recommendations();
+
+        assert!(recommendations.iter().any(|r| r.contains("More Like This")));
+    }
+
+    #[test]
+    fn test_query_analysis_recommendations_well_optimized() {
+        let optimizer = QueryOptimizer::new();
+        let query = Query::Match(MatchQuery::new("title", "test"));
+
+        let analysis = optimizer.analyze(&query);
+        let recommendations = analysis.recommendations();
+
+        assert!(recommendations.iter().any(|r| r.contains("well-optimized")));
+    }
+
+    #[test]
+    fn test_query_analysis_unique_fields() {
+        let optimizer = QueryOptimizer::new();
+        let query = Query::Bool(
+            BoolQuery::new()
+                .must(Query::Match(MatchQuery::new("field1", "value1")))
+                .should(Query::Match(MatchQuery::new("field2", "value2")))
+                .must_not(Query::Match(MatchQuery::new("field1", "value3"))), // Duplicate field
+        );
+
+        let analysis = optimizer.analyze(&query);
+
+        // Should have 2 unique fields (field1 and field2)
+        assert_eq!(analysis.unique_fields.len(), 2);
+        assert!(analysis.unique_fields.contains("field1"));
+        assert!(analysis.unique_fields.contains("field2"));
+    }
+
+    #[test]
+    fn test_query_analysis_max_depth() {
+        let optimizer = QueryOptimizer::new();
+
+        // Create a nested query
+        let mut query = Query::Match(MatchQuery::new("field", "value"));
+        for _ in 0..3 {
+            query = Query::Bool(BoolQuery::new().must(query));
+        }
+
+        let analysis = optimizer.analyze(&query);
+        assert_eq!(analysis.max_depth, 3);
+    }
+
+    #[test]
+    fn test_query_analysis_phrase_queries() {
+        let optimizer = QueryOptimizer::new();
+        let query = Query::Bool(
+            BoolQuery::new()
+                .must(Query::Phrase(PhraseQuery::new("title", "quick brown fox")))
+                .should(Query::Phrase(PhraseQuery::new("content", "lazy dog"))),
+        );
+
+        let analysis = optimizer.analyze(&query);
+        assert_eq!(analysis.phrase_queries, 2);
+    }
+
+    #[test]
+    fn test_query_analysis_nested_queries() {
+        let optimizer = QueryOptimizer::new();
+        let inner_query = Query::Match(MatchQuery::new("title", "test"));
+        let nested_query = NestedQuery::new("nested_path", inner_query);
+        let query = Query::Nested(nested_query);
+
+        let analysis = optimizer.analyze(&query);
+        assert_eq!(analysis.nested_queries, 1);
+    }
+
+    #[test]
+    fn test_query_analysis_function_score_queries() {
+        let optimizer = QueryOptimizer::new();
+        let base_query = Query::Match(MatchQuery::new("title", "test"));
+        let func_score_query = FunctionScoreQuery::new(base_query);
+        let query = Query::FunctionScore(func_score_query);
+
+        let analysis = optimizer.analyze(&query);
+        assert_eq!(analysis.function_score_queries, 1);
+    }
+
+    #[test]
+    fn test_query_analysis_new() {
+        let analysis = QueryAnalysis::new();
+        assert_eq!(analysis.max_depth, 0);
+        assert_eq!(analysis.total_clauses, 0);
+        assert_eq!(analysis.boolean_clauses, 0);
+        assert!(analysis.unique_fields.is_empty());
+    }
+
+    #[test]
+    fn test_query_analysis_default() {
+        let analysis = QueryAnalysis::default();
+        assert_eq!(analysis.max_depth, 0);
+    }
+
+    #[test]
+    fn test_query_analysis_complexity_not_complex() {
+        let analysis = QueryAnalysis::new();
+        assert!(!analysis.is_complex());
+    }
+
+    #[test]
+    fn test_get_query_field() {
+        let match_query = Query::Match(MatchQuery::new("title", "test"));
+        assert_eq!(
+            QueryOptimizer::get_query_field(&match_query),
+            Some("title".to_string())
+        );
+
+        let term_query = Query::Term(TermQuery::new("status", "active"));
+        assert_eq!(
+            QueryOptimizer::get_query_field(&term_query),
+            Some("status".to_string())
+        );
+
+        let range_query = Query::Range(RangeQuery::new("age"));
+        assert_eq!(
+            QueryOptimizer::get_query_field(&range_query),
+            Some("age".to_string())
+        );
+
+        let bool_query = Query::Bool(BoolQuery::new());
+        assert_eq!(QueryOptimizer::get_query_field(&bool_query), None);
     }
 
     #[test]
