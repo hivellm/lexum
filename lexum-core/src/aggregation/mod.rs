@@ -14,6 +14,7 @@ pub mod average;
 pub mod boxplot;
 pub mod bucket_script;
 pub mod bucket_selector;
+pub mod bucket_sort;
 pub mod cardinality;
 pub mod composite;
 pub mod date_histogram;
@@ -54,6 +55,7 @@ pub use average::AverageAggregation;
 pub use boxplot::{BoxplotAggregation, BoxplotResult};
 pub use bucket_script::BucketScriptAggregation;
 pub use bucket_selector::BucketSelectorAggregation;
+pub use bucket_sort::BucketSortAggregation;
 pub use cardinality::CardinalityAggregation;
 pub use composite::CompositeAggregation;
 pub use date_histogram::DateHistogramAggregation;
@@ -194,6 +196,8 @@ pub enum AggregationSpec {
     BucketScript(BucketScriptAggregation),
     /// Bucket Selector aggregation (filter buckets by condition)
     BucketSelector(BucketSelectorAggregation),
+    /// Bucket Sort aggregation (sort buckets by metric)
+    BucketSort(BucketSortAggregation),
 }
 
 impl AggregationSpec {
@@ -238,6 +242,7 @@ impl AggregationSpec {
             AggregationSpec::ScriptedMetric(agg) => agg.name(),
             AggregationSpec::BucketScript(agg) => agg.name(),
             AggregationSpec::BucketSelector(agg) => agg.name(),
+            AggregationSpec::BucketSort(agg) => agg.name(),
         }
     }
 }

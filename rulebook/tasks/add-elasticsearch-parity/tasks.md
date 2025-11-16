@@ -310,7 +310,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Basic Pipeline Aggregations
 - [x] Bucket Script Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Bucket Selector Aggregation ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Bucket Sort Aggregation - **MISSING**
+- [x] Bucket Sort Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Cumulative Sum Aggregation - **MISSING**
 - [ ] Cumulative Cardinality Aggregation - **MISSING**
 - [ ] Derivative Aggregation - **MISSING**
@@ -334,9 +334,12 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Script parameters support ✅
   - Gap policy support (skip/insert_zeros) ✅
   - Note: Full implementation requires script engine integration and pipeline aggregation processing
-- [ ] 2.3.3 Implement Bucket Sort Aggregation
-  - Sort buckets by metric
-  - Size and from parameters
+- [x] 2.3.3 Implement Bucket Sort Aggregation ✅ **COMPLETED**
+  - Sort buckets by metric ✅
+  - Size and from parameters ✅
+  - Multiple sort options support ✅
+  - Gap policy support (skip/insert_zeros) ✅
+  - Note: Full implementation requires pipeline aggregation processing
 - [ ] 2.3.4 Implement Cumulative Aggregations
   - Cumulative sum
   - Cumulative cardinality

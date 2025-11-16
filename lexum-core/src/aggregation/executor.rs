@@ -137,6 +137,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::BucketSelector(bucket_selector_agg) => {
                     bucket_selector_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::BucketSort(bucket_sort_agg) => {
+                    bucket_sort_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -210,6 +213,7 @@ impl AggregationExecutor {
             super::AggregationSpec::BucketSelector(bucket_selector_agg) => {
                 bucket_selector_agg.merge(results)
             }
+            super::AggregationSpec::BucketSort(bucket_sort_agg) => bucket_sort_agg.merge(results),
         }
     }
 }
