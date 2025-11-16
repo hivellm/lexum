@@ -1845,6 +1845,66 @@ mod tests {
     }
 
     #[test]
+    fn test_build_tantivy_query_has_child() {
+        use crate::query::{HasChildQuery, MatchQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("status")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let child_query = Query::Match(MatchQuery::new("status", "active"));
+        let has_child = HasChildQuery::new("comment", child_query);
+        let query = Query::HasChild(has_child);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_has_parent() {
+        use crate::query::{HasParentQuery, MatchQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("status")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let parent_query = Query::Match(MatchQuery::new("status", "published"));
+        let has_parent = HasParentQuery::new("blog", parent_query);
+        let query = Query::HasParent(has_parent);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_has_child() {
+        use crate::query::{HasChildQuery, MatchQuery};
+
+        let child_query = Query::Match(MatchQuery::new("status", "active"));
+        let has_child = HasChildQuery::new("comment", child_query).boost(2.5);
+        let query = Query::HasChild(has_child);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
+    fn test_extract_boost_has_parent() {
+        use crate::query::{HasParentQuery, MatchQuery};
+
+        let parent_query = Query::Match(MatchQuery::new("status", "published"));
+        let has_parent = HasParentQuery::new("blog", parent_query).boost(2.0);
+        let query = Query::HasParent(has_parent);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.0);
+    }
+
+    #[test]
     fn test_build_tantivy_query_invalid_field() {
         let (schema, _) = SchemaBuilder::new()
             .add_text_field("title")
