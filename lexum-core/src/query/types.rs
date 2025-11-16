@@ -57,6 +57,8 @@ pub enum Query {
     GeoPolygon(GeoPolygonQuery),
     /// Geo shape query (search with geographic shapes)
     GeoShape(GeoShapeQuery),
+    /// Percolate query (reverse search - match stored queries against document)
+    Percolate(PercolateQuery),
 }
 
 /// Match query for full-text search
@@ -899,6 +901,65 @@ impl GeoShapeQuery {
     /// Set spatial relationship
     pub fn relation(mut self, relation: GeoShapeRelation) -> Self {
         self.relation = relation;
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Percolate query for reverse search (match stored queries against a document)
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PercolateQuery {
+    /// Field containing the document to percolate
+    pub field: String,
+    /// Document to match against stored queries (as JSON object)
+    pub document: serde_json::Value,
+    /// Index name where percolator queries are stored (optional)
+    #[serde(default)]
+    pub index: Option<String>,
+    /// Document type for percolator queries (optional, deprecated in ES but kept for compatibility)
+    #[serde(default)]
+    pub document_type: Option<String>,
+    /// Preferred document source (optional)
+    #[serde(default)]
+    pub preferred_sources: Option<Vec<String>>,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl PercolateQuery {
+    /// Create new percolate query
+    pub fn new(field: impl Into<String>, document: serde_json::Value) -> Self {
+        Self {
+            field: field.into(),
+            document,
+            index: None,
+            document_type: None,
+            preferred_sources: None,
+            boost: 1.0,
+        }
+    }
+
+    /// Set the index name where percolator queries are stored
+    pub fn index(mut self, index: impl Into<String>) -> Self {
+        self.index = Some(index.into());
+        self
+    }
+
+    /// Set the document type for percolator queries
+    pub fn document_type(mut self, doc_type: impl Into<String>) -> Self {
+        self.document_type = Some(doc_type.into());
+        self
+    }
+
+    /// Set preferred document sources
+    pub fn preferred_sources(mut self, sources: Vec<String>) -> Self {
+        self.preferred_sources = Some(sources);
         self
     }
 
@@ -2780,6 +2841,80 @@ mod tests {
         let deserialized: GeoShapeQuery = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.field, "location");
         assert!(matches!(deserialized.relation, GeoShapeRelation::Within));
+        assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_percolate_query() {
+        let document = serde_json::json!({
+            "title": "Elasticsearch guide",
+            "content": "This is a guide to Elasticsearch"
+        });
+        let percolate_query = PercolateQuery::new("document", document.clone());
+
+        assert_eq!(percolate_query.field, "document");
+        assert_eq!(percolate_query.document, document);
+        assert_eq!(percolate_query.boost, 1.0);
+        assert!(percolate_query.index.is_none());
+    }
+
+    #[test]
+    fn test_percolate_query_with_index() {
+        let document = serde_json::json!({"title": "test"});
+        let percolate_query = PercolateQuery::new("document", document).index("queries");
+
+        assert_eq!(percolate_query.index, Some("queries".to_string()));
+    }
+
+    #[test]
+    fn test_percolate_query_with_document_type() {
+        let document = serde_json::json!({"title": "test"});
+        let percolate_query = PercolateQuery::new("document", document).document_type("alert");
+
+        assert_eq!(percolate_query.document_type, Some("alert".to_string()));
+    }
+
+    #[test]
+    fn test_percolate_query_with_preferred_sources() {
+        let document = serde_json::json!({"title": "test"});
+        let sources = vec!["source1".to_string(), "source2".to_string()];
+        let percolate_query =
+            PercolateQuery::new("document", document).preferred_sources(sources.clone());
+
+        assert_eq!(percolate_query.preferred_sources, Some(sources));
+    }
+
+    #[test]
+    fn test_percolate_query_with_boost() {
+        let document = serde_json::json!({"title": "test"});
+        let percolate_query = PercolateQuery::new("document", document).boost(2.0);
+
+        assert_eq!(percolate_query.boost, 2.0);
+    }
+
+    #[test]
+    fn test_percolate_query_serialization() {
+        let document = serde_json::json!({
+            "title": "Elasticsearch guide",
+            "content": "This is a guide"
+        });
+        let percolate_query = PercolateQuery::new("document", document.clone())
+            .index("queries")
+            .document_type("alert")
+            .boost(1.5);
+
+        let json = serde_json::to_string(&percolate_query).unwrap();
+        assert!(json.contains("field"));
+        assert!(json.contains("document"));
+        assert!(json.contains("index"));
+        assert!(json.contains("document_type"));
+        assert!(json.contains("boost"));
+
+        let deserialized: PercolateQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "document");
+        assert_eq!(deserialized.document, document);
+        assert_eq!(deserialized.index, Some("queries".to_string()));
+        assert_eq!(deserialized.document_type, Some("alert".to_string()));
         assert_eq!(deserialized.boost, 1.5);
     }
 }

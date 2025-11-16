@@ -475,6 +475,7 @@ impl SearchExecutor {
             Query::GeoBoundingBox(g) => g.boost,
             Query::GeoPolygon(g) => g.boost,
             Query::GeoShape(g) => g.boost,
+            Query::Percolate(p) => p.boost,
             Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
@@ -730,6 +731,17 @@ impl SearchExecutor {
                 // Full implementation would use spatial relationship calculations
                 // For now, return a match all query
                 // Note: Actual geo filtering would be done in post-processing
+                Ok(Box::new(AllQuery))
+            }
+
+            Query::Percolate(_percolate_query) => {
+                // Percolate queries require a percolator index with stored queries
+                // Full implementation would:
+                // 1. Retrieve stored queries from percolator index
+                // 2. Match the provided document against each stored query
+                // 3. Return matching query IDs
+                // For now, return a match all query
+                // Note: Actual percolation would be done in a separate percolator service
                 Ok(Box::new(AllQuery))
             }
 

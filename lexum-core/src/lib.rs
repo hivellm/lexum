@@ -106,8 +106,8 @@ pub use query::{
     GeoBoundingBoxQuery, GeoDistanceQuery, GeoPoint, GeoPolygonQuery, GeoShape, GeoShapeQuery,
     GeoShapeRelation, HasChildQuery, HasParentQuery, MatchQuery, MoreLikeThisQuery,
     MultiMatchOperator, MultiMatchQuery, MultiMatchType, NestedQuery, NestedScoreMode,
-    ParentChildScoreMode, PhraseQuery, PinnedQuery, Query, QueryBuilder, RangeQuery, TermQuery,
-    WrapperQuery,
+    ParentChildScoreMode, PercolateQuery, PhraseQuery, PinnedQuery, Query, QueryBuilder,
+    RangeQuery, TermQuery, WrapperQuery,
 };
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};

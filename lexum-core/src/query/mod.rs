@@ -9,6 +9,6 @@ pub use types::{
     GeoBoundingBoxQuery, GeoDistanceQuery, GeoPoint, GeoPolygonQuery, GeoShape, GeoShapeQuery,
     GeoShapeRelation, HasChildQuery, HasParentQuery, MatchQuery, MoreLikeThisQuery,
     MultiMatchOperator, MultiMatchQuery, MultiMatchType, NestedQuery, NestedScoreMode,
-    ParentChildScoreMode, PhraseQuery, PinnedQuery, Query, RangeQuery, RegexQuery, TermQuery,
-    WildcardQuery, WrapperQuery,
+    ParentChildScoreMode, PercolateQuery, PhraseQuery, PinnedQuery, Query, RangeQuery, RegexQuery,
+    TermQuery, WildcardQuery, WrapperQuery,
 };
