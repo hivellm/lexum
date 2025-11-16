@@ -87,7 +87,7 @@ impl AggregationTrait for GeohashGridAggregation {
         "geohash_grid"
     }
 
-    fn execute(&self, hits: &[SearchHit], _field_cache: &FieldCache) -> Result<AggregationResult> {
+    fn execute(&self, _hits: &[SearchHit], _field_cache: &FieldCache) -> Result<AggregationResult> {
         // Note: Full implementation would require:
         // 1. Geohash encoding library (e.g., geohash-rust)
         // 2. Extracting geo_point values from documents
