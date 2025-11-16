@@ -2,7 +2,7 @@
 
 use super::types::{
     CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, MoreLikeThisQuery, MultiMatchQuery,
-    NestedQuery, PinnedQuery, WrapperQuery, *,
+    NestedQuery, PinnedQuery, ScriptQuery, WrapperQuery, *,
 };
 
 /// Builder for creating queries
@@ -92,6 +92,11 @@ impl QueryBuilder {
     /// Create a pinned query
     pub fn pinned_query(ids: Vec<String>, organic: Query) -> Query {
         Query::Pinned(PinnedQuery::new(ids, organic))
+    }
+
+    /// Create a script query
+    pub fn script_query(source: impl Into<String>) -> Query {
+        Query::Script(ScriptQuery::new(source))
     }
 }
 
@@ -192,5 +197,11 @@ mod tests {
         let organic = QueryBuilder::match_query("title", "test");
         let query = QueryBuilder::pinned_query(vec!["doc1".to_string()], organic);
         assert!(matches!(query, Query::Pinned(_)));
+    }
+
+    #[test]
+    fn test_script_query_builder() {
+        let query = QueryBuilder::script_query("doc['field'].value > 10");
+        assert!(matches!(query, Query::Script(_)));
     }
 }

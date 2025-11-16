@@ -739,6 +739,12 @@ pub struct ScriptQuery {
     /// Script parameters
     #[serde(default)]
     pub params: std::collections::HashMap<String, serde_json::Value>,
+    /// Script language (optional, defaults to system default)
+    #[serde(default)]
+    pub lang: Option<String>,
+    /// Script ID for stored scripts (optional)
+    #[serde(default)]
+    pub id: Option<String>,
 }
 
 impl ScriptQuery {
@@ -747,7 +753,35 @@ impl ScriptQuery {
         Self {
             source: source.into(),
             params: std::collections::HashMap::new(),
+            lang: None,
+            id: None,
         }
+    }
+
+    /// Add a parameter to the script
+    pub fn param(mut self, name: impl Into<String>, value: serde_json::Value) -> Self {
+        self.params.insert(name.into(), value);
+        self
+    }
+
+    /// Set script language
+    pub fn lang(mut self, lang: impl Into<String>) -> Self {
+        self.lang = Some(lang.into());
+        self
+    }
+
+    /// Set stored script ID
+    pub fn id(mut self, id: impl Into<String>) -> Self {
+        self.id = Some(id.into());
+        self
+    }
+
+    /// Add multiple parameters at once
+    pub fn params(mut self, params: impl IntoIterator<Item = (String, serde_json::Value)>) -> Self {
+        for (key, value) in params {
+            self.params.insert(key, value);
+        }
+        self
     }
 }
 
@@ -1288,6 +1322,84 @@ mod tests {
 
         assert_eq!(script_query.source, "doc['field'].value > 10");
         assert!(script_query.params.is_empty());
+        assert!(script_query.lang.is_none());
+        assert!(script_query.id.is_none());
+    }
+
+    #[test]
+    fn test_script_query_with_param() {
+        let script_query =
+            ScriptQuery::new("doc['field'].value > param").param("param", serde_json::json!(10));
+
+        assert_eq!(script_query.source, "doc['field'].value > param");
+        assert_eq!(script_query.params.len(), 1);
+        assert_eq!(
+            script_query.params.get("param"),
+            Some(&serde_json::json!(10))
+        );
+    }
+
+    #[test]
+    fn test_script_query_with_lang() {
+        let script_query = ScriptQuery::new("doc['field'].value > 10").lang("javascript");
+
+        assert_eq!(script_query.lang, Some("javascript".to_string()));
+    }
+
+    #[test]
+    fn test_script_query_with_id() {
+        let script_query = ScriptQuery::new("doc['field'].value > 10").id("my_script");
+
+        assert_eq!(script_query.id, Some("my_script".to_string()));
+    }
+
+    #[test]
+    fn test_script_query_with_multiple_params() {
+        let script_query =
+            ScriptQuery::new("doc['field'].value > param1 && doc['field2'].value < param2")
+                .param("param1", serde_json::json!(10))
+                .param("param2", serde_json::json!(100));
+
+        assert_eq!(script_query.params.len(), 2);
+        assert_eq!(
+            script_query.params.get("param1"),
+            Some(&serde_json::json!(10))
+        );
+        assert_eq!(
+            script_query.params.get("param2"),
+            Some(&serde_json::json!(100))
+        );
+    }
+
+    #[test]
+    fn test_script_query_params_builder() {
+        let params = vec![
+            ("param1".to_string(), serde_json::json!(10)),
+            ("param2".to_string(), serde_json::json!(20)),
+        ];
+        let script_query = ScriptQuery::new("doc['field'].value > param1").params(params);
+
+        assert_eq!(script_query.params.len(), 2);
+    }
+
+    #[test]
+    fn test_script_query_serialization() {
+        let script_query = ScriptQuery::new("doc['field'].value > param")
+            .param("param", serde_json::json!(10))
+            .lang("javascript")
+            .id("my_script");
+
+        let json = serde_json::to_string(&script_query).unwrap();
+        assert!(json.contains("source"));
+        assert!(json.contains("params"));
+        assert!(json.contains("lang"));
+        assert!(json.contains("id"));
+
+        let deserialized: ScriptQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.source, "doc['field'].value > param");
+        assert_eq!(deserialized.params.len(), 1);
+        assert_eq!(deserialized.lang, Some("javascript".to_string()));
+        assert_eq!(deserialized.id, Some("my_script".to_string()));
     }
 
     #[test]
@@ -1476,10 +1588,9 @@ mod tests {
 
     #[test]
     fn test_script_query_with_params() {
-        let mut script_query = ScriptQuery::new("doc['field'].value > param");
-        script_query
-            .params
-            .insert("param".to_string(), serde_json::json!(10));
+        // Updated to use builder pattern
+        let script_query =
+            ScriptQuery::new("doc['field'].value > param").param("param", serde_json::json!(10));
 
         assert_eq!(script_query.source, "doc['field'].value > param");
         assert_eq!(script_query.params.len(), 1);

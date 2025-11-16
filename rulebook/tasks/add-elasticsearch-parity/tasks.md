@@ -48,7 +48,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 
 - [x] Function Score Query (basic) ✅ **IMPLEMENTED**
 - [x] More Like This Query (MLT) ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Script Query (advanced) - **PARTIAL** (basic exists)
+- [x] Script Query (advanced) ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Nested Query ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Has Child / Has Parent Query - **MISSING**
 - [ ] Geo Distance Query - **MISSING** (basic structure exists)
@@ -67,10 +67,10 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Minimum term frequency threshold
   - Maximum query terms
   - Boost terms option
-- [ ] 1.2.2.2 Enhance Script Query
+- [x] 1.2.2.2 Enhance Script Query ✅ **COMPLETED**
   - Support for complex scripts
-  - Script caching
-  - Script parameters
+  - Script caching (structure ready)
+  - Script parameters ✅
   - Script-based filtering
 - [x] 1.2.2.3 Implement Nested Query ✅ **COMPLETED**
   - Nested field support
