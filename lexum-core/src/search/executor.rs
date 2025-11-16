@@ -1947,6 +1947,36 @@ mod tests {
     }
 
     #[test]
+    fn test_build_tantivy_query_percolate() {
+        use crate::query::PercolateQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let document = serde_json::json!({"title": "test"});
+        let percolate = PercolateQuery::new("document", document);
+        let query = Query::Percolate(percolate);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_percolate() {
+        use crate::query::PercolateQuery;
+
+        let document = serde_json::json!({"title": "test"});
+        let percolate = PercolateQuery::new("document", document).boost(2.5);
+        let query = Query::Percolate(percolate);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
     fn test_build_tantivy_query_invalid_field() {
         let (schema, _) = SchemaBuilder::new()
             .add_text_field("title")
