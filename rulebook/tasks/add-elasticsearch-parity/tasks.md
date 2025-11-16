@@ -1,7 +1,8 @@
 # Elasticsearch Parity - Feature Gap Analysis & Implementation Tasks
 
 **Created**: 2025-01-14  
-**Status**: Planning  
+**Last Updated**: 2025-01-14  
+**Status**: In Progress  
 **Priority**: High  
 **Estimated Duration**: 18-24 months (phased approach)
 
@@ -9,8 +10,14 @@
 
 This document provides a comprehensive analysis comparing Lexum's current capabilities with Elasticsearch's core features, identifying gaps, and outlining implementation tasks to achieve feature parity.
 
-**Current Lexum Status**: ~40% feature parity with Elasticsearch  
+**Current Lexum Status**: ~42% feature parity with Elasticsearch  
 **Target**: 95%+ feature parity with Elasticsearch v8.x
+
+**Recent Progress** (2025-01-14):
+- ✅ Implemented Multi-Match Query (task 1.3.3) - supports best_fields, most_fields, cross_fields, phrase, phrase_prefix
+- ✅ Implemented Dis Max Query (task 1.3.5) - multiple queries with tie breaker support
+- ✅ Implemented Constant Score Query (task 1.3.6) - fixed score for all matches
+- ✅ Implemented Common Terms Query (task 1.3.4) - low/high frequency term separation
 
 ---
 
@@ -86,13 +93,15 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 
 ### 1.3 Query DSL Features ⚠️ PARTIAL
 
+**Progress**: 4 of 6 core Query DSL features implemented (67%)
+
 - [x] Query string syntax (basic)
 - [ ] Query string with advanced syntax - **PARTIAL**
 - [ ] Simple query string - **MISSING**
-- [x] Multi-match query ✅ **IMPLEMENTED**
-- [x] Common terms query ✅ **IMPLEMENTED**
-- [x] Dis Max query ✅ **IMPLEMENTED**
-- [x] Constant Score query ✅ **IMPLEMENTED**
+- [x] Multi-match query ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Common terms query ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Dis Max query ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Constant Score query ✅ **IMPLEMENTED** (2025-01-14)
 
 **Tasks**:
 
