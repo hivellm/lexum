@@ -477,6 +477,7 @@ impl SearchExecutor {
             Query::GeoShape(g) => g.boost,
             Query::Percolate(p) => p.boost,
             Query::SimpleQueryString(s) => s.boost,
+            Query::QueryString(q) => q.boost,
             Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
@@ -808,6 +809,107 @@ impl SearchExecutor {
                     Ok(Box::new(BoostQuery::new(
                         parsed_query,
                         simple_query_string_query.boost,
+                    )))
+                } else {
+                    Ok(parsed_query)
+                }
+            }
+
+            Query::QueryString(query_string_query) => {
+                // Query string queries support advanced syntax:
+                // - Field groups: title:(quick OR brown)
+                // - Proximity: "fox jumps"~2
+                // - Boosting: quick^2 fox
+                // - Fuzzy: quick~2
+                // - Wildcards: qu?ck bro*
+                // - Regex: /joh?n(ath[oa]n)/
+                // - Ranges: date:[2012-01-01 TO 2012-12-31]
+                //
+                // Tantivy's QueryParser supports most of these features natively.
+                // We'll use it with the configured options.
+
+                let fields_to_search = if !query_string_query.fields.is_empty() {
+                    // Use specified fields
+                    query_string_query
+                        .fields
+                        .iter()
+                        .filter_map(|field_name| tantivy_index.schema().get_field(field_name).ok())
+                        .collect::<Vec<_>>()
+                } else if let Some(ref default_field) = query_string_query.default_field {
+                    // Use default field
+                    tantivy_index
+                        .schema()
+                        .get_field(default_field)
+                        .ok()
+                        .map(|f| vec![f])
+                        .unwrap_or_else(|| {
+                            // If default field not found, get all text fields
+                            tantivy_index
+                                .schema()
+                                .fields()
+                                .filter_map(|(field, field_entry)| {
+                                    if field_entry.field_type().value_type()
+                                        == tantivy::schema::Type::Str
+                                    {
+                                        Some(field)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                } else {
+                    // No fields specified, get all text fields
+                    tantivy_index
+                        .schema()
+                        .fields()
+                        .filter_map(|(field, field_entry)| {
+                            if field_entry.field_type().value_type() == tantivy::schema::Type::Str {
+                                Some(field)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                };
+
+                if fields_to_search.is_empty() {
+                    return Err(Error::Config(
+                        "No searchable fields found for query string".to_string(),
+                    ));
+                }
+
+                // Create query parser with fields
+                let mut query_parser = QueryParser::for_index(tantivy_index, fields_to_search);
+
+                // Set default operator
+                match query_string_query.default_operator {
+                    crate::query::QueryStringOperator::And => {
+                        query_parser.set_conjunction_by_default();
+                    }
+                    crate::query::QueryStringOperator::Or => {
+                        // OR is the default in Tantivy
+                    }
+                }
+
+                // Parse the query
+                // Note: Tantivy's QueryParser handles:
+                // - Field groups: title:term
+                // - Proximity: "phrase"~2
+                // - Boosting: term^2
+                // - Fuzzy: term~2
+                // - Wildcards: term*
+                // - Regex: /pattern/
+                // - Ranges: [start TO end]
+                let parsed_query = query_parser
+                    .parse_query(&query_string_query.query)
+                    .map_err(|e| Error::Config(format!("Failed to parse query string: {e}")))?;
+
+                // Apply boost if needed
+                if (query_string_query.boost - 1.0).abs() > f32::EPSILON {
+                    Ok(Box::new(BoostQuery::new(
+                        parsed_query,
+                        query_string_query.boost,
                     )))
                 } else {
                     Ok(parsed_query)
@@ -2384,6 +2486,150 @@ mod tests {
 
         let simple_query = SimpleQueryStringQuery::new("test").boost(2.5);
         let query = Query::SimpleQueryString(simple_query);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_query_string() {
+        use crate::query::QueryStringQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query_string = QueryStringQuery::new("quick brown fox");
+        let query = Query::QueryString(query_string);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_query_string_with_field_groups() {
+        use crate::query::{QueryStringOperator, QueryStringQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        // Test field groups syntax: title:(quick OR brown)
+        let query_string = QueryStringQuery::new("title:(quick OR brown)")
+            .default_operator(QueryStringOperator::And);
+        let query = Query::QueryString(query_string);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_query_string_with_proximity() {
+        use crate::query::QueryStringQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        // Test proximity syntax: "fox jumps"~2
+        let query_string = QueryStringQuery::new("\"fox jumps\"~2");
+        let query = Query::QueryString(query_string);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_query_string_with_boosting() {
+        use crate::query::QueryStringQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        // Test boosting syntax: quick^2 fox
+        let query_string = QueryStringQuery::new("quick^2 fox");
+        let query = Query::QueryString(query_string);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_query_string_with_default_field() {
+        use crate::query::QueryStringQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query_string = QueryStringQuery::new("test").default_field("title");
+        let query = Query::QueryString(query_string);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_query_string_with_fields() {
+        use crate::query::QueryStringQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query_string = QueryStringQuery::new("test").fields(vec!["title".to_string()]);
+        let query = Query::QueryString(query_string);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_query_string_with_boost() {
+        use crate::query::QueryStringQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let query_string = QueryStringQuery::new("test").boost(2.0);
+        let query = Query::QueryString(query_string);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_query_string() {
+        use crate::query::QueryStringQuery;
+
+        let query_string = QueryStringQuery::new("test").boost(2.5);
+        let query = Query::QueryString(query_string);
 
         assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
     }

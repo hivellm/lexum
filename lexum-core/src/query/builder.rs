@@ -3,8 +3,8 @@
 use super::types::{
     CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, GeoBoundingBoxQuery, GeoDistanceQuery,
     GeoPoint, GeoPolygonQuery, GeoShape, GeoShapeQuery, HasChildQuery, HasParentQuery,
-    MoreLikeThisQuery, MultiMatchQuery, NestedQuery, PercolateQuery, PinnedQuery, ScriptQuery,
-    SimpleQueryStringQuery, WrapperQuery, *,
+    MoreLikeThisQuery, MultiMatchQuery, NestedQuery, PercolateQuery, PinnedQuery, QueryStringQuery,
+    ScriptQuery, SimpleQueryStringQuery, WrapperQuery, *,
 };
 
 /// Builder for creating queries
@@ -148,6 +148,11 @@ impl QueryBuilder {
     /// Create a simple query string query
     pub fn simple_query_string_query(query: impl Into<String>) -> Query {
         Query::SimpleQueryString(SimpleQueryStringQuery::new(query))
+    }
+
+    /// Create a query string query (advanced syntax)
+    pub fn query_string_query(query: impl Into<String>) -> Query {
+        Query::QueryString(QueryStringQuery::new(query))
     }
 }
 
@@ -323,5 +328,11 @@ mod tests {
     fn test_simple_query_string_query_builder() {
         let query = QueryBuilder::simple_query_string_query("quick brown fox");
         assert!(matches!(query, Query::SimpleQueryString(_)));
+    }
+
+    #[test]
+    fn test_query_string_query_builder() {
+        let query = QueryBuilder::query_string_query("title:(quick OR brown)");
+        assert!(matches!(query, Query::QueryString(_)));
     }
 }

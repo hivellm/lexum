@@ -9,7 +9,7 @@ pub use types::{
     GeoBoundingBoxQuery, GeoDistanceQuery, GeoPoint, GeoPolygonQuery, GeoShape, GeoShapeQuery,
     GeoShapeRelation, HasChildQuery, HasParentQuery, MatchQuery, MoreLikeThisQuery,
     MultiMatchOperator, MultiMatchQuery, MultiMatchType, NestedQuery, NestedScoreMode,
-    ParentChildScoreMode, PercolateQuery, PhraseQuery, PinnedQuery, Query, RangeQuery, RegexQuery,
-    SimpleQueryStringFlags, SimpleQueryStringOperator, SimpleQueryStringQuery, TermQuery,
-    WildcardQuery, WrapperQuery,
+    ParentChildScoreMode, PercolateQuery, PhraseQuery, PinnedQuery, Query, QueryStringOperator,
+    QueryStringQuery, RangeQuery, RegexQuery, SimpleQueryStringFlags, SimpleQueryStringOperator,
+    SimpleQueryStringQuery, TermQuery, WildcardQuery, WrapperQuery,
 };

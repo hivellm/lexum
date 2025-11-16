@@ -61,6 +61,8 @@ pub enum Query {
     Percolate(PercolateQuery),
     /// Simple query string query (simplified syntax for end users)
     SimpleQueryString(SimpleQueryStringQuery),
+    /// Query string query (advanced syntax with field groups, proximity, boosting, etc.)
+    QueryString(QueryStringQuery),
 }
 
 /// Match query for full-text search
@@ -1161,6 +1163,247 @@ impl SimpleQueryStringQuery {
     /// Set quote field suffix
     pub fn quote_field_suffix(mut self, suffix: impl Into<String>) -> Self {
         self.quote_field_suffix = Some(suffix.into());
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Query string query for advanced syntax
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct QueryStringQuery {
+    /// Query string to parse (supports advanced syntax)
+    pub query: String,
+    /// Default field to search (optional)
+    #[serde(default)]
+    pub default_field: Option<String>,
+    /// Fields to search (optional, defaults to all if not specified)
+    #[serde(default)]
+    pub fields: Vec<String>,
+    /// Default operator (AND/OR)
+    #[serde(default)]
+    pub default_operator: QueryStringOperator,
+    /// Analyze wildcard (whether to analyze wildcard terms)
+    #[serde(default)]
+    pub analyze_wildcard: bool,
+    /// Allow leading wildcard
+    #[serde(default)]
+    pub allow_leading_wildcard: bool,
+    /// Auto generate phrase queries
+    #[serde(default = "default_true")]
+    pub auto_generate_phrase_queries: bool,
+    /// Enable position increments
+    #[serde(default = "default_true")]
+    pub enable_position_increments: bool,
+    /// Escape characters
+    #[serde(default)]
+    pub escape: bool,
+    /// Fuzziness (e.g., "AUTO", "0", "1", "2")
+    #[serde(default)]
+    pub fuzziness: Option<String>,
+    /// Fuzzy max expansions
+    #[serde(default = "default_fuzzy_max_expansions")]
+    pub fuzzy_max_expansions: u32,
+    /// Fuzzy prefix length
+    #[serde(default = "default_fuzzy_prefix_length")]
+    pub fuzzy_prefix_length: u32,
+    /// Fuzzy transpositions
+    #[serde(default)]
+    pub fuzzy_transpositions: bool,
+    /// Lenient (ignore format-based errors)
+    #[serde(default)]
+    pub lenient: bool,
+    /// Maximum determinized states (for regex)
+    #[serde(default = "default_max_determinized_states")]
+    pub max_determinized_states: u32,
+    /// Minimum should match
+    #[serde(default)]
+    pub minimum_should_match: Option<String>,
+    /// Phrase slop
+    #[serde(default)]
+    pub phrase_slop: Option<u32>,
+    /// Quote analyzer
+    #[serde(default)]
+    pub quote_analyzer: Option<String>,
+    /// Quote field suffix
+    #[serde(default)]
+    pub quote_field_suffix: Option<String>,
+    /// Tie breaker for multi-field queries
+    #[serde(default)]
+    pub tie_breaker: Option<f32>,
+    /// Time zone (for date ranges)
+    #[serde(default)]
+    pub time_zone: Option<String>,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+/// Default operator for query string
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum QueryStringOperator {
+    /// AND operator (all terms must match)
+    #[default]
+    And,
+    /// OR operator (any term can match)
+    Or,
+}
+
+fn default_max_determinized_states() -> u32 {
+    10000
+}
+
+impl QueryStringQuery {
+    /// Create new query string query
+    pub fn new(query: impl Into<String>) -> Self {
+        Self {
+            query: query.into(),
+            default_field: None,
+            fields: Vec::new(),
+            default_operator: QueryStringOperator::Or,
+            analyze_wildcard: false,
+            allow_leading_wildcard: true,
+            auto_generate_phrase_queries: true,
+            enable_position_increments: true,
+            escape: false,
+            fuzziness: None,
+            fuzzy_max_expansions: 50,
+            fuzzy_prefix_length: 0,
+            fuzzy_transpositions: true,
+            lenient: false,
+            max_determinized_states: 10000,
+            minimum_should_match: None,
+            phrase_slop: None,
+            quote_analyzer: None,
+            quote_field_suffix: None,
+            tie_breaker: None,
+            time_zone: None,
+            boost: 1.0,
+        }
+    }
+
+    /// Set default field
+    pub fn default_field(mut self, field: impl Into<String>) -> Self {
+        self.default_field = Some(field.into());
+        self
+    }
+
+    /// Set fields to search
+    pub fn fields(mut self, fields: Vec<String>) -> Self {
+        self.fields = fields;
+        self
+    }
+
+    /// Set default operator
+    pub fn default_operator(mut self, operator: QueryStringOperator) -> Self {
+        self.default_operator = operator;
+        self
+    }
+
+    /// Set analyze wildcard
+    pub fn analyze_wildcard(mut self, analyze: bool) -> Self {
+        self.analyze_wildcard = analyze;
+        self
+    }
+
+    /// Set allow leading wildcard
+    pub fn allow_leading_wildcard(mut self, allow: bool) -> Self {
+        self.allow_leading_wildcard = allow;
+        self
+    }
+
+    /// Set auto generate phrase queries
+    pub fn auto_generate_phrase_queries(mut self, auto: bool) -> Self {
+        self.auto_generate_phrase_queries = auto;
+        self
+    }
+
+    /// Set enable position increments
+    pub fn enable_position_increments(mut self, enable: bool) -> Self {
+        self.enable_position_increments = enable;
+        self
+    }
+
+    /// Set escape
+    pub fn escape(mut self, escape: bool) -> Self {
+        self.escape = escape;
+        self
+    }
+
+    /// Set fuzziness
+    pub fn fuzziness(mut self, fuzziness: impl Into<String>) -> Self {
+        self.fuzziness = Some(fuzziness.into());
+        self
+    }
+
+    /// Set fuzzy max expansions
+    pub fn fuzzy_max_expansions(mut self, max: u32) -> Self {
+        self.fuzzy_max_expansions = max;
+        self
+    }
+
+    /// Set fuzzy prefix length
+    pub fn fuzzy_prefix_length(mut self, length: u32) -> Self {
+        self.fuzzy_prefix_length = length;
+        self
+    }
+
+    /// Set fuzzy transpositions
+    pub fn fuzzy_transpositions(mut self, transpositions: bool) -> Self {
+        self.fuzzy_transpositions = transpositions;
+        self
+    }
+
+    /// Set lenient mode
+    pub fn lenient(mut self, lenient: bool) -> Self {
+        self.lenient = lenient;
+        self
+    }
+
+    /// Set maximum determinized states
+    pub fn max_determinized_states(mut self, max: u32) -> Self {
+        self.max_determinized_states = max;
+        self
+    }
+
+    /// Set minimum should match
+    pub fn minimum_should_match(mut self, msm: impl Into<String>) -> Self {
+        self.minimum_should_match = Some(msm.into());
+        self
+    }
+
+    /// Set phrase slop
+    pub fn phrase_slop(mut self, slop: u32) -> Self {
+        self.phrase_slop = Some(slop);
+        self
+    }
+
+    /// Set quote analyzer
+    pub fn quote_analyzer(mut self, analyzer: impl Into<String>) -> Self {
+        self.quote_analyzer = Some(analyzer.into());
+        self
+    }
+
+    /// Set quote field suffix
+    pub fn quote_field_suffix(mut self, suffix: impl Into<String>) -> Self {
+        self.quote_field_suffix = Some(suffix.into());
+        self
+    }
+
+    /// Set tie breaker
+    pub fn tie_breaker(mut self, tie_breaker: f32) -> Self {
+        self.tie_breaker = Some(tie_breaker);
+        self
+    }
+
+    /// Set time zone
+    pub fn time_zone(mut self, time_zone: impl Into<String>) -> Self {
+        self.time_zone = Some(time_zone.into());
         self
     }
 
@@ -3210,6 +3453,115 @@ mod tests {
         assert!(matches!(
             deserialized.default_operator,
             SimpleQueryStringOperator::And
+        ));
+        assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_query_string_query() {
+        use super::{QueryStringOperator, QueryStringQuery};
+        let query = QueryStringQuery::new("quick brown fox");
+
+        assert_eq!(query.query, "quick brown fox");
+        assert!(query.default_field.is_none());
+        assert!(query.fields.is_empty());
+        assert!(matches!(query.default_operator, QueryStringOperator::Or));
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_query_string_query_with_default_field() {
+        use super::QueryStringQuery;
+        let query = QueryStringQuery::new("test").default_field("title");
+
+        assert_eq!(query.default_field, Some("title".to_string()));
+    }
+
+    #[test]
+    fn test_query_string_query_with_fields() {
+        use super::QueryStringQuery;
+        let query =
+            QueryStringQuery::new("test").fields(vec!["title".to_string(), "content".to_string()]);
+
+        assert_eq!(query.fields.len(), 2);
+        assert_eq!(query.fields[0], "title");
+    }
+
+    #[test]
+    fn test_query_string_query_with_default_operator() {
+        use super::{QueryStringOperator, QueryStringQuery};
+        let query = QueryStringQuery::new("test").default_operator(QueryStringOperator::And);
+
+        assert!(matches!(query.default_operator, QueryStringOperator::And));
+    }
+
+    #[test]
+    fn test_query_string_query_with_fuzziness() {
+        use super::QueryStringQuery;
+        let query = QueryStringQuery::new("test").fuzziness("AUTO");
+
+        assert_eq!(query.fuzziness, Some("AUTO".to_string()));
+    }
+
+    #[test]
+    fn test_query_string_query_with_phrase_slop() {
+        use super::QueryStringQuery;
+        let query = QueryStringQuery::new("test").phrase_slop(2);
+
+        assert_eq!(query.phrase_slop, Some(2));
+    }
+
+    #[test]
+    fn test_query_string_query_with_tie_breaker() {
+        use super::QueryStringQuery;
+        let query = QueryStringQuery::new("test").tie_breaker(0.3);
+
+        assert_eq!(query.tie_breaker, Some(0.3));
+    }
+
+    #[test]
+    fn test_query_string_query_with_time_zone() {
+        use super::QueryStringQuery;
+        let query = QueryStringQuery::new("test").time_zone("UTC");
+
+        assert_eq!(query.time_zone, Some("UTC".to_string()));
+    }
+
+    #[test]
+    fn test_query_string_query_with_boost() {
+        use super::QueryStringQuery;
+        let query = QueryStringQuery::new("test").boost(2.0);
+
+        assert_eq!(query.boost, 2.0);
+    }
+
+    #[test]
+    fn test_query_string_query_serialization() {
+        use super::{QueryStringOperator, QueryStringQuery};
+        let query = QueryStringQuery::new("title:(quick OR brown) AND \"fox jumps\"~2")
+            .default_field("title")
+            .default_operator(QueryStringOperator::And)
+            .fuzziness("AUTO")
+            .phrase_slop(2)
+            .boost(1.5);
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("query"));
+        assert!(json.contains("default_field"));
+        assert!(json.contains("default_operator"));
+        assert!(json.contains("fuzziness"));
+        assert!(json.contains("phrase_slop"));
+        assert!(json.contains("boost"));
+
+        let deserialized: QueryStringQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            deserialized.query,
+            "title:(quick OR brown) AND \"fox jumps\"~2"
+        );
+        assert_eq!(deserialized.default_field, Some("title".to_string()));
+        assert!(matches!(
+            deserialized.default_operator,
+            QueryStringOperator::And
         ));
         assert_eq!(deserialized.boost, 1.5);
     }

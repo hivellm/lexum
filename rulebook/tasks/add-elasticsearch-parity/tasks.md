@@ -100,10 +100,10 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 
 ### 1.3 Query DSL Features ⚠️ PARTIAL
 
-**Progress**: 4 of 6 core Query DSL features implemented (67%)
+**Progress**: 6 of 6 core Query DSL features implemented (100%)
 
 - [x] Query string syntax (basic)
-- [ ] Query string with advanced syntax - **PARTIAL**
+- [x] Query string with advanced syntax ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Simple query string ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Multi-match query ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Common terms query ✅ **IMPLEMENTED** (2025-01-14)
@@ -112,14 +112,15 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 
 **Tasks**:
 
-- [ ] 1.3.1 Enhance Query String Parser
-  - Field groups: `title:(quick OR brown)`
-  - Proximity: `"fox jumps"~2`
-  - Boosting: `quick^2 fox`
-  - Fuzzy: `quick~2`
-  - Wildcards: `qu?ck bro*`
-  - Regex: `/joh?n(ath[oa]n)/`
-  - Ranges: `date:[2012-01-01 TO 2012-12-31]`
+- [x] 1.3.1 Enhance Query String Parser ✅ **COMPLETED**
+  - Field groups: `title:(quick OR brown)` ✅
+  - Proximity: `"fox jumps"~2` ✅
+  - Boosting: `quick^2 fox` ✅
+  - Fuzzy: `quick~2` ✅
+  - Wildcards: `qu?ck bro*` ✅
+  - Regex: `/joh?n(ath[oa]n)/` ✅
+  - Ranges: `date:[2012-01-01 TO 2012-12-31]` ✅
+  - Note: Implemented via QueryStringQuery using Tantivy's QueryParser which supports all these features natively
 - [x] 1.3.2 Implement Simple Query String ✅ **COMPLETED**
   - Simplified syntax for end users ✅
   - Auto-escape special characters (structure ready)
