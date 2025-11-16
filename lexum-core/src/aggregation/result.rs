@@ -19,18 +19,28 @@ pub enum AggregationResult {
 
 /// Bucket aggregation result
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct BucketAggregationResult {
-    /// Buckets
-    pub buckets: Vec<Bucket>,
-    /// Total number of documents
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub doc_count: Option<usize>,
+#[serde(untagged)]
+pub enum BucketAggregationResult {
+    /// Array format (default)
+    Array {
+        /// Buckets
+        buckets: Vec<Bucket>,
+        /// Total number of documents
+        #[serde(skip_serializing_if = "Option::is_none")]
+        doc_count: Option<usize>,
+    },
+    /// Keyed format (key: bucket)
+    Keyed {
+        /// Buckets keyed by their key
+        #[serde(flatten)]
+        buckets: HashMap<String, Bucket>,
+    },
 }
 
 impl BucketAggregationResult {
-    /// Create new bucket aggregation result
+    /// Create new bucket aggregation result (array format)
     pub fn new(buckets: Vec<Bucket>) -> Self {
-        Self {
+        Self::Array {
             buckets,
             doc_count: None,
         }
@@ -38,10 +48,48 @@ impl BucketAggregationResult {
 
     /// Create with doc count
     pub fn with_doc_count(buckets: Vec<Bucket>, doc_count: usize) -> Self {
-        Self {
+        Self::Array {
             buckets,
             doc_count: Some(doc_count),
         }
+    }
+
+    /// Create keyed format
+    pub fn new_keyed(buckets: HashMap<String, Bucket>) -> Self {
+        Self::Keyed { buckets }
+    }
+
+    /// Get buckets as vector (for merging)
+    pub fn buckets(&self) -> Vec<&Bucket> {
+        match self {
+            BucketAggregationResult::Array { buckets, .. } => buckets.iter().collect(),
+            BucketAggregationResult::Keyed { buckets } => buckets.values().collect(),
+        }
+    }
+
+    /// Get buckets as mutable vector (for tests)
+    #[cfg(test)]
+    pub fn buckets_mut(&mut self) -> &mut Vec<Bucket> {
+        match self {
+            BucketAggregationResult::Array { buckets, .. } => buckets,
+            BucketAggregationResult::Keyed { .. } => {
+                panic!("Cannot get mutable buckets from keyed format")
+            }
+        }
+    }
+
+    /// Get buckets as vector (for tests - converts keyed to array)
+    #[cfg(test)]
+    pub fn buckets_vec(&self) -> Vec<Bucket> {
+        match self {
+            BucketAggregationResult::Array { buckets, .. } => buckets.clone(),
+            BucketAggregationResult::Keyed { buckets } => buckets.values().cloned().collect(),
+        }
+    }
+
+    /// Check if this is a keyed format
+    pub fn is_keyed(&self) -> bool {
+        matches!(self, BucketAggregationResult::Keyed { .. })
     }
 }
 

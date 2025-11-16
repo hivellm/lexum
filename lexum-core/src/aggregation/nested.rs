@@ -51,6 +51,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::DateHistogram(date_hist_agg) => {
                     date_hist_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::DateRange(date_range_agg) => {
+                    date_range_agg.execute(&nested_hits, field_cache)?
+                }
                 AggregationSpec::Percentile(percentile_agg) => {
                     percentile_agg.execute(&nested_hits, field_cache)?
                 }
@@ -62,6 +65,21 @@ impl AggregationTrait for NestedAggregation {
                 }
                 AggregationSpec::Pipeline(pipeline_agg) => {
                     pipeline_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::Range(range_agg) => {
+                    range_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::Filters(filters_agg) => {
+                    filters_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::Missing(missing_agg) => {
+                    missing_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::Global(global_agg) => {
+                    global_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::Composite(composite_agg) => {
+                    composite_agg.execute(&nested_hits, field_cache)?
                 }
             };
             sub_results.insert(name.clone(), result);
@@ -164,7 +182,7 @@ mod tests {
         let result = nested_agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 1);
+            assert_eq!(bucket_result.buckets().len(), 1);
             // Should have one bucket with nested path
         } else {
             panic!("Expected Buckets result");
@@ -189,7 +207,7 @@ mod tests {
         let result = nested_agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 1);
+            assert_eq!(bucket_result.buckets().len(), 1);
             // Should have sub-aggregations
         } else {
             panic!("Expected Buckets result");
@@ -208,8 +226,8 @@ mod tests {
         if let AggregationResult::Buckets(bucket_result) = result {
             // Should have empty or single bucket with 0 docs
             assert!(
-                bucket_result.buckets.is_empty()
-                    || bucket_result.buckets.iter().all(|b| b.doc_count == 0)
+                bucket_result.buckets().is_empty()
+                    || bucket_result.buckets().iter().all(|b| b.doc_count == 0)
             );
         } else {
             panic!("Expected Buckets result");

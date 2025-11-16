@@ -11,23 +11,35 @@
 //! - Pipeline aggregations
 
 pub mod cardinality;
+pub mod composite;
 pub mod date_histogram;
+pub mod date_range;
 pub mod executor;
+pub mod filters;
+pub mod global;
 pub mod histogram;
+pub mod missing;
 pub mod nested;
 pub mod percentile;
 pub mod pipeline;
+pub mod range;
 pub mod result;
 pub mod stats;
 pub mod terms;
 
 pub use cardinality::CardinalityAggregation;
+pub use composite::CompositeAggregation;
 pub use date_histogram::DateHistogramAggregation;
+pub use date_range::DateRangeAggregation;
 pub use executor::AggregationExecutor;
+pub use filters::FiltersAggregation;
+pub use global::GlobalAggregation;
 pub use histogram::HistogramAggregation;
+pub use missing::MissingAggregation;
 pub use nested::NestedAggregation;
 pub use percentile::PercentileAggregation;
 pub use pipeline::PipelineAggregation;
+pub use range::RangeAggregation;
 pub use result::{
     AggregationResult, Bucket, BucketAggregationResult, MetricAggregationResult,
     SingleBucketAggregationResult,
@@ -66,6 +78,8 @@ pub enum AggregationSpec {
     Histogram(HistogramAggregation),
     /// Date histogram aggregation (time-based buckets)
     DateHistogram(DateHistogramAggregation),
+    /// Date range aggregation (date ranges)
+    DateRange(DateRangeAggregation),
     /// Percentile aggregation
     Percentile(PercentileAggregation),
     /// Cardinality aggregation (unique count)
@@ -74,6 +88,16 @@ pub enum AggregationSpec {
     Nested(NestedAggregation),
     /// Pipeline aggregation (derived from other aggregations)
     Pipeline(PipelineAggregation),
+    /// Range aggregation (numeric ranges)
+    Range(RangeAggregation),
+    /// Filters aggregation (multiple named filters)
+    Filters(FiltersAggregation),
+    /// Missing aggregation (documents with missing values)
+    Missing(MissingAggregation),
+    /// Global aggregation (global scope)
+    Global(GlobalAggregation),
+    /// Composite aggregation (multi-level grouping)
+    Composite(CompositeAggregation),
 }
 
 impl AggregationSpec {
@@ -84,10 +108,16 @@ impl AggregationSpec {
             AggregationSpec::Stats(agg) => agg.name(),
             AggregationSpec::Histogram(agg) => agg.name(),
             AggregationSpec::DateHistogram(agg) => agg.name(),
+            AggregationSpec::DateRange(agg) => agg.name(),
             AggregationSpec::Percentile(agg) => agg.name(),
             AggregationSpec::Cardinality(agg) => agg.name(),
             AggregationSpec::Nested(agg) => agg.name(),
             AggregationSpec::Pipeline(agg) => agg.name(),
+            AggregationSpec::Range(agg) => agg.name(),
+            AggregationSpec::Filters(agg) => agg.name(),
+            AggregationSpec::Missing(agg) => agg.name(),
+            AggregationSpec::Global(agg) => agg.name(),
+            AggregationSpec::Composite(agg) => agg.name(),
         }
     }
 }

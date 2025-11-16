@@ -77,7 +77,7 @@ impl AggregationTrait for HistogramAggregation {
 
         for result in results {
             if let AggregationResult::Buckets(bucket_result) = result {
-                for bucket in &bucket_result.buckets {
+                for bucket in bucket_result.buckets() {
                     if let Some(bucket_value) = bucket.key.as_f64() {
                         let bucket_key = (bucket_value / self.interval).floor() as i64;
                         *merged_buckets.entry(bucket_key).or_insert(0) += bucket.doc_count;
@@ -164,7 +164,7 @@ mod tests {
         let result = agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 4);
+            assert_eq!(bucket_result.buckets().len(), 4);
             // Each value should be in its own bucket (0-10, 10-20, 20-30, 30-40)
         } else {
             panic!("Expected Buckets result");
@@ -187,7 +187,8 @@ mod tests {
 
         if let AggregationResult::Buckets(bucket_result) = result {
             // Only bucket with 15.0 should have 2 docs, others should be filtered
-            let bucket_15 = bucket_result.buckets.iter().find(|b| {
+            let buckets = bucket_result.buckets();
+            let bucket_15 = buckets.iter().find(|b| {
                 b.key
                     .as_f64()
                     .map(|v| (v - 10.0).abs() < 0.1)
@@ -222,7 +223,8 @@ mod tests {
 
         if let AggregationResult::Buckets(bucket_result) = merged {
             // Bucket 10-20 should have 2 docs (one from each result)
-            let bucket_15 = bucket_result.buckets.iter().find(|b| {
+            let buckets = bucket_result.buckets();
+            let bucket_15 = buckets.iter().find(|b| {
                 b.key
                     .as_f64()
                     .map(|v| (v - 10.0).abs() < 0.1)

@@ -43,6 +43,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::DateHistogram(date_hist_agg) => {
                     date_hist_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::DateRange(date_range_agg) => {
+                    date_range_agg.execute(hits, &self.field_cache)?
+                }
                 super::AggregationSpec::Percentile(percentile_agg) => {
                     percentile_agg.execute(hits, &self.field_cache)?
                 }
@@ -54,6 +57,21 @@ impl AggregationExecutor {
                 }
                 super::AggregationSpec::Pipeline(pipeline_agg) => {
                     pipeline_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Range(range_agg) => {
+                    range_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Filters(filters_agg) => {
+                    filters_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Missing(missing_agg) => {
+                    missing_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Global(global_agg) => {
+                    global_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Composite(composite_agg) => {
+                    composite_agg.execute(hits, &self.field_cache)?
                 }
             };
 
@@ -74,10 +92,16 @@ impl AggregationExecutor {
             super::AggregationSpec::Stats(stats_agg) => stats_agg.merge(results),
             super::AggregationSpec::Histogram(hist_agg) => hist_agg.merge(results),
             super::AggregationSpec::DateHistogram(date_hist_agg) => date_hist_agg.merge(results),
+            super::AggregationSpec::DateRange(date_range_agg) => date_range_agg.merge(results),
             super::AggregationSpec::Percentile(percentile_agg) => percentile_agg.merge(results),
             super::AggregationSpec::Cardinality(cardinality_agg) => cardinality_agg.merge(results),
             super::AggregationSpec::Nested(nested_agg) => nested_agg.merge(results),
             super::AggregationSpec::Pipeline(pipeline_agg) => pipeline_agg.merge(results),
+            super::AggregationSpec::Range(range_agg) => range_agg.merge(results),
+            super::AggregationSpec::Filters(filters_agg) => filters_agg.merge(results),
+            super::AggregationSpec::Missing(missing_agg) => missing_agg.merge(results),
+            super::AggregationSpec::Global(global_agg) => global_agg.merge(results),
+            super::AggregationSpec::Composite(composite_agg) => composite_agg.merge(results),
         }
     }
 }

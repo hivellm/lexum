@@ -112,7 +112,7 @@ impl AggregationTrait for TermsAggregation {
 
         for result in results {
             if let AggregationResult::Buckets(bucket_result) = result {
-                for bucket in &bucket_result.buckets {
+                for bucket in bucket_result.buckets() {
                     // Extract string from JsonValue properly
                     let key = match &bucket.key {
                         JsonValue::String(s) => s.clone(),
@@ -225,10 +225,11 @@ mod tests {
         let result = agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 2);
+            let buckets = bucket_result.buckets_vec();
+            assert_eq!(buckets.len(), 2);
             // Should be sorted by count desc by default
-            assert_eq!(bucket_result.buckets[0].doc_count, 3); // active
-            assert_eq!(bucket_result.buckets[1].doc_count, 2); // pending
+            assert_eq!(buckets[0].doc_count, 3); // active
+            assert_eq!(buckets[1].doc_count, 2); // pending
         } else {
             panic!("Expected Buckets result");
         }
@@ -250,7 +251,7 @@ mod tests {
         let result = agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 2); // Limited to 2
+            assert_eq!(bucket_result.buckets().len(), 2); // Limited to 2
         } else {
             panic!("Expected Buckets result");
         }
@@ -270,10 +271,10 @@ mod tests {
         let result = agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 3);
+            let buckets = bucket_result.buckets_vec();
+            assert_eq!(buckets.len(), 3);
             // Should be sorted alphabetically
-            let keys: Vec<String> = bucket_result
-                .buckets
+            let keys: Vec<String> = buckets
                 .iter()
                 .map(|b| b.key.as_str().unwrap().to_string())
                 .collect();
@@ -299,10 +300,10 @@ mod tests {
 
         if let AggregationResult::Buckets(bucket_result) = result {
             // Should have 2 regular buckets + 1 missing bucket
-            assert!(bucket_result.buckets.len() >= 2);
+            assert!(bucket_result.buckets().len() >= 2);
             // Check if missing bucket exists
             let has_missing = bucket_result
-                .buckets
+                .buckets()
                 .iter()
                 .any(|b| b.key.as_str() == Some("missing"));
             assert!(has_missing);
@@ -335,16 +336,11 @@ mod tests {
         if let AggregationResult::Buckets(bucket_result) = merged {
             // Should have merged counts: active=3, pending=1
             // With default CountDesc order, active (3) should come before pending (1)
-            assert_eq!(bucket_result.buckets.len(), 2);
+            let buckets = bucket_result.buckets();
+            assert_eq!(buckets.len(), 2);
 
-            let active_bucket = bucket_result
-                .buckets
-                .iter()
-                .find(|b| b.key.as_str() == Some("active"));
-            let pending_bucket = bucket_result
-                .buckets
-                .iter()
-                .find(|b| b.key.as_str() == Some("pending"));
+            let active_bucket = buckets.iter().find(|b| b.key.as_str() == Some("active"));
+            let pending_bucket = buckets.iter().find(|b| b.key.as_str() == Some("pending"));
 
             assert!(active_bucket.is_some(), "active bucket should exist");
             assert!(pending_bucket.is_some(), "pending bucket should exist");
@@ -369,12 +365,10 @@ mod tests {
         let result = agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 2);
+            let buckets = bucket_result.buckets();
+            assert_eq!(buckets.len(), 2);
             // Count 10 should appear twice
-            let count_10 = bucket_result
-                .buckets
-                .iter()
-                .find(|b| b.key.as_str() == Some("10"));
+            let count_10 = buckets.iter().find(|b| b.key.as_str() == Some("10"));
             assert!(count_10.is_some());
             assert_eq!(count_10.unwrap().doc_count, 2);
         } else {

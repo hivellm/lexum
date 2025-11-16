@@ -75,7 +75,7 @@ impl AggregationTrait for DateHistogramAggregation {
 
         for result in results {
             if let AggregationResult::Buckets(bucket_result) = result {
-                for bucket in &bucket_result.buckets {
+                for bucket in bucket_result.buckets() {
                     if let Some(timestamp) = parse_timestamp(&bucket.key) {
                         let bucket_key = timestamp / interval_secs;
                         *merged_buckets.entry(bucket_key).or_insert(0) += bucket.doc_count;
@@ -217,7 +217,7 @@ mod tests {
         let result = agg.execute(&hits, &field_cache).unwrap();
 
         if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets.len(), 3);
+            assert_eq!(bucket_result.buckets().len(), 3);
             // Each timestamp should be in its own bucket (1h interval)
         } else {
             panic!("Expected Buckets result");
@@ -260,7 +260,7 @@ mod tests {
 
         if let AggregationResult::Buckets(bucket_result) = merged {
             // Should have 3 buckets total, with one bucket having 2 docs
-            assert!(bucket_result.buckets.len() >= 2);
+            assert!(bucket_result.buckets().len() >= 2);
         } else {
             panic!("Expected Buckets result");
         }
