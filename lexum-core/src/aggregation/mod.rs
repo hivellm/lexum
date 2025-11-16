@@ -25,6 +25,7 @@ pub mod global;
 pub mod histogram;
 pub mod ip_range;
 pub mod max;
+pub mod median_absolute_deviation;
 pub mod min;
 pub mod missing;
 pub mod nested;
@@ -55,6 +56,9 @@ pub use global::GlobalAggregation;
 pub use histogram::HistogramAggregation;
 pub use ip_range::IpRangeAggregation;
 pub use max::MaxAggregation;
+pub use median_absolute_deviation::{
+    MedianAbsoluteDeviationAggregation, MedianAbsoluteDeviationResult,
+};
 pub use min::MinAggregation;
 pub use missing::MissingAggregation;
 pub use nested::NestedAggregation;
@@ -152,6 +156,8 @@ pub enum AggregationSpec {
     GeoDistance(GeoDistanceAggregation),
     /// Extended stats aggregation (variance, std deviation, sum of squares)
     ExtendedStats(ExtendedStatsAggregation),
+    /// Median absolute deviation aggregation (MAD)
+    MedianAbsoluteDeviation(MedianAbsoluteDeviationAggregation),
 }
 
 impl AggregationSpec {
@@ -186,6 +192,7 @@ impl AggregationSpec {
             AggregationSpec::GeoBounds(agg) => agg.name(),
             AggregationSpec::GeoDistance(agg) => agg.name(),
             AggregationSpec::ExtendedStats(agg) => agg.name(),
+            AggregationSpec::MedianAbsoluteDeviation(agg) => agg.name(),
         }
     }
 }

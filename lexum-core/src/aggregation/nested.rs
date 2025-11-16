@@ -115,6 +115,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::ExtendedStats(extended_stats_agg) => {
                     extended_stats_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::MedianAbsoluteDeviation(mad_agg) => {
+                    mad_agg.execute(&nested_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }

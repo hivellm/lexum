@@ -128,6 +128,9 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::ExtendedStats(extended_stats_agg) => {
                     extended_stats_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::MedianAbsoluteDeviation(mad_agg) => {
+                    mad_agg.execute(&parent_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
@@ -243,6 +246,10 @@ impl AggregationTrait for ReverseNestedAggregation {
                                             }
                                             AggregationSpec::ExtendedStats(extended_stats_agg) => {
                                                 extended_stats_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
+                                            AggregationSpec::MedianAbsoluteDeviation(mad_agg) => {
+                                                mad_agg
                                                     .merge(&[existing.clone(), agg_result.clone()])
                                             }
                                         } {

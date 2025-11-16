@@ -107,6 +107,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::ExtendedStats(extended_stats_agg) => {
                     extended_stats_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::MedianAbsoluteDeviation(mad_agg) => {
+                    mad_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -160,6 +163,7 @@ impl AggregationExecutor {
             super::AggregationSpec::ExtendedStats(extended_stats_agg) => {
                 extended_stats_agg.merge(results)
             }
+            super::AggregationSpec::MedianAbsoluteDeviation(mad_agg) => mad_agg.merge(results),
         }
     }
 }
