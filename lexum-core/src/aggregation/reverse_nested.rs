@@ -144,6 +144,9 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::TTest(t_test_agg) => {
                     t_test_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::TopHits(top_hits_agg) => {
+                    top_hits_agg.execute(&parent_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
@@ -278,6 +281,8 @@ impl AggregationTrait for ReverseNestedAggregation {
                                             AggregationSpec::Rate(rate_agg) => rate_agg
                                                 .merge(&[existing.clone(), agg_result.clone()]),
                                             AggregationSpec::TTest(t_test_agg) => t_test_agg
+                                                .merge(&[existing.clone(), agg_result.clone()]),
+                                            AggregationSpec::TopHits(top_hits_agg) => top_hits_agg
                                                 .merge(&[existing.clone(), agg_result.clone()]),
                                         } {
                                             *existing = merged;

@@ -125,6 +125,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::TTest(t_test_agg) => {
                     t_test_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::TopHits(top_hits_agg) => {
+                    top_hits_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -188,6 +191,7 @@ impl AggregationExecutor {
             super::AggregationSpec::Boxplot(boxplot_agg) => boxplot_agg.merge(results),
             super::AggregationSpec::Rate(rate_agg) => rate_agg.merge(results),
             super::AggregationSpec::TTest(t_test_agg) => t_test_agg.merge(results),
+            super::AggregationSpec::TopHits(top_hits_agg) => top_hits_agg.merge(results),
         }
     }
 }

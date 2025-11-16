@@ -131,6 +131,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::TTest(t_test_agg) => {
                     t_test_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::TopHits(top_hits_agg) => {
+                    top_hits_agg.execute(&nested_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }

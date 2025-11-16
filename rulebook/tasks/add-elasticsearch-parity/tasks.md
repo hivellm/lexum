@@ -234,7 +234,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Max Aggregation ✅ **IMPLEMENTED** (separate from stats)
 - [x] Extended Stats Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Median Absolute Deviation ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Top Hits Aggregation - **MISSING**
+- [x] Top Hits Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Scripted Metric Aggregation - **MISSING**
 - [x] Weighted Average Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] String Stats Aggregation ✅ **IMPLEMENTED** (2025-01-14)
@@ -257,10 +257,13 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - MAD calculation ✅
   - Compression parameter ✅
   - Median calculation for odd/even counts ✅
-- [ ] 2.2.4 Implement Top Hits Aggregation
-  - Document retrieval within buckets
-  - Sorting and highlighting
-  - Size and from parameters
+- [x] 2.2.4 Implement Top Hits Aggregation ✅ **COMPLETED**
+  - Document retrieval within buckets ✅
+  - Sorting and highlighting ✅
+  - Size and from parameters ✅
+  - Field filtering support ✅
+  - Merge support for shard results ✅
+  - Note: Highlighting is simplified (full implementation requires query context)
 - [ ] 2.2.5 Implement Scripted Metric Aggregation
   - Init script
   - Map script

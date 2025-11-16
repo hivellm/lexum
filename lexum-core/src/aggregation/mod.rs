@@ -43,6 +43,7 @@ pub mod string_stats;
 pub mod sum;
 pub mod t_test;
 pub mod terms;
+pub mod top_hits;
 pub mod value_count;
 pub mod weighted_average;
 
@@ -84,6 +85,7 @@ pub use string_stats::{StringStatsAggregation, StringStatsResult};
 pub use sum::SumAggregation;
 pub use t_test::{TTestAggregation, TTestGroup, TTestGroupStats, TTestResult};
 pub use terms::TermsAggregation;
+pub use top_hits::{TopHitsAggregation, TopHitsHighlight, TopHitsResult};
 pub use value_count::ValueCountAggregation;
 pub use weighted_average::{WeightedAverageAggregation, WeightedAverageResult};
 
@@ -178,6 +180,8 @@ pub enum AggregationSpec {
     Rate(RateAggregation),
     /// T-Test aggregation (statistical t-test for A/B testing)
     TTest(TTestAggregation),
+    /// Top Hits aggregation (document retrieval within buckets)
+    TopHits(TopHitsAggregation),
 }
 
 impl AggregationSpec {
@@ -218,6 +222,7 @@ impl AggregationSpec {
             AggregationSpec::Boxplot(agg) => agg.name(),
             AggregationSpec::Rate(agg) => agg.name(),
             AggregationSpec::TTest(agg) => agg.name(),
+            AggregationSpec::TopHits(agg) => agg.name(),
         }
     }
 }
