@@ -384,8 +384,8 @@ mod tests {
         let mut hits1 = vec![];
         for i in 1..=3 {
             hits1.push(SearchHit {
-                id: DocumentId(i),
-                score: Score(i as f32),
+                id: DocumentId::new(&i.to_string()),
+                score: Score::new(i as f32),
                 source: serde_json::json!({ "value": i * 10 }),
             });
         }
@@ -394,8 +394,8 @@ mod tests {
         let mut hits2 = vec![];
         for i in 4..=5 {
             hits2.push(SearchHit {
-                id: DocumentId(i),
-                score: Score(i as f32),
+                id: DocumentId::new(&i.to_string()),
+                score: Score::new(i as f32),
                 source: serde_json::json!({ "value": i * 10 }),
             });
         }
