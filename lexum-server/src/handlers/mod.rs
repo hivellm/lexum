@@ -14,6 +14,7 @@ pub mod metrics;
 pub mod profiling;
 pub mod progress;
 pub mod progress_bulk;
+pub mod query_ops;
 pub mod reindex;
 /// Rollover handler for index management
 pub mod rollover;
@@ -24,6 +25,7 @@ mod rollover_test;
 #[cfg(test)]
 mod admin_test;
 
+pub mod scroll;
 pub mod search;
 pub mod snapshot;
 pub mod suggest;

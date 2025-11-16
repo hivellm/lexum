@@ -3,7 +3,8 @@
 use crate::handlers::index::AppState;
 use crate::handlers::{
     admin, alias, auth, batch, bottleneck, document, health, index, mapping, metrics, profiling,
-    progress, progress_bulk, reindex, rollover, search, snapshot, suggest, template,
+    progress, progress_bulk, query_ops, reindex, rollover, scroll, search, snapshot, suggest,
+    template,
 };
 use crate::middleware::http2_push::{Http2PushConfig, Http2PushLayer};
 use crate::middleware::ip_filter::{IpFilterConfig, IpFilterLayer};
@@ -105,6 +106,32 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
             "/api/v1/indices/{index}/_search/stream",
             post(streamable_http::stream_search),
         )
+        // Scroll API
+        .route(
+            "/api/v1/indices/{index}/_search/scroll",
+            post(scroll::create_scroll),
+        )
+        .route("/api/v1/_search/scroll", post(scroll::scroll))
+        .route(
+            "/api/v1/_search/scroll/{scroll_id}",
+            delete(scroll::clear_scroll),
+        )
+        .route(
+            "/api/v1/_search/scroll/_all",
+            delete(scroll::clear_all_scrolls),
+        )
+        // Query-based operations
+        .route(
+            "/api/v1/indices/{index}/_update_by_query",
+            post(query_ops::update_by_query),
+        )
+        .route(
+            "/api/v1/indices/{index}/_delete_by_query",
+            post(query_ops::delete_by_query),
+        )
+        // Multi-Get and Multi-Search
+        .route("/api/v1/_mget", post(query_ops::multi_get))
+        .route("/api/v1/_msearch", post(query_ops::multi_search))
         .route(
             "/api/v1/indices/{index}/_explain/{id}",
             get(search::explain),

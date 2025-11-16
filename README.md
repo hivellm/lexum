@@ -50,16 +50,19 @@
 #### One-Liner Installation (Recommended)
 
 **Linux / macOS:**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/hivellm/lexum/main/install.sh | bash
 ```
 
 **Windows:**
+
 ```powershell
 powershell -c "irm https://raw.githubusercontent.com/hivellm/lexum/main/install.ps1 | iex"
 ```
 
 The installation script will:
+
 - ✅ Install dependencies (Git, Rust, build tools)
 - ✅ Clone and compile Lexum from source
 - ✅ Set up Lexum as a system service (auto-starts on boot)
@@ -67,6 +70,7 @@ The installation script will:
 - ✅ Configure default settings
 
 After installation:
+
 - **Linux**: Service runs as `lexum` user, CLI available as `lexum`
 - **Windows**: Service runs as Windows Service, CLI available as `lexum-server`
 
@@ -134,6 +138,7 @@ open http://localhost:17000/swagger-ui
 ## Current State
 
 **What exists now (38% complete):**
+
 - ✅ **93,000 lines** of production-ready Rust code
 - ✅ **39 REST API endpoints** fully working (100% success rate)
 - ✅ **Complete CLI** with 8 command groups
@@ -146,6 +151,7 @@ open http://localhost:17000/swagger-ui
 - ✅ **API stability** - All routes tested and validated
 
 **What's next (Phase 2):**
+
 - ⏳ Index aliases and reindexing
 - ⏳ Docker/Kubernetes deployment
 - ⏳ Client SDKs
@@ -217,12 +223,14 @@ These are **planned performance targets**, not current measurements:
 ## Use Cases
 
 ✅ **Current capabilities:**
+
 - **Application Search**: Embed full-text search in applications
 - **Document Management**: Index and search documents
 - **Data Exploration**: Use LQL for complex queries
 - **Development/Testing**: Rapid prototyping with CLI
 
 📋 **Planned:**
+
 - Log Analytics
 - E-commerce product search
 - Content Management Systems
@@ -231,26 +239,27 @@ These are **planned performance targets**, not current measurements:
 
 ## Comparison with ElasticSearch
 
-| Feature | Lexum (v0.1.0-alpha) | ElasticSearch |
-|---------|---------------------|---------------|
-| Language | Rust Edition 2024 | Java |
-| Memory Safety | ✅ Guaranteed | ❌ |
-| Performance | Good (optimizing) | Excellent |
-| Resource Usage | Lower | Higher |
-| Query Language | **LQL** (SQL-like) ✅ | Query DSL (JSON) |
-| License | Apache 2.0 | Elastic License 2.0 |
-| Native Protocols | HTTP/REST ✅ | HTTP/REST |
-| Snapshot/Backup | ✅ Implemented | ✅ |
-| Templates | ✅ Implemented | ✅ |
-| CLI Tool | ✅ Full-featured | Basic |
-| API Stability | ✅ 100% routes working | ✅ |
-| **Status** | **Alpha (38%)** | **Production** |
+| Feature          | Lexum (v0.1.0-alpha)   | ElasticSearch       |
+| ---------------- | ---------------------- | ------------------- |
+| Language         | Rust Edition 2024      | Java                |
+| Memory Safety    | ✅ Guaranteed          | ❌                  |
+| Performance      | Good (optimizing)      | Excellent           |
+| Resource Usage   | Lower                  | Higher              |
+| Query Language   | **LQL** (SQL-like) ✅  | Query DSL (JSON)    |
+| License          | Apache 2.0             | Elastic License 2.0 |
+| Native Protocols | HTTP/REST ✅           | HTTP/REST           |
+| Snapshot/Backup  | ✅ Implemented         | ✅                  |
+| Templates        | ✅ Implemented         | ✅                  |
+| CLI Tool         | ✅ Full-featured       | Basic               |
+| API Stability    | ✅ 100% routes working | ✅                  |
+| **Status**       | **Alpha (38%)**        | **Production**      |
 
 ## Roadmap
 
 ### ✅ Phase 1: Foundation (COMPLETE - 38%)
 
 **Completed Components:**
+
 - [x] Core search engine with Tantivy
 - [x] Index management + templates
 - [x] Query engine (6 types)
@@ -266,6 +275,7 @@ These are **planned performance targets**, not current measurements:
 ### 🚧 Phase 2: Advanced Features (Started - 10%)
 
 **In Progress:**
+
 - [x] Admin operations (69% - snapshots, templates, monitoring)
 - [x] Performance optimization (30% - infrastructure ready)
 - [ ] Index aliases
@@ -339,11 +349,13 @@ Total: 129 Rust files, ~93,000 LOC
 ⚠️ **Important**: Due to Tantivy/WSL compatibility limitations, all builds, tests, and development operations **MUST** be performed in **PowerShell (Windows native)**, **NOT** in WSL.
 
 **Why?**
+
 - Tantivy has filesystem compatibility issues with WSL's `9p` protocol when accessing Windows-mounted drives
 - This causes `Invalid argument (os error 22)` errors during index creation
 - See [WSL_TANTIVY_CONFLICT.md](docs/WSL_TANTIVY_CONFLICT.md) for technical details
 
 **Solutions:**
+
 1. **Use Windows Native (Recommended)**: Run all commands in PowerShell with Windows paths (`C:\Users\...`)
 2. **Use Linux Native Paths in WSL**: Store data in WSL's native filesystem (`~/.lexum/data`) instead of `/mnt/f/...`
 3. **Use Docker**: Run Lexum in a Docker container for better filesystem isolation
@@ -405,6 +417,7 @@ We welcome contributions! Please see:
 ### Development Status
 
 ✅ **Ready for contributions** in:
+
 - Bug fixes and improvements
 - Test coverage expansion
 - Documentation updates
@@ -447,4 +460,3 @@ For security issues, please see [SECURITY.md](SECURITY.md).
 **Built with ❤️ in Rust Edition 2024**
 
 **Status**: Foundation Complete | **Progress**: 38% | **Tests**: 278 passing | **Coverage**: 53%
-
