@@ -220,6 +220,12 @@ impl AggregationExecutor {
                 bucket_selector_agg.merge(results)
             }
             super::AggregationSpec::BucketSort(bucket_sort_agg) => bucket_sort_agg.merge(results),
+            super::AggregationSpec::CumulativeSum(cumulative_sum_agg) => {
+                cumulative_sum_agg.merge(results)
+            }
+            super::AggregationSpec::CumulativeCardinality(cumulative_cardinality_agg) => {
+                cumulative_cardinality_agg.merge(results)
+            }
         }
     }
 }
