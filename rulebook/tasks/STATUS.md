@@ -27,7 +27,7 @@ All archived tasks follow the naming pattern: `YYYY-MM-DD-task-name`
 17. **2025-11-15-add-protocol-support** - Protocol support (100% complete - StreamableHTTP, MCP, UMICP protocols implemented with full testing)
 18. **2025-11-15-add-docker-kubernetes** - Docker and Kubernetes deployment (100% complete - Dockerfile, Docker Compose, K8s manifests, Helm chart, health probes, autoscaling, monitoring integration, documentation)
 
-## Active Tasks (4)
+## Active Tasks (5)
 
 ### 🟢 High Progress (~58%+)
 
@@ -37,32 +37,40 @@ _No tasks currently in progress_
 
 ### 🔵 Not Started (0%)
 
-1. **add-distributed-clustering** (0% - 0/85 tasks)
+1. **add-elasticsearch-parity** (0% - 0/450+ tasks)
+
+   - Comprehensive feature gap analysis and implementation plan
+   - Goal: Achieve 95%+ feature parity with Elasticsearch v8.x
+   - Estimated: 18-24 months, 3-5 developers
+   - Priority: High
+   - Covers: Core search, aggregations, geo-spatial, security, ML, vector search, time series, and more
+
+2. **add-distributed-clustering** (0% - 0/85 tasks)
 
    - Raft consensus, node discovery, shard management, replication
    - Requires: Distributed architecture implementation
 
-2. **add-electron-gui** (0% - 0/95 tasks)
+3. **add-electron-gui** (0% - 0/95 tasks)
 
    - Electron desktop application
    - Requires: Frontend development
 
-3. **add-production-deployment** (0% - 0/76 tasks)
+4. **add-production-deployment** (0% - 0/76 tasks)
 
    - Terraform modules, Kubernetes operator, Ansible playbooks
    - Requires: Infrastructure as code
 
-4. **add-sdk-development** (0% - 0/65 tasks)
+5. **add-sdk-development** (0% - 0/65 tasks)
 
    - SDKs for Rust, Python, JavaScript/TypeScript, Go, Java
    - Requires: Multi-language SDK development
 
 ## Summary Statistics
 
-- **Total Tasks**: 22 (18 archived + 4 active)
-- **Completed**: 18 tasks (81.8%)
+- **Total Tasks**: 23 (18 archived + 5 active)
+- **Completed**: 18 tasks (78.3%)
 - **In Progress**: 0 tasks (0%)
-- **Not Started**: 4 tasks (18.2%)
+- **Not Started**: 5 tasks (21.7%)
 
 ## Recommendations
 
