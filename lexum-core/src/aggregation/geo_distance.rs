@@ -111,7 +111,7 @@ impl AggregationTrait for GeoDistanceAggregation {
         "geo_distance"
     }
 
-    fn execute(&self, hits: &[SearchHit], _field_cache: &FieldCache) -> Result<AggregationResult> {
+    fn execute(&self, _hits: &[SearchHit], _field_cache: &FieldCache) -> Result<AggregationResult> {
         // Note: Full implementation would require:
         // 1. Extracting geo_point values from documents
         // 2. Calculating distance from origin using Haversine formula (arc) or simple plane distance
