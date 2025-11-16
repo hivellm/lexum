@@ -2,8 +2,14 @@
 //!
 //! Groups documents into geohash grid cells based on geo_point field values.
 
+use super::AggregationTrait;
+use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use crate::error::Result;
 use crate::query::GeoPoint;
+use crate::search::field_cache::FieldCache;
+use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use utoipa::ToSchema;
 

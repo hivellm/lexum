@@ -147,6 +147,13 @@ impl AggregationExecutor {
             super::AggregationSpec::Sum(sum_agg) => sum_agg.merge(results),
             super::AggregationSpec::Min(min_agg) => min_agg.merge(results),
             super::AggregationSpec::Max(max_agg) => max_agg.merge(results),
+            super::AggregationSpec::GeohashGrid(geohash_grid_agg) => {
+                geohash_grid_agg.merge(results)
+            }
+            super::AggregationSpec::GeoBounds(geo_bounds_agg) => geo_bounds_agg.merge(results),
+            super::AggregationSpec::GeoDistance(geo_distance_agg) => {
+                geo_distance_agg.merge(results)
+            }
         }
     }
 }

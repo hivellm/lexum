@@ -116,6 +116,15 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::Pipeline(pipeline_agg) => {
                     pipeline_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::GeohashGrid(geohash_grid_agg) => {
+                    geohash_grid_agg.execute(&parent_hits, field_cache)?
+                }
+                AggregationSpec::GeoBounds(geo_bounds_agg) => {
+                    geo_bounds_agg.execute(&parent_hits, field_cache)?
+                }
+                AggregationSpec::GeoDistance(geo_distance_agg) => {
+                    geo_distance_agg.execute(&parent_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
@@ -217,6 +226,18 @@ impl AggregationTrait for ReverseNestedAggregation {
                                                 .merge(&[existing.clone(), agg_result.clone()]),
                                             AggregationSpec::Pipeline(pipeline_agg) => pipeline_agg
                                                 .merge(&[existing.clone(), agg_result.clone()]),
+                                            AggregationSpec::GeohashGrid(geohash_grid_agg) => {
+                                                geohash_grid_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
+                                            AggregationSpec::GeoBounds(geo_bounds_agg) => {
+                                                geo_bounds_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
+                                            AggregationSpec::GeoDistance(geo_distance_agg) => {
+                                                geo_distance_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
                                         } {
                                             *existing = merged;
                                         }

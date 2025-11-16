@@ -103,6 +103,15 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::Sum(sum_agg) => sum_agg.execute(&nested_hits, field_cache)?,
                 AggregationSpec::Min(min_agg) => min_agg.execute(&nested_hits, field_cache)?,
                 AggregationSpec::Max(max_agg) => max_agg.execute(&nested_hits, field_cache)?,
+                AggregationSpec::GeohashGrid(geohash_grid_agg) => {
+                    geohash_grid_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::GeoBounds(geo_bounds_agg) => {
+                    geo_bounds_agg.execute(&nested_hits, field_cache)?
+                }
+                AggregationSpec::GeoDistance(geo_distance_agg) => {
+                    geo_distance_agg.execute(&nested_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
