@@ -37,6 +37,7 @@ pub mod reverse_nested;
 pub mod sampler;
 pub mod significant_terms;
 pub mod stats;
+pub mod string_stats;
 pub mod sum;
 pub mod terms;
 pub mod value_count;
@@ -74,6 +75,7 @@ pub use reverse_nested::ReverseNestedAggregation;
 pub use sampler::{DiversifiedSamplerAggregation, SamplerAggregation};
 pub use significant_terms::SignificantTermsAggregation;
 pub use stats::StatsAggregation;
+pub use string_stats::{StringStatsAggregation, StringStatsResult};
 pub use sum::SumAggregation;
 pub use terms::TermsAggregation;
 pub use value_count::ValueCountAggregation;
@@ -162,6 +164,8 @@ pub enum AggregationSpec {
     MedianAbsoluteDeviation(MedianAbsoluteDeviationAggregation),
     /// Weighted average aggregation (value and weight fields)
     WeightedAverage(WeightedAverageAggregation),
+    /// String stats aggregation (character count, min/max/avg length)
+    StringStats(StringStatsAggregation),
 }
 
 impl AggregationSpec {
@@ -198,6 +202,7 @@ impl AggregationSpec {
             AggregationSpec::ExtendedStats(agg) => agg.name(),
             AggregationSpec::MedianAbsoluteDeviation(agg) => agg.name(),
             AggregationSpec::WeightedAverage(agg) => agg.name(),
+            AggregationSpec::StringStats(agg) => agg.name(),
         }
     }
 }

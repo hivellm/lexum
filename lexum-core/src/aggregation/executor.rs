@@ -113,6 +113,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::WeightedAverage(weighted_avg_agg) => {
                     weighted_avg_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::StringStats(string_stats_agg) => {
+                    string_stats_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -169,6 +172,9 @@ impl AggregationExecutor {
             super::AggregationSpec::MedianAbsoluteDeviation(mad_agg) => mad_agg.merge(results),
             super::AggregationSpec::WeightedAverage(weighted_avg_agg) => {
                 weighted_avg_agg.merge(results)
+            }
+            super::AggregationSpec::StringStats(string_stats_agg) => {
+                string_stats_agg.merge(results)
             }
         }
     }

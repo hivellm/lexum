@@ -134,6 +134,9 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::WeightedAverage(weighted_avg_agg) => {
                     weighted_avg_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::StringStats(string_stats_agg) => {
+                    string_stats_agg.execute(&parent_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
@@ -257,6 +260,10 @@ impl AggregationTrait for ReverseNestedAggregation {
                                             }
                                             AggregationSpec::WeightedAverage(weighted_avg_agg) => {
                                                 weighted_avg_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
+                                            AggregationSpec::StringStats(string_stats_agg) => {
+                                                string_stats_agg
                                                     .merge(&[existing.clone(), agg_result.clone()])
                                             }
                                         } {
