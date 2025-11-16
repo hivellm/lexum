@@ -137,7 +137,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Date Range Aggregation ✅ **IMPLEMENTED**
 - [x] IP Range Aggregation ✅ **IMPLEMENTED**
 - [x] Filters Aggregation ✅ **IMPLEMENTED**
-- [ ] Significant Terms Aggregation - **MISSING**
+- [x] Significant Terms Aggregation ✅ **IMPLEMENTED**
 - [ ] Geohash Grid Aggregation - **MISSING**
 - [ ] Geo Distance Aggregation - **MISSING**
 - [ ] Geo Bounds Aggregation - **MISSING**
@@ -167,10 +167,11 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] 2.1.4 Implement Filters Aggregation ✅ **COMPLETED**
   - Multiple named filters
   - Filter-based buckets
-- [ ] 2.1.5 Implement Significant Terms Aggregation
+- [x] 2.1.5 Implement Significant Terms Aggregation ✅ **COMPLETED**
   - Statistical significance calculation
   - Background filter
   - Mutual information scoring
+  - Chi-square, G-test, and Percentage scoring methods
 - [ ] 2.1.6 Implement Geo Aggregations (see Geo-Spatial section)
 - [x] 2.1.7 Implement Composite Aggregation ✅ **COMPLETED**
   - Multi-level grouping

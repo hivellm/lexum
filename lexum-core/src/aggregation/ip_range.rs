@@ -307,7 +307,7 @@ fn parse_ip_from_value(value: &JsonValue) -> Option<IpAddr> {
         s.parse::<IpAddr>().ok()
     } else if let Some(num) = value.as_u64() {
         // Try to parse as IPv4 (32-bit number)
-        if num <= u32::MAX as u64 {
+        if num <= u64::from(u32::MAX) {
             Some(IpAddr::V4(Ipv4Addr::from(num as u32)))
         } else {
             None

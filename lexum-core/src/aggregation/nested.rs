@@ -42,6 +42,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::Terms(terms_agg) => {
                     terms_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::SignificantTerms(sig_terms_agg) => {
+                    sig_terms_agg.execute(&nested_hits, field_cache)?
+                }
                 AggregationSpec::Stats(stats_agg) => {
                     stats_agg.execute(&nested_hits, field_cache)?
                 }

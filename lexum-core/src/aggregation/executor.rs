@@ -34,6 +34,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::Terms(terms_agg) => {
                     terms_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::SignificantTerms(sig_terms_agg) => {
+                    sig_terms_agg.execute(hits, &self.field_cache)?
+                }
                 super::AggregationSpec::Stats(stats_agg) => {
                     stats_agg.execute(hits, &self.field_cache)?
                 }
@@ -92,6 +95,7 @@ impl AggregationExecutor {
     ) -> Result<AggregationResult> {
         match aggregation {
             super::AggregationSpec::Terms(terms_agg) => terms_agg.merge(results),
+            super::AggregationSpec::SignificantTerms(sig_terms_agg) => sig_terms_agg.merge(results),
             super::AggregationSpec::Stats(stats_agg) => stats_agg.merge(results),
             super::AggregationSpec::Histogram(hist_agg) => hist_agg.merge(results),
             super::AggregationSpec::DateHistogram(date_hist_agg) => date_hist_agg.merge(results),

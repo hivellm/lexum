@@ -25,6 +25,7 @@ pub mod percentile;
 pub mod pipeline;
 pub mod range;
 pub mod result;
+pub mod significant_terms;
 pub mod stats;
 pub mod terms;
 
@@ -46,6 +47,7 @@ pub use result::{
     AggregationResult, Bucket, BucketAggregationResult, MetricAggregationResult,
     SingleBucketAggregationResult,
 };
+pub use significant_terms::SignificantTermsAggregation;
 pub use stats::StatsAggregation;
 pub use terms::TermsAggregation;
 
@@ -74,6 +76,8 @@ pub trait AggregationTrait: Send + Sync {
 pub enum AggregationSpec {
     /// Terms aggregation (top values)
     Terms(TermsAggregation),
+    /// Significant terms aggregation (statistically significant terms)
+    SignificantTerms(SignificantTermsAggregation),
     /// Stats aggregation (min, max, avg, sum, count)
     Stats(StatsAggregation),
     /// Histogram aggregation (numeric buckets)
@@ -109,6 +113,7 @@ impl AggregationSpec {
     pub fn name(&self) -> &str {
         match self {
             AggregationSpec::Terms(agg) => agg.name(),
+            AggregationSpec::SignificantTerms(agg) => agg.name(),
             AggregationSpec::Stats(agg) => agg.name(),
             AggregationSpec::Histogram(agg) => agg.name(),
             AggregationSpec::DateHistogram(agg) => agg.name(),
