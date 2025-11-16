@@ -191,9 +191,10 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [ ] 2.1.11 Enhance Nested Aggregation
   - Full nested document support
   - Path configuration
-- [ ] 2.1.12 Implement Reverse Nested Aggregation
+- [x] 2.1.12 Implement Reverse Nested Aggregation ✅ **COMPLETED**
   - Parent document aggregation
   - Path configuration
+  - Sub-aggregations support on parent documents
 - [ ] 2.1.13 Implement Parent/Children Aggregations
   - Join field support
   - Parent-child relationships
