@@ -137,6 +137,9 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::StringStats(string_stats_agg) => {
                     string_stats_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::Boxplot(boxplot_agg) => {
+                    boxplot_agg.execute(&parent_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
@@ -266,6 +269,8 @@ impl AggregationTrait for ReverseNestedAggregation {
                                                 string_stats_agg
                                                     .merge(&[existing.clone(), agg_result.clone()])
                                             }
+                                            AggregationSpec::Boxplot(boxplot_agg) => boxplot_agg
+                                                .merge(&[existing.clone(), agg_result.clone()]),
                                         } {
                                             *existing = merged;
                                         }

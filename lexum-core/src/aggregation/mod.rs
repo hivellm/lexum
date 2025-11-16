@@ -11,6 +11,7 @@
 //! - Pipeline aggregations
 
 pub mod average;
+pub mod boxplot;
 pub mod cardinality;
 pub mod composite;
 pub mod date_histogram;
@@ -44,6 +45,7 @@ pub mod value_count;
 pub mod weighted_average;
 
 pub use average::AverageAggregation;
+pub use boxplot::{BoxplotAggregation, BoxplotResult};
 pub use cardinality::CardinalityAggregation;
 pub use composite::CompositeAggregation;
 pub use date_histogram::DateHistogramAggregation;
@@ -166,6 +168,8 @@ pub enum AggregationSpec {
     WeightedAverage(WeightedAverageAggregation),
     /// String stats aggregation (character count, min/max/avg length)
     StringStats(StringStatsAggregation),
+    /// Boxplot aggregation (quartiles, IQR, whiskers)
+    Boxplot(BoxplotAggregation),
 }
 
 impl AggregationSpec {
@@ -203,6 +207,7 @@ impl AggregationSpec {
             AggregationSpec::MedianAbsoluteDeviation(agg) => agg.name(),
             AggregationSpec::WeightedAverage(agg) => agg.name(),
             AggregationSpec::StringStats(agg) => agg.name(),
+            AggregationSpec::Boxplot(agg) => agg.name(),
         }
     }
 }

@@ -124,6 +124,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::StringStats(string_stats_agg) => {
                     string_stats_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::Boxplot(boxplot_agg) => {
+                    boxplot_agg.execute(&nested_hits, field_cache)?
+                }
             };
             sub_results.insert(name.clone(), result);
         }
