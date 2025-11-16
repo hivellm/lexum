@@ -255,6 +255,10 @@ impl AggregationTrait for ReverseNestedAggregation {
                                                 mad_agg
                                                     .merge(&[existing.clone(), agg_result.clone()])
                                             }
+                                            AggregationSpec::WeightedAverage(weighted_avg_agg) => {
+                                                weighted_avg_agg
+                                                    .merge(&[existing.clone(), agg_result.clone()])
+                                            }
                                         } {
                                             *existing = merged;
                                         }
