@@ -77,6 +77,7 @@ pub use stats::StatsAggregation;
 pub use sum::SumAggregation;
 pub use terms::TermsAggregation;
 pub use value_count::ValueCountAggregation;
+pub use weighted_average::{WeightedAverageAggregation, WeightedAverageResult};
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
