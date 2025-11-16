@@ -100,7 +100,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Field groups: `title:(quick OR brown)`
   - Proximity: `"fox jumps"~2`
   - Boosting: `quick^2 fox`
-  - Fuzzy: `quikc~2`
+  - Fuzzy: `quick~2`
   - Wildcards: `qu?ck bro*`
   - Regex: `/joh?n(ath[oa]n)/`
   - Ranges: `date:[2012-01-01 TO 2012-12-31]`
