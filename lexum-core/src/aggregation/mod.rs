@@ -18,6 +18,7 @@ pub mod executor;
 pub mod filters;
 pub mod global;
 pub mod histogram;
+pub mod ip_range;
 pub mod missing;
 pub mod nested;
 pub mod percentile;
@@ -35,6 +36,7 @@ pub use executor::AggregationExecutor;
 pub use filters::FiltersAggregation;
 pub use global::GlobalAggregation;
 pub use histogram::HistogramAggregation;
+pub use ip_range::IpRangeAggregation;
 pub use missing::MissingAggregation;
 pub use nested::NestedAggregation;
 pub use percentile::PercentileAggregation;
@@ -80,6 +82,8 @@ pub enum AggregationSpec {
     DateHistogram(DateHistogramAggregation),
     /// Date range aggregation (date ranges)
     DateRange(DateRangeAggregation),
+    /// IP range aggregation (IP ranges with CIDR support)
+    IpRange(IpRangeAggregation),
     /// Percentile aggregation
     Percentile(PercentileAggregation),
     /// Cardinality aggregation (unique count)
@@ -109,6 +113,7 @@ impl AggregationSpec {
             AggregationSpec::Histogram(agg) => agg.name(),
             AggregationSpec::DateHistogram(agg) => agg.name(),
             AggregationSpec::DateRange(agg) => agg.name(),
+            AggregationSpec::IpRange(agg) => agg.name(),
             AggregationSpec::Percentile(agg) => agg.name(),
             AggregationSpec::Cardinality(agg) => agg.name(),
             AggregationSpec::Nested(agg) => agg.name(),

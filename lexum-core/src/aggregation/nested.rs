@@ -54,6 +54,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::DateRange(date_range_agg) => {
                     date_range_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::IpRange(ip_range_agg) => {
+                    ip_range_agg.execute(&nested_hits, field_cache)?
+                }
                 AggregationSpec::Percentile(percentile_agg) => {
                     percentile_agg.execute(&nested_hits, field_cache)?
                 }

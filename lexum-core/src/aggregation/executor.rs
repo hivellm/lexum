@@ -46,6 +46,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::DateRange(date_range_agg) => {
                     date_range_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::IpRange(ip_range_agg) => {
+                    ip_range_agg.execute(hits, &self.field_cache)?
+                }
                 super::AggregationSpec::Percentile(percentile_agg) => {
                     percentile_agg.execute(hits, &self.field_cache)?
                 }
@@ -93,6 +96,7 @@ impl AggregationExecutor {
             super::AggregationSpec::Histogram(hist_agg) => hist_agg.merge(results),
             super::AggregationSpec::DateHistogram(date_hist_agg) => date_hist_agg.merge(results),
             super::AggregationSpec::DateRange(date_range_agg) => date_range_agg.merge(results),
+            super::AggregationSpec::IpRange(ip_range_agg) => ip_range_agg.merge(results),
             super::AggregationSpec::Percentile(percentile_agg) => percentile_agg.merge(results),
             super::AggregationSpec::Cardinality(cardinality_agg) => cardinality_agg.merge(results),
             super::AggregationSpec::Nested(nested_agg) => nested_agg.merge(results),

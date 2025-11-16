@@ -135,7 +135,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Date Histogram Aggregation
 - [x] Range Aggregation ✅ **IMPLEMENTED**
 - [x] Date Range Aggregation ✅ **IMPLEMENTED**
-- [ ] IP Range Aggregation - **MISSING**
+- [x] IP Range Aggregation ✅ **IMPLEMENTED**
 - [x] Filters Aggregation ✅ **IMPLEMENTED**
 - [ ] Significant Terms Aggregation - **MISSING**
 - [ ] Geohash Grid Aggregation - **MISSING**
@@ -161,7 +161,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Date range buckets
   - Format support
   - Timezone handling
-- [ ] 2.1.3 Implement IP Range Aggregation
+- [x] 2.1.3 Implement IP Range Aggregation ✅ **COMPLETED**
   - CIDR notation support
   - IPv4/IPv6 support
 - [x] 2.1.4 Implement Filters Aggregation ✅ **COMPLETED**
