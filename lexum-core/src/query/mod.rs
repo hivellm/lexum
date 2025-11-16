@@ -5,7 +5,7 @@ pub mod types;
 
 pub use builder::QueryBuilder;
 pub use types::{
-    BoolQuery, ConstantScoreQuery, DisMaxQuery, FuzzyQuery, MatchQuery, MultiMatchOperator,
-    MultiMatchQuery, MultiMatchType, PhraseQuery, Query, RangeQuery, RegexQuery, TermQuery,
-    WildcardQuery,
+    BoolQuery, CommonTermsOperator, CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, FuzzyQuery,
+    MatchQuery, MultiMatchOperator, MultiMatchQuery, MultiMatchType, PhraseQuery, Query,
+    RangeQuery, RegexQuery, TermQuery, WildcardQuery,
 };

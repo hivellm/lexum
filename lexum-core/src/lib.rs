@@ -102,8 +102,9 @@ pub use progress::{
     OperationType, ProgressId, ProgressInfo, ProgressMetrics, ProgressStatus, ProgressTracker,
 };
 pub use query::{
-    BoolQuery, ConstantScoreQuery, DisMaxQuery, FuzzyQuery, MatchQuery, MultiMatchOperator,
-    MultiMatchQuery, MultiMatchType, PhraseQuery, Query, QueryBuilder, RangeQuery, TermQuery,
+    BoolQuery, CommonTermsOperator, CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, FuzzyQuery,
+    MatchQuery, MultiMatchOperator, MultiMatchQuery, MultiMatchType, PhraseQuery, Query,
+    QueryBuilder, RangeQuery, TermQuery,
 };
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};

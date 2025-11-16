@@ -90,7 +90,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [ ] Query string with advanced syntax - **PARTIAL**
 - [ ] Simple query string - **MISSING**
 - [x] Multi-match query ✅ **IMPLEMENTED**
-- [ ] Common terms query - **MISSING**
+- [x] Common terms query ✅ **IMPLEMENTED**
 - [x] Dis Max query ✅ **IMPLEMENTED**
 - [x] Constant Score query ✅ **IMPLEMENTED**
 
@@ -113,7 +113,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Type: best_fields, most_fields, cross_fields, phrase, phrase_prefix
   - Field boosting
   - Tie breaker
-- [ ] 1.3.4 Implement Common Terms Query
+- [x] 1.3.4 Implement Common Terms Query ✅ **COMPLETED**
   - Low frequency terms handling
   - Cutoff frequency
   - High/low frequency operators

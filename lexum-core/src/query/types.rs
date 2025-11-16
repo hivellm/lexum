@@ -41,6 +41,8 @@ pub enum Query {
     ConstantScore(ConstantScoreQuery),
     /// Dis Max query (best matching query with tie breaker)
     DisMax(DisMaxQuery),
+    /// Common terms query (separates low/high frequency terms)
+    CommonTerms(CommonTermsQuery),
 }
 
 /// Match query for full-text search
@@ -905,6 +907,101 @@ impl DisMaxQuery {
     }
 }
 
+/// Common terms query for handling low/high frequency terms separately
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CommonTermsQuery {
+    /// Field to search
+    pub field: String,
+    /// Query text to search for
+    pub query: String,
+    /// Cutoff frequency threshold (0.0 to 1.0, default: 0.001)
+    /// Terms appearing in more than this fraction of documents are considered high-frequency
+    #[serde(default = "default_cutoff_frequency")]
+    pub cutoff_frequency: f32,
+    /// Operator for low-frequency terms (default: OR)
+    #[serde(default)]
+    pub low_freq_operator: CommonTermsOperator,
+    /// Operator for high-frequency terms (default: OR)
+    #[serde(default)]
+    pub high_freq_operator: CommonTermsOperator,
+    /// Minimum should match for low-frequency terms
+    #[serde(default)]
+    pub minimum_should_match: Option<String>,
+    /// Analyzer to use for query parsing
+    #[serde(default)]
+    pub analyzer: Option<String>,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+fn default_cutoff_frequency() -> f32 {
+    0.001
+}
+
+/// Operator for common terms query
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CommonTermsOperator {
+    /// OR operator (default)
+    #[default]
+    Or,
+    /// AND operator
+    And,
+}
+
+impl CommonTermsQuery {
+    /// Create new common terms query
+    pub fn new(field: impl Into<String>, query: impl Into<String>) -> Self {
+        Self {
+            field: field.into(),
+            query: query.into(),
+            cutoff_frequency: 0.001,
+            low_freq_operator: CommonTermsOperator::Or,
+            high_freq_operator: CommonTermsOperator::Or,
+            minimum_should_match: None,
+            analyzer: None,
+            boost: 1.0,
+        }
+    }
+
+    /// Set cutoff frequency (clamped to 0.0-1.0)
+    pub fn cutoff_frequency(mut self, cutoff: f32) -> Self {
+        self.cutoff_frequency = cutoff.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Set operator for low-frequency terms
+    pub fn low_freq_operator(mut self, operator: CommonTermsOperator) -> Self {
+        self.low_freq_operator = operator;
+        self
+    }
+
+    /// Set operator for high-frequency terms
+    pub fn high_freq_operator(mut self, operator: CommonTermsOperator) -> Self {
+        self.high_freq_operator = operator;
+        self
+    }
+
+    /// Set minimum should match
+    pub fn minimum_should_match(mut self, msm: impl Into<String>) -> Self {
+        self.minimum_should_match = Some(msm.into());
+        self
+    }
+
+    /// Set analyzer
+    pub fn analyzer(mut self, analyzer: impl Into<String>) -> Self {
+        self.analyzer = Some(analyzer.into());
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1623,5 +1720,95 @@ mod tests {
         assert_eq!(deserialized.tie_breaker, 0.5);
         assert_eq!(deserialized.boost, 1.5);
         assert_eq!(deserialized.queries.len(), 2);
+    }
+
+    #[test]
+    fn test_common_terms_query() {
+        let query = CommonTermsQuery::new("body", "bonsai cool");
+        assert_eq!(query.field, "body");
+        assert_eq!(query.query, "bonsai cool");
+        assert_eq!(query.cutoff_frequency, 0.001);
+        assert!(matches!(query.low_freq_operator, CommonTermsOperator::Or));
+        assert!(matches!(query.high_freq_operator, CommonTermsOperator::Or));
+        assert_eq!(query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_common_terms_query_with_cutoff_frequency() {
+        let query = CommonTermsQuery::new("body", "test query").cutoff_frequency(0.01);
+        assert_eq!(query.cutoff_frequency, 0.01);
+    }
+
+    #[test]
+    fn test_common_terms_query_cutoff_frequency_clamping() {
+        let query_high = CommonTermsQuery::new("body", "test").cutoff_frequency(2.0);
+        let query_low = CommonTermsQuery::new("body", "test").cutoff_frequency(-1.0);
+
+        assert_eq!(query_high.cutoff_frequency, 1.0);
+        assert_eq!(query_low.cutoff_frequency, 0.0);
+    }
+
+    #[test]
+    fn test_common_terms_query_operators() {
+        let query = CommonTermsQuery::new("body", "test")
+            .low_freq_operator(CommonTermsOperator::And)
+            .high_freq_operator(CommonTermsOperator::And);
+
+        assert!(matches!(query.low_freq_operator, CommonTermsOperator::And));
+        assert!(matches!(query.high_freq_operator, CommonTermsOperator::And));
+    }
+
+    #[test]
+    fn test_common_terms_query_with_minimum_should_match() {
+        let query = CommonTermsQuery::new("body", "test query").minimum_should_match("2");
+
+        assert_eq!(query.minimum_should_match, Some("2".to_string()));
+    }
+
+    #[test]
+    fn test_common_terms_query_with_analyzer() {
+        let query = CommonTermsQuery::new("body", "test query").analyzer("standard");
+
+        assert_eq!(query.analyzer, Some("standard".to_string()));
+    }
+
+    #[test]
+    fn test_common_terms_query_with_boost() {
+        let query = CommonTermsQuery::new("body", "test").boost(2.5);
+
+        assert_eq!(query.boost, 2.5);
+    }
+
+    #[test]
+    fn test_common_terms_query_serialization() {
+        let query = CommonTermsQuery::new("body", "bonsai cool")
+            .cutoff_frequency(0.001)
+            .low_freq_operator(CommonTermsOperator::And)
+            .high_freq_operator(CommonTermsOperator::Or)
+            .minimum_should_match("2")
+            .boost(1.5);
+
+        let json = serde_json::to_string(&query).unwrap();
+        assert!(json.contains("field"));
+        assert!(json.contains("body"));
+        assert!(json.contains("query"));
+        assert!(json.contains("cutoff_frequency"));
+        assert!(json.contains("low_freq_operator"));
+        assert!(json.contains("high_freq_operator"));
+        assert!(json.contains("boost"));
+
+        let deserialized: CommonTermsQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "body");
+        assert_eq!(deserialized.query, "bonsai cool");
+        assert_eq!(deserialized.cutoff_frequency, 0.001);
+        assert!(matches!(
+            deserialized.low_freq_operator,
+            CommonTermsOperator::And
+        ));
+        assert!(matches!(
+            deserialized.high_freq_operator,
+            CommonTermsOperator::Or
+        ));
+        assert_eq!(deserialized.boost, 1.5);
     }
 }

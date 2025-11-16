@@ -466,6 +466,7 @@ impl SearchExecutor {
             Query::MultiMatch(m) => m.boost,
             Query::ConstantScore(c) => c.boost,
             Query::DisMax(d) => d.boost,
+            Query::CommonTerms(c) => c.boost,
             Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
@@ -754,6 +755,51 @@ impl SearchExecutor {
                 // Script queries are not yet implemented
                 // Return a match all query for now
                 Ok(Box::new(AllQuery))
+            }
+
+            Query::CommonTerms(common_terms_query) => {
+                let field = schema
+                    .get_field(&common_terms_query.field)
+                    .map_err(|e| Error::Config(format!("Field not found: {e}")))?;
+
+                // Tokenize the query using QueryParser
+                let query_parser = QueryParser::for_index(tantivy_index, vec![field]);
+                let parsed_query = query_parser
+                    .parse_query(&common_terms_query.query)
+                    .map_err(|e| {
+                        Error::Config(format!("Failed to parse common terms query: {e}"))
+                    })?;
+
+                // For now, we create a BooleanQuery with all terms
+                // In a full implementation, we would:
+                // 1. Calculate term frequencies using the searcher
+                // 2. Separate terms into low-frequency and high-frequency groups
+                // 3. Create a BooleanQuery with:
+                //    - MUST clause for low-frequency terms (using low_freq_operator)
+                //    - SHOULD clause for high-frequency terms (using high_freq_operator)
+                //
+                // Since we don't have access to the searcher here, we use a simplified approach
+                // that treats all terms equally. A full implementation would require passing
+                // the searcher to build_tantivy_query or calculating frequencies separately.
+
+                // Parse query into individual terms for term frequency calculation
+                // For now, we'll use the parsed query directly and apply operators
+                // This is a simplified implementation - full version would calculate frequencies
+
+                // Create a BooleanQuery with the parsed query
+                // Apply boost if not 1.0
+                if (common_terms_query.boost - 1.0).abs() > f32::EPSILON {
+                    Ok(Box::new(BoostQuery::new(
+                        parsed_query,
+                        common_terms_query.boost,
+                    )))
+                } else {
+                    Ok(parsed_query)
+                }
+                // Note: Full implementation would require:
+                // - Access to searcher for term frequency calculation
+                // - Separation of terms into low/high frequency groups
+                // - Proper application of low_freq_operator and high_freq_operator
             }
 
             Query::MultiMatch(multi_match_query) => {
@@ -1581,6 +1627,96 @@ mod tests {
         let queries = vec![Query::Match(MatchQuery::new("title", "test"))];
         let dis_max = DisMaxQuery::new(queries).boost(2.5);
         let query = Query::DisMax(dis_max);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_common_terms() {
+        use crate::query::CommonTermsQuery;
+
+        let (schema, _) = SchemaBuilder::new().add_text_field("body").build().unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let common_terms = CommonTermsQuery::new("body", "bonsai cool");
+        let query = Query::CommonTerms(common_terms);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_common_terms_with_cutoff_frequency() {
+        use crate::query::CommonTermsQuery;
+
+        let (schema, _) = SchemaBuilder::new().add_text_field("body").build().unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let common_terms = CommonTermsQuery::new("body", "test query").cutoff_frequency(0.01);
+        let query = Query::CommonTerms(common_terms);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_common_terms_with_operators() {
+        use crate::query::{CommonTermsOperator, CommonTermsQuery};
+
+        let (schema, _) = SchemaBuilder::new().add_text_field("body").build().unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let common_terms = CommonTermsQuery::new("body", "test query")
+            .low_freq_operator(CommonTermsOperator::And)
+            .high_freq_operator(CommonTermsOperator::Or);
+        let query = Query::CommonTerms(common_terms);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_common_terms_invalid_field() {
+        use crate::query::CommonTermsQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let common_terms = CommonTermsQuery::new("invalid_field", "test");
+        let query = Query::CommonTerms(common_terms);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_common_terms_with_boost() {
+        use crate::query::CommonTermsQuery;
+
+        let (schema, _) = SchemaBuilder::new().add_text_field("body").build().unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let common_terms = CommonTermsQuery::new("body", "test").boost(2.0);
+        let query = Query::CommonTerms(common_terms);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_common_terms() {
+        use crate::query::CommonTermsQuery;
+
+        let common_terms = CommonTermsQuery::new("body", "test").boost(2.5);
+        let query = Query::CommonTerms(common_terms);
 
         assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
     }

@@ -1,6 +1,6 @@
 //! Query builder for constructing queries
 
-use super::types::{ConstantScoreQuery, DisMaxQuery, MultiMatchQuery, *};
+use super::types::{CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, MultiMatchQuery, *};
 
 /// Builder for creating queries
 pub struct QueryBuilder;
@@ -64,6 +64,11 @@ impl QueryBuilder {
     /// Create a dis max query
     pub fn dis_max_query(queries: Vec<Query>) -> Query {
         Query::DisMax(DisMaxQuery::new(queries))
+    }
+
+    /// Create a common terms query
+    pub fn common_terms_query(field: impl Into<String>, query: impl Into<String>) -> Query {
+        Query::CommonTerms(CommonTermsQuery::new(field, query))
     }
 }
 
@@ -131,5 +136,11 @@ mod tests {
         ];
         let query = QueryBuilder::dis_max_query(queries);
         assert!(matches!(query, Query::DisMax(_)));
+    }
+
+    #[test]
+    fn test_common_terms_query_builder() {
+        let query = QueryBuilder::common_terms_query("body", "bonsai cool");
+        assert!(matches!(query, Query::CommonTerms(_)));
     }
 }
