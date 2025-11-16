@@ -131,6 +131,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::ScriptedMetric(scripted_metric_agg) => {
                     scripted_metric_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::BucketScript(bucket_script_agg) => {
+                    bucket_script_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -197,6 +200,9 @@ impl AggregationExecutor {
             super::AggregationSpec::TopHits(top_hits_agg) => top_hits_agg.merge(results),
             super::AggregationSpec::ScriptedMetric(scripted_metric_agg) => {
                 scripted_metric_agg.merge(results)
+            }
+            super::AggregationSpec::BucketScript(bucket_script_agg) => {
+                bucket_script_agg.merge(results)
             }
         }
     }

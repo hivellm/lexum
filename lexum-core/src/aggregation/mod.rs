@@ -12,6 +12,7 @@
 
 pub mod average;
 pub mod boxplot;
+pub mod bucket_script;
 pub mod cardinality;
 pub mod composite;
 pub mod date_histogram;
@@ -50,6 +51,7 @@ pub mod weighted_average;
 
 pub use average::AverageAggregation;
 pub use boxplot::{BoxplotAggregation, BoxplotResult};
+pub use bucket_script::BucketScriptAggregation;
 pub use cardinality::CardinalityAggregation;
 pub use composite::CompositeAggregation;
 pub use date_histogram::DateHistogramAggregation;
@@ -186,6 +188,8 @@ pub enum AggregationSpec {
     TopHits(TopHitsAggregation),
     /// Scripted Metric aggregation (custom script execution)
     ScriptedMetric(ScriptedMetricAggregation),
+    /// Bucket Script aggregation (script execution per bucket)
+    BucketScript(BucketScriptAggregation),
 }
 
 impl AggregationSpec {
@@ -228,6 +232,7 @@ impl AggregationSpec {
             AggregationSpec::TTest(agg) => agg.name(),
             AggregationSpec::TopHits(agg) => agg.name(),
             AggregationSpec::ScriptedMetric(agg) => agg.name(),
+            AggregationSpec::BucketScript(agg) => agg.name(),
         }
     }
 }
