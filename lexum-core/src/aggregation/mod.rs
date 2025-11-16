@@ -37,6 +37,7 @@ pub mod rate;
 pub mod result;
 pub mod reverse_nested;
 pub mod sampler;
+pub mod scripted_metric;
 pub mod significant_terms;
 pub mod stats;
 pub mod string_stats;
@@ -79,6 +80,7 @@ pub use result::{
 };
 pub use reverse_nested::ReverseNestedAggregation;
 pub use sampler::{DiversifiedSamplerAggregation, SamplerAggregation};
+pub use scripted_metric::{ScriptedMetricAggregation, ScriptedMetricResult};
 pub use significant_terms::SignificantTermsAggregation;
 pub use stats::StatsAggregation;
 pub use string_stats::{StringStatsAggregation, StringStatsResult};
@@ -182,6 +184,8 @@ pub enum AggregationSpec {
     TTest(TTestAggregation),
     /// Top Hits aggregation (document retrieval within buckets)
     TopHits(TopHitsAggregation),
+    /// Scripted Metric aggregation (custom script execution)
+    ScriptedMetric(ScriptedMetricAggregation),
 }
 
 impl AggregationSpec {
@@ -223,6 +227,7 @@ impl AggregationSpec {
             AggregationSpec::Rate(agg) => agg.name(),
             AggregationSpec::TTest(agg) => agg.name(),
             AggregationSpec::TopHits(agg) => agg.name(),
+            AggregationSpec::ScriptedMetric(agg) => agg.name(),
         }
     }
 }
