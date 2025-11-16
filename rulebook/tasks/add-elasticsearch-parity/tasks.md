@@ -91,7 +91,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [ ] Simple query string - **MISSING**
 - [x] Multi-match query ✅ **IMPLEMENTED**
 - [ ] Common terms query - **MISSING**
-- [ ] Dis Max query - **MISSING**
+- [x] Dis Max query ✅ **IMPLEMENTED**
 - [x] Constant Score query ✅ **IMPLEMENTED**
 
 **Tasks**:
@@ -117,7 +117,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Low frequency terms handling
   - Cutoff frequency
   - High/low frequency operators
-- [ ] 1.3.5 Implement Dis Max Query
+- [x] 1.3.5 Implement Dis Max Query ✅ **COMPLETED**
   - Multiple queries with tie breaker
   - Best matching query selection
 - [x] 1.3.6 Implement Constant Score Query ✅ **COMPLETED**

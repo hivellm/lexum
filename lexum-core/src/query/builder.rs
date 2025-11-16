@@ -1,6 +1,6 @@
 //! Query builder for constructing queries
 
-use super::types::{ConstantScoreQuery, MultiMatchQuery, *};
+use super::types::{ConstantScoreQuery, DisMaxQuery, MultiMatchQuery, *};
 
 /// Builder for creating queries
 pub struct QueryBuilder;
@@ -60,6 +60,11 @@ impl QueryBuilder {
     pub fn constant_score_query(filter: Query) -> Query {
         Query::ConstantScore(ConstantScoreQuery::new(filter))
     }
+
+    /// Create a dis max query
+    pub fn dis_max_query(queries: Vec<Query>) -> Query {
+        Query::DisMax(DisMaxQuery::new(queries))
+    }
 }
 
 #[cfg(test)]
@@ -116,5 +121,15 @@ mod tests {
         let filter = QueryBuilder::term_query("status", "active");
         let query = QueryBuilder::constant_score_query(filter);
         assert!(matches!(query, Query::ConstantScore(_)));
+    }
+
+    #[test]
+    fn test_dis_max_query_builder() {
+        let queries = vec![
+            QueryBuilder::match_query("title", "test"),
+            QueryBuilder::term_query("status", "active"),
+        ];
+        let query = QueryBuilder::dis_max_query(queries);
+        assert!(matches!(query, Query::DisMax(_)));
     }
 }

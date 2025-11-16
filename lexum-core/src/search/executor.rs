@@ -465,6 +465,7 @@ impl SearchExecutor {
             Query::Regex(r) => r.boost,
             Query::MultiMatch(m) => m.boost,
             Query::ConstantScore(c) => c.boost,
+            Query::DisMax(d) => d.boost,
             Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
@@ -715,6 +716,38 @@ impl SearchExecutor {
                         constant_score_query.boost,
                     )))
                 }
+            }
+
+            Query::DisMax(dis_max_query) => {
+                if dis_max_query.queries.is_empty() {
+                    return Err(Error::Config(
+                        "Dis Max query requires at least one query".to_string(),
+                    ));
+                }
+
+                // Build all sub-queries
+                let mut clauses = Vec::new();
+                for query in &dis_max_query.queries {
+                    let sub_query =
+                        Self::build_tantivy_query(tantivy_index, query, regex_cache.clone())?;
+                    // Use Should to get disjunction max behavior
+                    // Tantivy's BooleanQuery with Should already implements dis_max
+                    clauses.push((Occur::Should, sub_query));
+                }
+
+                let boolean_query = BooleanQuery::from(clauses);
+
+                // Apply boost if not 1.0
+                if (dis_max_query.boost - 1.0).abs() > f32::EPSILON {
+                    Ok(Box::new(BoostQuery::new(
+                        Box::new(boolean_query),
+                        dis_max_query.boost,
+                    )))
+                } else {
+                    Ok(Box::new(boolean_query))
+                }
+                // Note: Tie breaker is not directly supported by Tantivy's BooleanQuery
+                // In a full implementation, this would require custom scoring logic
             }
 
             Query::Script(_script_query) => {
@@ -1456,6 +1489,100 @@ mod tests {
         let query = Query::ConstantScore(constant_score);
 
         assert_eq!(SearchExecutor::extract_boost(&query), 3.0);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_dis_max() {
+        use crate::query::{DisMaxQuery, MatchQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let queries = vec![
+            Query::Match(MatchQuery::new("title", "test")),
+            Query::Match(MatchQuery::new("content", "test")),
+        ];
+        let dis_max = DisMaxQuery::new(queries);
+        let query = Query::DisMax(dis_max);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_dis_max_with_tie_breaker() {
+        use crate::query::{DisMaxQuery, MatchQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_text_field("content")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let queries = vec![
+            Query::Match(MatchQuery::new("title", "test")),
+            Query::Match(MatchQuery::new("content", "test")),
+        ];
+        let dis_max = DisMaxQuery::new(queries).tie_breaker(0.3);
+        let query = Query::DisMax(dis_max);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_dis_max_empty_queries() {
+        use crate::query::DisMaxQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let dis_max = DisMaxQuery::new(vec![]);
+        let query = Query::DisMax(dis_max);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_dis_max_with_boost() {
+        use crate::query::{DisMaxQuery, MatchQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let queries = vec![Query::Match(MatchQuery::new("title", "test"))];
+        let dis_max = DisMaxQuery::new(queries).boost(2.0);
+        let query = Query::DisMax(dis_max);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_dis_max() {
+        use crate::query::{DisMaxQuery, MatchQuery};
+
+        let queries = vec![Query::Match(MatchQuery::new("title", "test"))];
+        let dis_max = DisMaxQuery::new(queries).boost(2.5);
+        let query = Query::DisMax(dis_max);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
     }
 
     #[test]

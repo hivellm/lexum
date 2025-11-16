@@ -39,6 +39,8 @@ pub enum Query {
     MultiMatch(MultiMatchQuery),
     /// Constant score query (fixed score for all matches)
     ConstantScore(ConstantScoreQuery),
+    /// Dis Max query (best matching query with tie breaker)
+    DisMax(DisMaxQuery),
 }
 
 /// Match query for full-text search
@@ -867,6 +869,42 @@ impl ConstantScoreQuery {
     }
 }
 
+/// Dis Max query for selecting the best matching query from multiple queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DisMaxQuery {
+    /// Queries to evaluate (best match wins)
+    pub queries: Vec<Query>,
+    /// Tie breaker for adding scores from other queries (0.0 to 1.0, default: 0.0)
+    #[serde(default)]
+    pub tie_breaker: f32,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl DisMaxQuery {
+    /// Create new dis max query with default tie breaker of 0.0
+    pub fn new(queries: Vec<Query>) -> Self {
+        Self {
+            queries,
+            tie_breaker: 0.0,
+            boost: 1.0,
+        }
+    }
+
+    /// Set the tie breaker value (clamped to 0.0-1.0)
+    pub fn tie_breaker(mut self, tie_breaker: f32) -> Self {
+        self.tie_breaker = tie_breaker.clamp(0.0, 1.0);
+        self
+    }
+
+    /// Set the boost value
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1527,5 +1565,63 @@ mod tests {
         let deserialized: ConstantScoreQuery = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.boost, 1.5);
         assert!(matches!(*deserialized.filter, Query::Range(_)));
+    }
+
+    #[test]
+    fn test_dis_max_query() {
+        let queries = vec![
+            Query::Match(MatchQuery::new("title", "test")),
+            Query::Match(MatchQuery::new("content", "test")),
+        ];
+        let dis_max = DisMaxQuery::new(queries);
+
+        assert_eq!(dis_max.queries.len(), 2);
+        assert_eq!(dis_max.tie_breaker, 0.0);
+        assert_eq!(dis_max.boost, 1.0);
+    }
+
+    #[test]
+    fn test_dis_max_query_with_tie_breaker() {
+        let queries = vec![Query::Term(TermQuery::new("status", "active"))];
+        let dis_max = DisMaxQuery::new(queries).tie_breaker(0.3);
+
+        assert_eq!(dis_max.tie_breaker, 0.3);
+    }
+
+    #[test]
+    fn test_dis_max_query_tie_breaker_clamping() {
+        let queries = vec![Query::Match(MatchQuery::new("title", "test"))];
+        let dis_max_high = DisMaxQuery::new(queries.clone()).tie_breaker(2.0);
+        let dis_max_low = DisMaxQuery::new(queries).tie_breaker(-1.0);
+
+        assert_eq!(dis_max_high.tie_breaker, 1.0);
+        assert_eq!(dis_max_low.tie_breaker, 0.0);
+    }
+
+    #[test]
+    fn test_dis_max_query_with_boost() {
+        let queries = vec![Query::Match(MatchQuery::new("title", "test"))];
+        let dis_max = DisMaxQuery::new(queries).boost(2.5);
+
+        assert_eq!(dis_max.boost, 2.5);
+    }
+
+    #[test]
+    fn test_dis_max_query_serialization() {
+        let queries = vec![
+            Query::Match(MatchQuery::new("title", "test")),
+            Query::Term(TermQuery::new("status", "active")),
+        ];
+        let dis_max = DisMaxQuery::new(queries).tie_breaker(0.5).boost(1.5);
+
+        let json = serde_json::to_string(&dis_max).unwrap();
+        assert!(json.contains("queries"));
+        assert!(json.contains("tie_breaker"));
+        assert!(json.contains("boost"));
+
+        let deserialized: DisMaxQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.tie_breaker, 0.5);
+        assert_eq!(deserialized.boost, 1.5);
+        assert_eq!(deserialized.queries.len(), 2);
     }
 }
