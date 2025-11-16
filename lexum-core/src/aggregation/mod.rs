@@ -40,6 +40,7 @@ pub mod stats;
 pub mod sum;
 pub mod terms;
 pub mod value_count;
+pub mod weighted_average;
 
 pub use average::AverageAggregation;
 pub use cardinality::CardinalityAggregation;
@@ -158,6 +159,8 @@ pub enum AggregationSpec {
     ExtendedStats(ExtendedStatsAggregation),
     /// Median absolute deviation aggregation (MAD)
     MedianAbsoluteDeviation(MedianAbsoluteDeviationAggregation),
+    /// Weighted average aggregation (value and weight fields)
+    WeightedAverage(WeightedAverageAggregation),
 }
 
 impl AggregationSpec {
@@ -193,6 +196,7 @@ impl AggregationSpec {
             AggregationSpec::GeoDistance(agg) => agg.name(),
             AggregationSpec::ExtendedStats(agg) => agg.name(),
             AggregationSpec::MedianAbsoluteDeviation(agg) => agg.name(),
+            AggregationSpec::WeightedAverage(agg) => agg.name(),
         }
     }
 }

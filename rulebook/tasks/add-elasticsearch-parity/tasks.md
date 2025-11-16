@@ -236,7 +236,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Median Absolute Deviation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Top Hits Aggregation - **MISSING**
 - [ ] Scripted Metric Aggregation - **MISSING**
-- [ ] Weighted Average Aggregation - **MISSING**
+- [x] Weighted Average Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] String Stats Aggregation - **MISSING**
 - [ ] Boxplot Aggregation - **MISSING**
 - [ ] T-Test Aggregation - **MISSING**
@@ -266,9 +266,11 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Map script
   - Combine script
   - Reduce script
-- [ ] 2.2.6 Implement Weighted Average
-  - Value and weight fields
-  - Format support
+- [x] 2.2.6 Implement Weighted Average ✅ **COMPLETED**
+  - Value and weight fields ✅
+  - Format support ✅
+  - Value type hint ✅
+  - Merge support for shard results ✅
 - [ ] 2.2.7 Implement String Stats
   - Character count
   - Min/max length
