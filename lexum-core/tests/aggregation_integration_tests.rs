@@ -31,10 +31,13 @@ async fn create_test_index() -> (Arc<lexum_core::index::Index>, TempDir) {
     let settings = IndexSettings::new();
 
     // Create index
-    let index = manager
+    manager
         .create_index("test_index", schema, settings)
         .await
         .unwrap();
+
+    // Get the created index
+    let index = manager.get_index("test_index").unwrap();
 
     // Add sample documents
     let docs = vec![
@@ -80,7 +83,7 @@ async fn create_test_index() -> (Arc<lexum_core::index::Index>, TempDir) {
     }
 
     index.commit().await.unwrap();
-    (index, temp_dir)
+    (Arc::new(index), temp_dir)
 }
 
 #[tokio::test]
@@ -521,7 +524,7 @@ async fn test_aggregation_executor_merge_integration() {
     });
 
     // Execute aggregations on both sets
-    let mut aggs = vec![AggregationSpec::ExtendedStats(
+    let aggs = vec![AggregationSpec::ExtendedStats(
         ExtendedStatsAggregation::new("value"),
     )];
 
