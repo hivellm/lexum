@@ -312,7 +312,7 @@ mod tests {
         // Create hits with numeric values
         for i in 1..=5 {
             hits.push(SearchHit {
-                id: DocumentId(i),
+                id: DocumentId::new(&i.to_string()),
                 score: Score::new(i as f32),
                 source: serde_json::json!({ "value": i * 10 }),
             });
@@ -351,7 +351,7 @@ mod tests {
         // Std deviation = sqrt(250) ≈ 15.81
         for i in 1..=5 {
             hits.push(SearchHit {
-                id: DocumentId(i),
+                id: DocumentId::new(&i.to_string()),
                 score: Score::new(i as f32),
                 source: serde_json::json!({ "value": i * 10 }),
             });
