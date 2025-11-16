@@ -313,7 +313,7 @@ mod tests {
         for i in 1..=5 {
             hits.push(SearchHit {
                 id: DocumentId(i),
-                score: Score(i as f32),
+                score: Score::new(i as f32),
                 source: serde_json::json!({ "value": i * 10 }),
             });
         }
@@ -352,7 +352,7 @@ mod tests {
         for i in 1..=5 {
             hits.push(SearchHit {
                 id: DocumentId(i),
-                score: Score(i as f32),
+                score: Score::new(i as f32),
                 source: serde_json::json!({ "value": i * 10 }),
             });
         }
