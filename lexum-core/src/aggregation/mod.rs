@@ -17,6 +17,8 @@ pub mod bucket_selector;
 pub mod bucket_sort;
 pub mod cardinality;
 pub mod composite;
+pub mod cumulative_cardinality;
+pub mod cumulative_sum;
 pub mod date_histogram;
 pub mod date_range;
 pub mod executor;
@@ -58,6 +60,8 @@ pub use bucket_selector::BucketSelectorAggregation;
 pub use bucket_sort::BucketSortAggregation;
 pub use cardinality::CardinalityAggregation;
 pub use composite::CompositeAggregation;
+pub use cumulative_cardinality::CumulativeCardinalityAggregation;
+pub use cumulative_sum::CumulativeSumAggregation;
 pub use date_histogram::DateHistogramAggregation;
 pub use date_range::DateRangeAggregation;
 pub use executor::AggregationExecutor;
@@ -198,6 +202,10 @@ pub enum AggregationSpec {
     BucketSelector(BucketSelectorAggregation),
     /// Bucket Sort aggregation (sort buckets by metric)
     BucketSort(BucketSortAggregation),
+    /// Cumulative Sum aggregation (cumulative sum of metric values)
+    CumulativeSum(CumulativeSumAggregation),
+    /// Cumulative Cardinality aggregation (cumulative unique count)
+    CumulativeCardinality(CumulativeCardinalityAggregation),
 }
 
 impl AggregationSpec {
@@ -243,6 +251,8 @@ impl AggregationSpec {
             AggregationSpec::BucketScript(agg) => agg.name(),
             AggregationSpec::BucketSelector(agg) => agg.name(),
             AggregationSpec::BucketSort(agg) => agg.name(),
+            AggregationSpec::CumulativeSum(agg) => agg.name(),
+            AggregationSpec::CumulativeCardinality(agg) => agg.name(),
         }
     }
 }

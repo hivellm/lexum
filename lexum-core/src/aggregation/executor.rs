@@ -140,6 +140,12 @@ impl AggregationExecutor {
                 super::AggregationSpec::BucketSort(bucket_sort_agg) => {
                     bucket_sort_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::CumulativeSum(cumulative_sum_agg) => {
+                    cumulative_sum_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::CumulativeCardinality(cumulative_cardinality_agg) => {
+                    cumulative_cardinality_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
