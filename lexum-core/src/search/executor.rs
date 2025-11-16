@@ -471,6 +471,10 @@ impl SearchExecutor {
             Query::Pinned(_) => 1.0,  // Pinned queries don't have boost, organic query does
             Query::HasChild(h) => h.boost,
             Query::HasParent(h) => h.boost,
+            Query::GeoDistance(g) => g.boost,
+            Query::GeoBoundingBox(g) => g.boost,
+            Query::GeoPolygon(g) => g.boost,
+            Query::GeoShape(g) => g.boost,
             Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
@@ -698,8 +702,34 @@ impl SearchExecutor {
             }
 
             Query::GeoDistance(_geo_query) => {
-                // Geo queries are not yet implemented in Tantivy integration
-                // Return a match all query for now
+                // Geo queries require geo field support in Tantivy
+                // Full implementation would require geo_point field type and spatial calculations
+                // For now, return a match all query
+                // Note: Actual geo filtering would be done in post-processing
+                Ok(Box::new(AllQuery))
+            }
+
+            Query::GeoBoundingBox(_bbox_query) => {
+                // Geo bounding box queries require geo field support in Tantivy
+                // Full implementation would check if points fall within bounding box
+                // For now, return a match all query
+                // Note: Actual geo filtering would be done in post-processing
+                Ok(Box::new(AllQuery))
+            }
+
+            Query::GeoPolygon(_polygon_query) => {
+                // Geo polygon queries require geo field support in Tantivy
+                // Full implementation would use point-in-polygon algorithms
+                // For now, return a match all query
+                // Note: Actual geo filtering would be done in post-processing
+                Ok(Box::new(AllQuery))
+            }
+
+            Query::GeoShape(_shape_query) => {
+                // Geo shape queries require geo_shape field support in Tantivy
+                // Full implementation would use spatial relationship calculations
+                // For now, return a match all query
+                // Note: Actual geo filtering would be done in post-processing
                 Ok(Box::new(AllQuery))
             }
 

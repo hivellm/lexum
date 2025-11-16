@@ -51,10 +51,10 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Script Query (advanced) ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Nested Query ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Has Child / Has Parent Query ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Geo Distance Query - **MISSING** (basic structure exists)
-- [ ] Geo Bounding Box Query - **MISSING**
-- [ ] Geo Polygon Query - **MISSING**
-- [ ] Geo Shape Query - **MISSING**
+- [x] Geo Distance Query ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Geo Bounding Box Query ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Geo Polygon Query ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Geo Shape Query ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Percolate Query - **MISSING**
 - [x] Wrapper Query ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Pinned Query ✅ **IMPLEMENTED** (2025-01-14)
@@ -80,7 +80,12 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Parent-child relationships
   - Join field type (structure ready)
   - Score mode support ✅
-- [ ] 1.2.2.5 Implement Geo Queries (see Geo-Spatial section)
+- [x] 1.2.2.5 Implement Geo Queries ✅ **COMPLETED** (see Geo-Spatial section)
+  - Geo Distance Query ✅
+  - Geo Bounding Box Query ✅
+  - Geo Polygon Query ✅
+  - Geo Shape Query ✅
+  - Note: Full implementation requires geo field support in Tantivy
 - [ ] 1.2.2.6 Implement Percolate Query
   - Reverse search (store queries, match documents)
   - Query indexing

@@ -51,6 +51,12 @@ pub enum Query {
     HasChild(HasChildQuery),
     /// Has parent query (find child documents with matching parents)
     HasParent(HasParentQuery),
+    /// Geo bounding box query (search within bounding box)
+    GeoBoundingBox(GeoBoundingBoxQuery),
+    /// Geo polygon query (search within polygon)
+    GeoPolygon(GeoPolygonQuery),
+    /// Geo shape query (search with geographic shapes)
+    GeoShape(GeoShapeQuery),
 }
 
 /// Match query for full-text search
@@ -713,6 +719,9 @@ pub struct GeoDistanceQuery {
     pub distance: String,
     /// Center point (lat, lon)
     pub location: GeoPoint,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
 }
 
 /// Geographic point with latitude and longitude
@@ -731,7 +740,172 @@ impl GeoDistanceQuery {
             field: field.into(),
             distance: distance.into(),
             location: GeoPoint { lat, lon },
+            boost: 1.0,
         }
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Geo bounding box query for searching within a bounding box
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GeoBoundingBoxQuery {
+    /// Field containing geo point
+    pub field: String,
+    /// Top-left corner of bounding box
+    pub top_left: GeoPoint,
+    /// Bottom-right corner of bounding box
+    pub bottom_right: GeoPoint,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl GeoBoundingBoxQuery {
+    /// Create new geo bounding box query
+    pub fn new(field: impl Into<String>, top_left: GeoPoint, bottom_right: GeoPoint) -> Self {
+        Self {
+            field: field.into(),
+            top_left,
+            bottom_right,
+            boost: 1.0,
+        }
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Geo polygon query for searching within a polygon
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GeoPolygonQuery {
+    /// Field containing geo point
+    pub field: String,
+    /// Polygon points (must form a closed polygon)
+    pub points: Vec<GeoPoint>,
+    /// Holes in the polygon (optional)
+    #[serde(default)]
+    pub holes: Vec<Vec<GeoPoint>>,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+impl GeoPolygonQuery {
+    /// Create new geo polygon query
+    pub fn new(field: impl Into<String>, points: Vec<GeoPoint>) -> Self {
+        Self {
+            field: field.into(),
+            points,
+            holes: Vec::new(),
+            boost: 1.0,
+        }
+    }
+
+    /// Add a hole to the polygon
+    pub fn add_hole(mut self, hole: Vec<GeoPoint>) -> Self {
+        self.holes.push(hole);
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
+    }
+}
+
+/// Geo shape query for searching with geographic shapes
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct GeoShapeQuery {
+    /// Field containing geo shape
+    pub field: String,
+    /// Shape to match against
+    pub shape: GeoShape,
+    /// Spatial relationship type
+    #[serde(default)]
+    pub relation: GeoShapeRelation,
+    /// Boost factor for this query (default: 1.0)
+    #[serde(default = "default_boost")]
+    pub boost: f32,
+}
+
+/// Geographic shape for geo shape queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(tag = "type")]
+pub enum GeoShape {
+    /// Point shape
+    Point {
+        /// Point coordinates
+        coordinates: GeoPoint,
+    },
+    /// LineString shape
+    LineString {
+        /// LineString coordinates
+        coordinates: Vec<GeoPoint>,
+    },
+    /// Polygon shape
+    Polygon {
+        /// Polygon coordinates (outer ring and holes)
+        coordinates: Vec<Vec<GeoPoint>>,
+    },
+    /// Circle shape
+    Circle {
+        /// Center point of the circle
+        coordinates: GeoPoint,
+        /// Radius of the circle (e.g., \"10km\")
+        radius: String,
+    },
+    /// Envelope (bounding box) shape
+    Envelope {
+        /// Coordinates tuple (top_left, bottom_right)
+        coordinates: (GeoPoint, GeoPoint),
+    },
+}
+
+/// Spatial relationship for geo shape queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum GeoShapeRelation {
+    /// Shapes intersect
+    #[default]
+    Intersects,
+    /// Query shape contains indexed shape
+    Contains,
+    /// Query shape is within indexed shape
+    Within,
+    /// Shapes are disjoint
+    Disjoint,
+}
+
+impl GeoShapeQuery {
+    /// Create new geo shape query
+    pub fn new(field: impl Into<String>, shape: GeoShape) -> Self {
+        Self {
+            field: field.into(),
+            shape,
+            relation: GeoShapeRelation::Intersects,
+            boost: 1.0,
+        }
+    }
+
+    /// Set spatial relationship
+    pub fn relation(mut self, relation: GeoShapeRelation) -> Self {
+        self.relation = relation;
+        self
+    }
+
+    /// Set boost factor for this query
+    pub fn boost(mut self, boost: f32) -> Self {
+        self.boost = boost;
+        self
     }
 }
 
@@ -1433,6 +1607,7 @@ mod tests {
         assert_eq!(geo_query.distance, "10km");
         assert_eq!(geo_query.location.lat, 40.7128);
         assert_eq!(geo_query.location.lon, -74.0060);
+        assert_eq!(geo_query.boost, 1.0);
     }
 
     #[test]
@@ -2329,6 +2504,282 @@ mod tests {
         let deserialized: HasParentQuery = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.parent_type, "blog");
         assert!(matches!(deserialized.score_mode, ParentChildScoreMode::Sum));
+        assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_geo_distance_query_with_boost() {
+        let geo_query = GeoDistanceQuery::new("location", "10km", 40.7128, -74.0060).boost(2.0);
+
+        assert_eq!(geo_query.field, "location");
+        assert_eq!(geo_query.distance, "10km");
+        assert_eq!(geo_query.location.lat, 40.7128);
+        assert_eq!(geo_query.location.lon, -74.0060);
+        assert_eq!(geo_query.boost, 2.0);
+    }
+
+    #[test]
+    fn test_geo_bounding_box_query() {
+        let top_left = GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        };
+        let bottom_right = GeoPoint {
+            lat: 40.7,
+            lon: -73.9,
+        };
+        let bbox_query =
+            GeoBoundingBoxQuery::new("location", top_left.clone(), bottom_right.clone());
+
+        assert_eq!(bbox_query.field, "location");
+        assert_eq!(bbox_query.top_left.lat, top_left.lat);
+        assert_eq!(bbox_query.bottom_right.lat, bottom_right.lat);
+        assert_eq!(bbox_query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_geo_bounding_box_query_with_boost() {
+        let top_left = GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        };
+        let bottom_right = GeoPoint {
+            lat: 40.7,
+            lon: -73.9,
+        };
+        let bbox_query = GeoBoundingBoxQuery::new("location", top_left, bottom_right).boost(1.5);
+
+        assert_eq!(bbox_query.boost, 1.5);
+    }
+
+    #[test]
+    fn test_geo_bounding_box_query_serialization() {
+        let top_left = GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        };
+        let bottom_right = GeoPoint {
+            lat: 40.7,
+            lon: -73.9,
+        };
+        let bbox_query = GeoBoundingBoxQuery::new("location", top_left, bottom_right).boost(1.5);
+
+        let json = serde_json::to_string(&bbox_query).unwrap();
+        assert!(json.contains("field"));
+        assert!(json.contains("top_left"));
+        assert!(json.contains("bottom_right"));
+        assert!(json.contains("boost"));
+
+        let deserialized: GeoBoundingBoxQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "location");
+        assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_geo_polygon_query() {
+        let points = vec![
+            GeoPoint {
+                lat: 40.8,
+                lon: -74.0,
+            },
+            GeoPoint {
+                lat: 40.8,
+                lon: -73.9,
+            },
+            GeoPoint {
+                lat: 40.7,
+                lon: -73.9,
+            },
+            GeoPoint {
+                lat: 40.7,
+                lon: -74.0,
+            },
+        ];
+        let polygon_query = GeoPolygonQuery::new("location", points.clone());
+
+        assert_eq!(polygon_query.field, "location");
+        assert_eq!(polygon_query.points.len(), 4);
+        assert!(polygon_query.holes.is_empty());
+        assert_eq!(polygon_query.boost, 1.0);
+    }
+
+    #[test]
+    fn test_geo_polygon_query_with_holes() {
+        let points = vec![
+            GeoPoint {
+                lat: 40.8,
+                lon: -74.0,
+            },
+            GeoPoint {
+                lat: 40.8,
+                lon: -73.9,
+            },
+            GeoPoint {
+                lat: 40.7,
+                lon: -73.9,
+            },
+            GeoPoint {
+                lat: 40.7,
+                lon: -74.0,
+            },
+        ];
+        let hole = vec![
+            GeoPoint {
+                lat: 40.75,
+                lon: -73.95,
+            },
+            GeoPoint {
+                lat: 40.75,
+                lon: -73.92,
+            },
+            GeoPoint {
+                lat: 40.72,
+                lon: -73.92,
+            },
+            GeoPoint {
+                lat: 40.72,
+                lon: -73.95,
+            },
+        ];
+        let polygon_query = GeoPolygonQuery::new("location", points).add_hole(hole);
+
+        assert_eq!(polygon_query.holes.len(), 1);
+        assert_eq!(polygon_query.holes[0].len(), 4);
+    }
+
+    #[test]
+    fn test_geo_polygon_query_with_boost() {
+        let points = vec![GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        }];
+        let polygon_query = GeoPolygonQuery::new("location", points).boost(2.0);
+
+        assert_eq!(polygon_query.boost, 2.0);
+    }
+
+    #[test]
+    fn test_geo_polygon_query_serialization() {
+        let points = vec![
+            GeoPoint {
+                lat: 40.8,
+                lon: -74.0,
+            },
+            GeoPoint {
+                lat: 40.7,
+                lon: -73.9,
+            },
+        ];
+        let polygon_query = GeoPolygonQuery::new("location", points).boost(1.5);
+
+        let json = serde_json::to_string(&polygon_query).unwrap();
+        assert!(json.contains("field"));
+        assert!(json.contains("points"));
+        assert!(json.contains("boost"));
+
+        let deserialized: GeoPolygonQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "location");
+        assert_eq!(deserialized.points.len(), 2);
+        assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_geo_shape_query_point() {
+        let shape = GeoShape::Point {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+        };
+        let shape_query = GeoShapeQuery::new("location", shape);
+
+        assert_eq!(shape_query.field, "location");
+        assert!(matches!(shape_query.shape, GeoShape::Point { .. }));
+        assert!(matches!(shape_query.relation, GeoShapeRelation::Intersects));
+    }
+
+    #[test]
+    fn test_geo_shape_query_circle() {
+        let shape = GeoShape::Circle {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+            radius: "10km".to_string(),
+        };
+        let shape_query = GeoShapeQuery::new("location", shape);
+
+        assert!(matches!(shape_query.shape, GeoShape::Circle { .. }));
+    }
+
+    #[test]
+    fn test_geo_shape_query_polygon() {
+        let shape = GeoShape::Polygon {
+            coordinates: vec![vec![
+                GeoPoint {
+                    lat: 40.8,
+                    lon: -74.0,
+                },
+                GeoPoint {
+                    lat: 40.7,
+                    lon: -73.9,
+                },
+            ]],
+        };
+        let shape_query = GeoShapeQuery::new("location", shape);
+
+        assert!(matches!(shape_query.shape, GeoShape::Polygon { .. }));
+    }
+
+    #[test]
+    fn test_geo_shape_query_with_relation() {
+        let shape = GeoShape::Point {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+        };
+        let shape_query =
+            GeoShapeQuery::new("location", shape).relation(GeoShapeRelation::Contains);
+
+        assert!(matches!(shape_query.relation, GeoShapeRelation::Contains));
+    }
+
+    #[test]
+    fn test_geo_shape_query_with_boost() {
+        let shape = GeoShape::Point {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+        };
+        let shape_query = GeoShapeQuery::new("location", shape).boost(2.0);
+
+        assert_eq!(shape_query.boost, 2.0);
+    }
+
+    #[test]
+    fn test_geo_shape_query_serialization() {
+        let shape = GeoShape::Circle {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+            radius: "10km".to_string(),
+        };
+        let shape_query = GeoShapeQuery::new("location", shape)
+            .relation(GeoShapeRelation::Within)
+            .boost(1.5);
+
+        let json = serde_json::to_string(&shape_query).unwrap();
+        assert!(json.contains("field"));
+        assert!(json.contains("shape"));
+        assert!(json.contains("relation"));
+        assert!(json.contains("boost"));
+
+        let deserialized: GeoShapeQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.field, "location");
+        assert!(matches!(deserialized.relation, GeoShapeRelation::Within));
         assert_eq!(deserialized.boost, 1.5);
     }
 }

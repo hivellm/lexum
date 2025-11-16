@@ -1,7 +1,8 @@
 //! Query builder for constructing queries
 
 use super::types::{
-    CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, HasChildQuery, HasParentQuery,
+    CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, GeoBoundingBoxQuery, GeoDistanceQuery,
+    GeoPoint, GeoPolygonQuery, GeoShape, GeoShapeQuery, HasChildQuery, HasParentQuery,
     MoreLikeThisQuery, MultiMatchQuery, NestedQuery, PinnedQuery, ScriptQuery, WrapperQuery, *,
 };
 
@@ -107,6 +108,35 @@ impl QueryBuilder {
     /// Create a has parent query
     pub fn has_parent_query(parent_type: impl Into<String>, query: Query) -> Query {
         Query::HasParent(HasParentQuery::new(parent_type, query))
+    }
+
+    /// Create a geo distance query
+    pub fn geo_distance_query(
+        field: impl Into<String>,
+        distance: impl Into<String>,
+        lat: f64,
+        lon: f64,
+    ) -> Query {
+        Query::GeoDistance(GeoDistanceQuery::new(field, distance, lat, lon))
+    }
+
+    /// Create a geo bounding box query
+    pub fn geo_bounding_box_query(
+        field: impl Into<String>,
+        top_left: GeoPoint,
+        bottom_right: GeoPoint,
+    ) -> Query {
+        Query::GeoBoundingBox(GeoBoundingBoxQuery::new(field, top_left, bottom_right))
+    }
+
+    /// Create a geo polygon query
+    pub fn geo_polygon_query(field: impl Into<String>, points: Vec<GeoPoint>) -> Query {
+        Query::GeoPolygon(GeoPolygonQuery::new(field, points))
+    }
+
+    /// Create a geo shape query
+    pub fn geo_shape_query(field: impl Into<String>, shape: GeoShape) -> Query {
+        Query::GeoShape(GeoShapeQuery::new(field, shape))
     }
 }
 
@@ -227,5 +257,47 @@ mod tests {
         let parent_query = QueryBuilder::match_query("status", "published");
         let query = QueryBuilder::has_parent_query("blog", parent_query);
         assert!(matches!(query, Query::HasParent(_)));
+    }
+
+    #[test]
+    fn test_geo_distance_query_builder() {
+        let query = QueryBuilder::geo_distance_query("location", "10km", 40.7128, -74.0060);
+        assert!(matches!(query, Query::GeoDistance(_)));
+    }
+
+    #[test]
+    fn test_geo_bounding_box_query_builder() {
+        let top_left = GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        };
+        let bottom_right = GeoPoint {
+            lat: 40.7,
+            lon: -73.9,
+        };
+        let query = QueryBuilder::geo_bounding_box_query("location", top_left, bottom_right);
+        assert!(matches!(query, Query::GeoBoundingBox(_)));
+    }
+
+    #[test]
+    fn test_geo_polygon_query_builder() {
+        let points = vec![GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        }];
+        let query = QueryBuilder::geo_polygon_query("location", points);
+        assert!(matches!(query, Query::GeoPolygon(_)));
+    }
+
+    #[test]
+    fn test_geo_shape_query_builder() {
+        let shape = GeoShape::Point {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+        };
+        let query = QueryBuilder::geo_shape_query("location", shape);
+        assert!(matches!(query, Query::GeoShape(_)));
     }
 }
