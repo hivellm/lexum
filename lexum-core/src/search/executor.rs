@@ -1977,6 +1977,281 @@ mod tests {
     }
 
     #[test]
+    fn test_build_tantivy_query_geo_bounding_box() {
+        use crate::query::{GeoBoundingBoxQuery, GeoPoint};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("location")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let top_left = GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        };
+        let bottom_right = GeoPoint {
+            lat: 40.7,
+            lon: -73.9,
+        };
+        let bbox_query = GeoBoundingBoxQuery::new("location", top_left, bottom_right);
+        let query = Query::GeoBoundingBox(bbox_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_geo_polygon() {
+        use crate::query::{GeoPoint, GeoPolygonQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("location")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let points = vec![
+            GeoPoint {
+                lat: 40.8,
+                lon: -74.0,
+            },
+            GeoPoint {
+                lat: 40.7,
+                lon: -73.9,
+            },
+        ];
+        let polygon_query = GeoPolygonQuery::new("location", points);
+        let query = Query::GeoPolygon(polygon_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_geo_shape() {
+        use crate::query::{GeoPoint, GeoShape, GeoShapeQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("location")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let shape = GeoShape::Point {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+        };
+        let shape_query = GeoShapeQuery::new("location", shape);
+        let query = Query::GeoShape(shape_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_geo_distance() {
+        use crate::query::GeoDistanceQuery;
+
+        let geo_query = GeoDistanceQuery::new("location", "10km", 40.7128, -74.0060).boost(2.0);
+        let query = Query::GeoDistance(geo_query);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.0);
+    }
+
+    #[test]
+    fn test_extract_boost_geo_bounding_box() {
+        use crate::query::{GeoBoundingBoxQuery, GeoPoint};
+
+        let top_left = GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        };
+        let bottom_right = GeoPoint {
+            lat: 40.7,
+            lon: -73.9,
+        };
+        let bbox_query = GeoBoundingBoxQuery::new("location", top_left, bottom_right).boost(1.5);
+        let query = Query::GeoBoundingBox(bbox_query);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 1.5);
+    }
+
+    #[test]
+    fn test_extract_boost_geo_polygon() {
+        use crate::query::{GeoPoint, GeoPolygonQuery};
+
+        let points = vec![GeoPoint {
+            lat: 40.8,
+            lon: -74.0,
+        }];
+        let polygon_query = GeoPolygonQuery::new("location", points).boost(2.5);
+        let query = Query::GeoPolygon(polygon_query);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
+    fn test_extract_boost_geo_shape() {
+        use crate::query::{GeoPoint, GeoShape, GeoShapeQuery};
+
+        let shape = GeoShape::Point {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+        };
+        let shape_query = GeoShapeQuery::new("location", shape).boost(3.0);
+        let query = Query::GeoShape(shape_query);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 3.0);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_has_child_with_score_mode() {
+        use crate::query::{HasChildQuery, MatchQuery, ParentChildScoreMode};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("status")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let child_query = Query::Match(MatchQuery::new("status", "active"));
+        let has_child = HasChildQuery::new("comment", child_query)
+            .score_mode(ParentChildScoreMode::Avg)
+            .min_children(2);
+        let query = Query::HasChild(has_child);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_has_parent_with_score_mode() {
+        use crate::query::{HasParentQuery, MatchQuery, ParentChildScoreMode};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("status")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let parent_query = Query::Match(MatchQuery::new("status", "published"));
+        let has_parent =
+            HasParentQuery::new("blog", parent_query).score_mode(ParentChildScoreMode::Max);
+        let query = Query::HasParent(has_parent);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_percolate_with_options() {
+        use crate::query::PercolateQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let document = serde_json::json!({"title": "test"});
+        let percolate = PercolateQuery::new("document", document)
+            .index("queries")
+            .document_type("alert")
+            .preferred_sources(vec!["source1".to_string()]);
+        let query = Query::Percolate(percolate);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_geo_distance_with_boost() {
+        use crate::query::GeoDistanceQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("location")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let geo_query = GeoDistanceQuery::new("location", "10km", 40.7128, -74.0060).boost(2.0);
+        let query = Query::GeoDistance(geo_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_geo_polygon_with_holes() {
+        use crate::query::{GeoPoint, GeoPolygonQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("location")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let points = vec![
+            GeoPoint {
+                lat: 40.8,
+                lon: -74.0,
+            },
+            GeoPoint {
+                lat: 40.7,
+                lon: -73.9,
+            },
+        ];
+        let hole = vec![GeoPoint {
+            lat: 40.75,
+            lon: -73.95,
+        }];
+        let polygon_query = GeoPolygonQuery::new("location", points).add_hole(hole);
+        let query = Query::GeoPolygon(polygon_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_geo_shape_with_relation() {
+        use crate::query::{GeoPoint, GeoShape, GeoShapeQuery, GeoShapeRelation};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("location")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let shape = GeoShape::Circle {
+            coordinates: GeoPoint {
+                lat: 40.7128,
+                lon: -74.0060,
+            },
+            radius: "10km".to_string(),
+        };
+        let shape_query =
+            GeoShapeQuery::new("location", shape).relation(GeoShapeRelation::Contains);
+        let query = Query::GeoShape(shape_query);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
     fn test_build_tantivy_query_invalid_field() {
         let (schema, _) = SchemaBuilder::new()
             .add_text_field("title")
