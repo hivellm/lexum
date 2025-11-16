@@ -1,6 +1,9 @@
 //! Query builder for constructing queries
 
-use super::types::{CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, MultiMatchQuery, *};
+use super::types::{
+    CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, MoreLikeThisQuery, MultiMatchQuery,
+    NestedQuery, PinnedQuery, WrapperQuery, *,
+};
 
 /// Builder for creating queries
 pub struct QueryBuilder;
@@ -69,6 +72,26 @@ impl QueryBuilder {
     /// Create a common terms query
     pub fn common_terms_query(field: impl Into<String>, query: impl Into<String>) -> Query {
         Query::CommonTerms(CommonTermsQuery::new(field, query))
+    }
+
+    /// Create a more like this query
+    pub fn more_like_this_query(fields: Vec<String>, like: impl Into<String>) -> Query {
+        Query::MoreLikeThis(MoreLikeThisQuery::new(fields, like))
+    }
+
+    /// Create a nested query
+    pub fn nested_query(path: impl Into<String>, query: Query) -> Query {
+        Query::Nested(NestedQuery::new(path, query))
+    }
+
+    /// Create a wrapper query
+    pub fn wrapper_query(query: impl Into<String>) -> Query {
+        Query::Wrapper(WrapperQuery::new(query))
+    }
+
+    /// Create a pinned query
+    pub fn pinned_query(ids: Vec<String>, organic: Query) -> Query {
+        Query::Pinned(PinnedQuery::new(ids, organic))
     }
 }
 
@@ -142,5 +165,32 @@ mod tests {
     fn test_common_terms_query_builder() {
         let query = QueryBuilder::common_terms_query("body", "bonsai cool");
         assert!(matches!(query, Query::CommonTerms(_)));
+    }
+
+    #[test]
+    fn test_more_like_this_query_builder() {
+        let query = QueryBuilder::more_like_this_query(vec!["title".to_string()], "sample text");
+        assert!(matches!(query, Query::MoreLikeThis(_)));
+    }
+
+    #[test]
+    fn test_nested_query_builder() {
+        let inner = QueryBuilder::term_query("nested.field", "value");
+        let query = QueryBuilder::nested_query("nested", inner);
+        assert!(matches!(query, Query::Nested(_)));
+    }
+
+    #[test]
+    fn test_wrapper_query_builder() {
+        let query_json = r#"{"match":{"field":"title","query":"test"}}"#;
+        let query = QueryBuilder::wrapper_query(query_json);
+        assert!(matches!(query, Query::Wrapper(_)));
+    }
+
+    #[test]
+    fn test_pinned_query_builder() {
+        let organic = QueryBuilder::match_query("title", "test");
+        let query = QueryBuilder::pinned_query(vec!["doc1".to_string()], organic);
+        assert!(matches!(query, Query::Pinned(_)));
     }
 }

@@ -43,6 +43,10 @@ pub enum Query {
     DisMax(DisMaxQuery),
     /// Common terms query (separates low/high frequency terms)
     CommonTerms(CommonTermsQuery),
+    /// Wrapper query (accepts serialized queries)
+    Wrapper(WrapperQuery),
+    /// Pinned query (promotes specific documents)
+    Pinned(PinnedQuery),
 }
 
 /// Match query for full-text search
@@ -454,6 +458,42 @@ impl MoreLikeThisQuery {
             max_word_length: 0,
         }
     }
+
+    /// Set minimum term frequency
+    pub fn min_term_freq(mut self, freq: u32) -> Self {
+        self.min_term_freq = freq;
+        self
+    }
+
+    /// Set maximum query terms
+    pub fn max_query_terms(mut self, terms: u32) -> Self {
+        self.max_query_terms = terms;
+        self
+    }
+
+    /// Set minimum document frequency
+    pub fn min_doc_freq(mut self, freq: u32) -> Self {
+        self.min_doc_freq = freq;
+        self
+    }
+
+    /// Set maximum document frequency (0 = unlimited)
+    pub fn max_doc_freq(mut self, freq: u32) -> Self {
+        self.max_doc_freq = freq;
+        self
+    }
+
+    /// Set minimum word length
+    pub fn min_word_length(mut self, length: u32) -> Self {
+        self.min_word_length = length;
+        self
+    }
+
+    /// Set maximum word length (0 = unlimited)
+    pub fn max_word_length(mut self, length: u32) -> Self {
+        self.max_word_length = length;
+        self
+    }
 }
 
 /// Nested query for searching within nested objects
@@ -493,6 +533,12 @@ impl NestedQuery {
             query: Box::new(query),
             score_mode: NestedScoreMode::Avg,
         }
+    }
+
+    /// Set score mode
+    pub fn score_mode(mut self, mode: NestedScoreMode) -> Self {
+        self.score_mode = mode;
+        self
     }
 }
 
@@ -998,6 +1044,52 @@ impl CommonTermsQuery {
     /// Set boost factor for this query
     pub fn boost(mut self, boost: f32) -> Self {
         self.boost = boost;
+        self
+    }
+}
+
+/// Wrapper query for accepting serialized queries
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct WrapperQuery {
+    /// Serialized query string (JSON)
+    pub query: String,
+}
+
+impl WrapperQuery {
+    /// Create new wrapper query from serialized query string
+    pub fn new(query: impl Into<String>) -> Self {
+        Self {
+            query: query.into(),
+        }
+    }
+
+    /// Parse the wrapped query into a Query enum
+    pub fn parse(&self) -> Result<Query, serde_json::Error> {
+        serde_json::from_str(&self.query)
+    }
+}
+
+/// Pinned query for promoting specific documents
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PinnedQuery {
+    /// Document IDs to promote (pinned at the top)
+    pub ids: Vec<String>,
+    /// Organic query to execute (results appear below pinned documents)
+    pub organic: Box<Query>,
+}
+
+impl PinnedQuery {
+    /// Create new pinned query
+    pub fn new(ids: Vec<String>, organic: Query) -> Self {
+        Self {
+            ids,
+            organic: Box::new(organic),
+        }
+    }
+
+    /// Add a document ID to pin
+    pub fn pin(mut self, id: impl Into<String>) -> Self {
+        self.ids.push(id.into());
         self
     }
 }
@@ -1810,5 +1902,93 @@ mod tests {
             CommonTermsOperator::Or
         ));
         assert_eq!(deserialized.boost, 1.5);
+    }
+
+    #[test]
+    fn test_wrapper_query() {
+        let match_query = MatchQuery::new("title", "test");
+        let query_json = serde_json::to_string(&Query::Match(match_query)).unwrap();
+        let wrapper = WrapperQuery::new(query_json.clone());
+
+        assert_eq!(wrapper.query, query_json);
+    }
+
+    #[test]
+    fn test_wrapper_query_parse() {
+        let match_query = MatchQuery::new("title", "test");
+        let query_json = serde_json::to_string(&Query::Match(match_query)).unwrap();
+        let wrapper = WrapperQuery::new(query_json);
+
+        let parsed = wrapper.parse().unwrap();
+        assert!(matches!(parsed, Query::Match(_)));
+    }
+
+    #[test]
+    fn test_wrapper_query_serialization() {
+        let query_json = r#"{"match":{"field":"title","query":"test"}}"#;
+        let wrapper = WrapperQuery::new(query_json);
+
+        let json = serde_json::to_string(&wrapper).unwrap();
+        assert!(json.contains("query"));
+
+        let deserialized: WrapperQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.query, query_json);
+    }
+
+    #[test]
+    fn test_pinned_query() {
+        let organic = Query::Match(MatchQuery::new("title", "test"));
+        let pinned = PinnedQuery::new(vec!["doc1".to_string(), "doc2".to_string()], organic);
+
+        assert_eq!(pinned.ids.len(), 2);
+        assert_eq!(pinned.ids[0], "doc1");
+        assert_eq!(pinned.ids[1], "doc2");
+        assert!(matches!(pinned.organic.as_ref(), Query::Match(_)));
+    }
+
+    #[test]
+    fn test_pinned_query_pin() {
+        let organic = Query::Match(MatchQuery::new("title", "test"));
+        let pinned = PinnedQuery::new(vec!["doc1".to_string()], organic).pin("doc2");
+
+        assert_eq!(pinned.ids.len(), 2);
+        assert_eq!(pinned.ids[1], "doc2");
+    }
+
+    #[test]
+    fn test_pinned_query_serialization() {
+        let organic = Query::Match(MatchQuery::new("title", "test"));
+        let pinned = PinnedQuery::new(vec!["doc1".to_string(), "doc2".to_string()], organic);
+
+        let json = serde_json::to_string(&pinned).unwrap();
+        assert!(json.contains("ids"));
+        assert!(json.contains("organic"));
+
+        let deserialized: PinnedQuery = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.ids.len(), 2);
+        assert_eq!(deserialized.ids[0], "doc1");
+    }
+
+    #[test]
+    fn test_more_like_this_query_builder() {
+        let query = MoreLikeThisQuery::new(vec!["title".to_string()], "sample text")
+            .min_term_freq(2)
+            .max_query_terms(10)
+            .min_doc_freq(3)
+            .min_word_length(3);
+
+        assert_eq!(query.min_term_freq, 2);
+        assert_eq!(query.max_query_terms, 10);
+        assert_eq!(query.min_doc_freq, 3);
+        assert_eq!(query.min_word_length, 3);
+    }
+
+    #[test]
+    fn test_nested_query_builder() {
+        let inner_query = Query::Term(TermQuery::new("nested.field", "value"));
+        let nested = NestedQuery::new("nested", inner_query).score_mode(NestedScoreMode::Max);
+
+        assert_eq!(nested.path, "nested");
+        assert!(matches!(nested.score_mode, NestedScoreMode::Max));
     }
 }

@@ -103,8 +103,9 @@ pub use progress::{
 };
 pub use query::{
     BoolQuery, CommonTermsOperator, CommonTermsQuery, ConstantScoreQuery, DisMaxQuery, FuzzyQuery,
-    MatchQuery, MultiMatchOperator, MultiMatchQuery, MultiMatchType, PhraseQuery, Query,
-    QueryBuilder, RangeQuery, TermQuery,
+    MatchQuery, MoreLikeThisQuery, MultiMatchOperator, MultiMatchQuery, MultiMatchType,
+    NestedQuery, NestedScoreMode, PhraseQuery, PinnedQuery, Query, QueryBuilder, RangeQuery,
+    TermQuery, WrapperQuery,
 };
 pub use schema::{FieldConfig, FieldType, SchemaBuilder};
 pub use search::{SearchExecutor, SearchHit, SearchResult, SortOption, SortOrder};

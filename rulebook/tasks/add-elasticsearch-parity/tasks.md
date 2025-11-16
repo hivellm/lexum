@@ -14,6 +14,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 **Target**: 95%+ feature parity with Elasticsearch v8.x
 
 **Recent Progress** (2025-01-14):
+
 - ✅ Implemented Multi-Match Query (task 1.3.3) - supports best_fields, most_fields, cross_fields, phrase, phrase_prefix
 - ✅ Implemented Dis Max Query (task 1.3.5) - multiple queries with tie breaker support
 - ✅ Implemented Constant Score Query (task 1.3.6) - fixed score for all matches
@@ -45,22 +46,22 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 
 #### 1.2.2 Advanced Queries ⚠️ PARTIAL
 
-- [x] Function Score Query (basic)
-- [ ] More Like This Query (MLT) - **MISSING**
+- [x] Function Score Query (basic) ✅ **IMPLEMENTED**
+- [x] More Like This Query (MLT) ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Script Query (advanced) - **PARTIAL** (basic exists)
-- [ ] Nested Query - **MISSING**
+- [x] Nested Query ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Has Child / Has Parent Query - **MISSING**
-- [ ] Geo Distance Query - **MISSING**
+- [ ] Geo Distance Query - **MISSING** (basic structure exists)
 - [ ] Geo Bounding Box Query - **MISSING**
 - [ ] Geo Polygon Query - **MISSING**
 - [ ] Geo Shape Query - **MISSING**
 - [ ] Percolate Query - **MISSING**
-- [ ] Wrapper Query - **MISSING**
-- [ ] Pinned Query - **MISSING**
+- [x] Wrapper Query ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Pinned Query ✅ **IMPLEMENTED** (2025-01-14)
 
 **Tasks**:
 
-- [ ] 1.2.2.1 Implement More Like This Query (MLT)
+- [x] 1.2.2.1 Implement More Like This Query (MLT) ✅ **COMPLETED**
   - Document similarity calculation
   - Term frequency analysis
   - Minimum term frequency threshold
@@ -71,7 +72,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Script caching
   - Script parameters
   - Script-based filtering
-- [ ] 1.2.2.3 Implement Nested Query
+- [x] 1.2.2.3 Implement Nested Query ✅ **COMPLETED**
   - Nested field support
   - Nested document matching
   - Score mode (avg, sum, max, min, none)
@@ -84,10 +85,10 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Reverse search (store queries, match documents)
   - Query indexing
   - Real-time percolation
-- [ ] 1.2.2.7 Implement Wrapper Query
+- [x] 1.2.2.7 Implement Wrapper Query ✅ **COMPLETED**
   - Accept serialized queries
   - Query validation
-- [ ] 1.2.2.8 Implement Pinned Query
+- [x] 1.2.2.8 Implement Pinned Query ✅ **COMPLETED**
   - Promote specific documents
   - Organic results below pinned
 

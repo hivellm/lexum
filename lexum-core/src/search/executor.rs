@@ -467,7 +467,9 @@ impl SearchExecutor {
             Query::ConstantScore(c) => c.boost,
             Query::DisMax(d) => d.boost,
             Query::CommonTerms(c) => c.boost,
-            Query::Bool(_) => 1.0, // Boolean queries don't have boost, but sub-queries do
+            Query::Wrapper(_) => 1.0, // Wrapper queries don't have boost, wrapped query does
+            Query::Pinned(_) => 1.0,  // Pinned queries don't have boost, organic query does
+            Query::Bool(_) => 1.0,    // Boolean queries don't have boost, but sub-queries do
             Query::FunctionScore(_fs) => {
                 // FunctionScoreQuery has boost_mode and max_boost, but we'll use 1.0 for now
                 // In a full implementation, this would apply the boost_mode logic
@@ -800,6 +802,21 @@ impl SearchExecutor {
                 // - Access to searcher for term frequency calculation
                 // - Separation of terms into low/high frequency groups
                 // - Proper application of low_freq_operator and high_freq_operator
+            }
+
+            Query::Wrapper(wrapper_query) => {
+                // Parse the wrapped query and execute it
+                let wrapped_query = wrapper_query
+                    .parse()
+                    .map_err(|e| Error::Config(format!("Failed to parse wrapper query: {e}")))?;
+                Self::build_tantivy_query(tantivy_index, &wrapped_query, regex_cache)
+            }
+
+            Query::Pinned(pinned_query) => {
+                // For pinned queries, we execute the organic query
+                // The pinning logic (promoting specific documents) is handled
+                // in the search execution phase, not in query building
+                Self::build_tantivy_query(tantivy_index, pinned_query.organic.as_ref(), regex_cache)
             }
 
             Query::MultiMatch(multi_match_query) => {
@@ -1719,6 +1736,86 @@ mod tests {
         let query = Query::CommonTerms(common_terms);
 
         assert_eq!(SearchExecutor::extract_boost(&query), 2.5);
+    }
+
+    #[test]
+    fn test_build_tantivy_query_wrapper() {
+        use crate::query::{MatchQuery, WrapperQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let match_query = MatchQuery::new("title", "test");
+        let query_json = serde_json::to_string(&Query::Match(match_query)).unwrap();
+        let wrapper = WrapperQuery::new(query_json);
+        let query = Query::Wrapper(wrapper);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_wrapper_invalid_json() {
+        use crate::query::WrapperQuery;
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let wrapper = WrapperQuery::new("invalid json");
+        let query = Query::Wrapper(wrapper);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_tantivy_query_pinned() {
+        use crate::query::{MatchQuery, PinnedQuery};
+
+        let (schema, _) = SchemaBuilder::new()
+            .add_text_field("title")
+            .build()
+            .unwrap();
+
+        let tantivy_index = tantivy::Index::create_in_ram(schema);
+        let organic = Query::Match(MatchQuery::new("title", "test"));
+        let pinned = PinnedQuery::new(vec!["doc1".to_string(), "doc2".to_string()], organic);
+        let query = Query::Pinned(pinned);
+
+        let regex_cache = Arc::new(RegexCache::new());
+        let result = SearchExecutor::build_tantivy_query(&tantivy_index, &query, regex_cache);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_boost_wrapper() {
+        use crate::query::{MatchQuery, WrapperQuery};
+
+        let match_query = MatchQuery::new("title", "test");
+        let query_json = serde_json::to_string(&Query::Match(match_query)).unwrap();
+        let wrapper = WrapperQuery::new(query_json);
+        let query = Query::Wrapper(wrapper);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 1.0);
+    }
+
+    #[test]
+    fn test_extract_boost_pinned() {
+        use crate::query::{MatchQuery, PinnedQuery};
+
+        let organic = Query::Match(MatchQuery::new("title", "test"));
+        let pinned = PinnedQuery::new(vec!["doc1".to_string()], organic);
+        let query = Query::Pinned(pinned);
+
+        assert_eq!(SearchExecutor::extract_boost(&query), 1.0);
     }
 
     #[test]
