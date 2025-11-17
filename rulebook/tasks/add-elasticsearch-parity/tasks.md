@@ -313,7 +313,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Bucket Sort Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Cumulative Sum Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Cumulative Cardinality Aggregation ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Derivative Aggregation - **MISSING**
+- [x] Derivative Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Moving Average Aggregation - **MISSING**
 - [ ] Moving Function Aggregation - **MISSING**
 - [ ] Serial Differencing Aggregation - **MISSING**
@@ -345,9 +345,12 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Cumulative cardinality ✅
   - Format support ✅
   - Note: Full implementation requires pipeline aggregation processing
-- [ ] 2.3.5 Implement Derivative Aggregation
-  - Rate of change calculation
-  - Unit support
+- [x] 2.3.5 Implement Derivative Aggregation ✅ **COMPLETED**
+  - Rate of change calculation ✅
+  - Unit support ✅
+  - Format support ✅
+  - Gap policy support (skip/insert_zeros) ✅
+  - Note: Full implementation requires pipeline aggregation processing
 - [ ] 2.3.6 Implement Moving Average Aggregation
   - Window-based smoothing
   - Model selection (simple, linear, etc.)

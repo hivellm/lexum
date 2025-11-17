@@ -21,6 +21,7 @@ pub mod cumulative_cardinality;
 pub mod cumulative_sum;
 pub mod date_histogram;
 pub mod date_range;
+pub mod derivative;
 pub mod executor;
 pub mod extended_stats;
 pub mod filters;
@@ -64,6 +65,7 @@ pub use cumulative_cardinality::CumulativeCardinalityAggregation;
 pub use cumulative_sum::CumulativeSumAggregation;
 pub use date_histogram::DateHistogramAggregation;
 pub use date_range::DateRangeAggregation;
+pub use derivative::DerivativeAggregation;
 pub use executor::AggregationExecutor;
 pub use extended_stats::{ExtendedStatsAggregation, ExtendedStatsResult};
 pub use filters::FiltersAggregation;
@@ -206,6 +208,8 @@ pub enum AggregationSpec {
     CumulativeSum(CumulativeSumAggregation),
     /// Cumulative Cardinality aggregation (cumulative unique count)
     CumulativeCardinality(CumulativeCardinalityAggregation),
+    /// Derivative aggregation (rate of change)
+    Derivative(DerivativeAggregation),
 }
 
 impl AggregationSpec {
@@ -253,6 +257,7 @@ impl AggregationSpec {
             AggregationSpec::BucketSort(agg) => agg.name(),
             AggregationSpec::CumulativeSum(agg) => agg.name(),
             AggregationSpec::CumulativeCardinality(agg) => agg.name(),
+            AggregationSpec::Derivative(agg) => agg.name(),
         }
     }
 }

@@ -146,6 +146,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::CumulativeCardinality(cumulative_cardinality_agg) => {
                     cumulative_cardinality_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::Derivative(derivative_agg) => {
+                    derivative_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -226,6 +229,7 @@ impl AggregationExecutor {
             super::AggregationSpec::CumulativeCardinality(cumulative_cardinality_agg) => {
                 cumulative_cardinality_agg.merge(results)
             }
+            super::AggregationSpec::Derivative(derivative_agg) => derivative_agg.merge(results),
         }
     }
 }
