@@ -83,6 +83,8 @@ pub use median_absolute_deviation::{
 };
 pub use min::MinAggregation;
 pub use missing::MissingAggregation;
+pub use moving_average::{MovingAverageAggregation, MovingAverageModel};
+pub use moving_function::MovingFunctionAggregation;
 pub use nested::NestedAggregation;
 pub use percentile::PercentileAggregation;
 pub use pipeline::PipelineAggregation;
