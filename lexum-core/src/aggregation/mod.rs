@@ -210,6 +210,8 @@ pub enum AggregationSpec {
     CumulativeCardinality(CumulativeCardinalityAggregation),
     /// Derivative aggregation (rate of change)
     Derivative(DerivativeAggregation),
+    /// Moving Average aggregation (smoothing)
+    MovingAverage(MovingAverageAggregation),
 }
 
 impl AggregationSpec {
@@ -258,6 +260,7 @@ impl AggregationSpec {
             AggregationSpec::CumulativeSum(agg) => agg.name(),
             AggregationSpec::CumulativeCardinality(agg) => agg.name(),
             AggregationSpec::Derivative(agg) => agg.name(),
+            AggregationSpec::MovingAverage(agg) => agg.name(),
         }
     }
 }
