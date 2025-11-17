@@ -35,6 +35,7 @@ pub mod max;
 pub mod median_absolute_deviation;
 pub mod min;
 pub mod missing;
+pub mod moving_average;
 pub mod nested;
 pub mod percentile;
 pub mod pipeline;
