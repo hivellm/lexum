@@ -16,6 +16,7 @@ pub mod bucket_script;
 pub mod bucket_selector;
 pub mod bucket_sort;
 pub mod cardinality;
+pub mod children;
 pub mod composite;
 pub mod cumulative_cardinality;
 pub mod cumulative_sum;
@@ -39,6 +40,7 @@ pub mod moving_average;
 pub mod moving_function;
 pub mod nested;
 pub mod normalize;
+pub mod parent;
 pub mod percentile;
 pub mod pipeline;
 pub mod range;
@@ -64,6 +66,7 @@ pub use bucket_script::BucketScriptAggregation;
 pub use bucket_selector::BucketSelectorAggregation;
 pub use bucket_sort::BucketSortAggregation;
 pub use cardinality::CardinalityAggregation;
+pub use children::ChildrenAggregation;
 pub use composite::CompositeAggregation;
 pub use cumulative_cardinality::CumulativeCardinalityAggregation;
 pub use cumulative_sum::CumulativeSumAggregation;
@@ -89,6 +92,7 @@ pub use moving_average::{MovingAverageAggregation, MovingAverageModel};
 pub use moving_function::MovingFunctionAggregation;
 pub use nested::NestedAggregation;
 pub use normalize::{NormalizeAggregation, NormalizeMethod};
+pub use parent::ParentAggregation;
 pub use percentile::PercentileAggregation;
 pub use pipeline::PipelineAggregation;
 pub use range::RangeAggregation;
@@ -225,6 +229,10 @@ pub enum AggregationSpec {
     SerialDifferencing(SerialDifferencingAggregation),
     /// Normalize aggregation (value normalization)
     Normalize(NormalizeAggregation),
+    /// Children aggregation (child documents)
+    Children(ChildrenAggregation),
+    /// Parent aggregation (parent documents)
+    Parent(ParentAggregation),
 }
 
 impl AggregationSpec {
@@ -277,6 +285,8 @@ impl AggregationSpec {
             AggregationSpec::MovingFunction(agg) => agg.name(),
             AggregationSpec::SerialDifferencing(agg) => agg.name(),
             AggregationSpec::Normalize(agg) => agg.name(),
+            AggregationSpec::Children(agg) => agg.name(),
+            AggregationSpec::Parent(agg) => agg.name(),
         }
     }
 }

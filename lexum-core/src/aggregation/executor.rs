@@ -161,6 +161,12 @@ impl AggregationExecutor {
                 super::AggregationSpec::Normalize(normalize_agg) => {
                     normalize_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::Children(children_agg) => {
+                    children_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Parent(parent_agg) => {
+                    parent_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -250,6 +256,8 @@ impl AggregationExecutor {
                 serial_diff_agg.merge(results)
             }
             super::AggregationSpec::Normalize(normalize_agg) => normalize_agg.merge(results),
+            super::AggregationSpec::Children(children_agg) => children_agg.merge(results),
+            super::AggregationSpec::Parent(parent_agg) => parent_agg.merge(results),
         }
     }
 }
