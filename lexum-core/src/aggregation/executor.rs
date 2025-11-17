@@ -152,6 +152,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::MovingAverage(moving_avg_agg) => {
                     moving_avg_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::MovingFunction(moving_function_agg) => {
+                    moving_function_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -234,6 +237,9 @@ impl AggregationExecutor {
             }
             super::AggregationSpec::Derivative(derivative_agg) => derivative_agg.merge(results),
             super::AggregationSpec::MovingAverage(moving_avg_agg) => moving_avg_agg.merge(results),
+            super::AggregationSpec::MovingFunction(moving_function_agg) => {
+                moving_function_agg.merge(results)
+            }
         }
     }
 }

@@ -36,6 +36,7 @@ pub mod median_absolute_deviation;
 pub mod min;
 pub mod missing;
 pub mod moving_average;
+pub mod moving_function;
 pub mod nested;
 pub mod percentile;
 pub mod pipeline;
@@ -213,6 +214,8 @@ pub enum AggregationSpec {
     Derivative(DerivativeAggregation),
     /// Moving Average aggregation (smoothing)
     MovingAverage(MovingAverageAggregation),
+    /// Moving Function aggregation (custom window function)
+    MovingFunction(MovingFunctionAggregation),
 }
 
 impl AggregationSpec {
@@ -262,6 +265,7 @@ impl AggregationSpec {
             AggregationSpec::CumulativeCardinality(agg) => agg.name(),
             AggregationSpec::Derivative(agg) => agg.name(),
             AggregationSpec::MovingAverage(agg) => agg.name(),
+            AggregationSpec::MovingFunction(agg) => agg.name(),
         }
     }
 }

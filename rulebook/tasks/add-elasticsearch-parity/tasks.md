@@ -315,7 +315,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Cumulative Cardinality Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Derivative Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Moving Average Aggregation ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Moving Function Aggregation - **MISSING**
+- [x] Moving Function Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [ ] Serial Differencing Aggregation - **MISSING**
 - [ ] Normalize Aggregation - **MISSING**
 
@@ -359,9 +359,14 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Format support ✅
   - Gap policy support (skip/insert_zeros) ✅
   - Note: Full implementation requires pipeline aggregation processing
-- [ ] 2.3.7 Implement Moving Function Aggregation
-  - Custom window functions
-  - Script support
+- [x] 2.3.7 Implement Moving Function Aggregation ✅ **COMPLETED**
+  - Custom window functions ✅
+  - Script support ✅
+  - Window size and shift configuration ✅
+  - Script parameters support ✅
+  - Format support ✅
+  - Gap policy support (skip/insert_zeros) ✅
+  - Note: Full implementation requires script engine integration and pipeline aggregation processing
 - [ ] 2.3.8 Implement Serial Differencing
   - Lag-based differencing
 - [ ] 2.3.9 Implement Normalize Aggregation

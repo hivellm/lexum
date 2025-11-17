@@ -206,8 +206,8 @@ mod tests {
 
     #[test]
     fn test_moving_average_aggregation_with_model() {
-        let agg = MovingAverageAggregation::new("my_histogram>_count")
-            .model(MovingAverageModel::Ewma);
+        let agg =
+            MovingAverageAggregation::new("my_histogram>_count").model(MovingAverageModel::Ewma);
 
         assert_eq!(agg.model, MovingAverageModel::Ewma);
     }
@@ -215,11 +215,17 @@ mod tests {
     #[test]
     fn test_moving_average_aggregation_with_settings() {
         let mut settings = HashMap::new();
-        settings.insert("alpha".to_string(), JsonValue::Number(serde_json::Number::from_f64(0.3).unwrap()));
+        settings.insert(
+            "alpha".to_string(),
+            JsonValue::Number(serde_json::Number::from_f64(0.3).unwrap()),
+        );
 
         let agg = MovingAverageAggregation::new("my_histogram>_count")
             .model(MovingAverageModel::Ewma)
-            .setting("alpha", JsonValue::Number(serde_json::Number::from_f64(0.3).unwrap()));
+            .setting(
+                "alpha",
+                JsonValue::Number(serde_json::Number::from_f64(0.3).unwrap()),
+            );
 
         assert_eq!(agg.settings.len(), 1);
         assert!(agg.settings.contains_key("alpha"));
@@ -234,8 +240,7 @@ mod tests {
 
     #[test]
     fn test_moving_average_aggregation_with_format() {
-        let agg = MovingAverageAggregation::new("my_histogram>_count")
-            .format("0.00");
+        let agg = MovingAverageAggregation::new("my_histogram>_count").format("0.00");
 
         assert_eq!(agg.format, Some("0.00".to_string()));
     }
@@ -257,7 +262,10 @@ mod tests {
         let agg = MovingAverageAggregation::new("my_histogram>_count")
             .window(10)
             .model(MovingAverageModel::Ewma)
-            .setting("alpha", JsonValue::Number(serde_json::Number::from_f64(0.3).unwrap()))
+            .setting(
+                "alpha",
+                JsonValue::Number(serde_json::Number::from_f64(0.3).unwrap()),
+            )
             .predict(5)
             .format("0.00")
             .gap_policy("insert_zeros");
@@ -286,7 +294,9 @@ mod tests {
         assert_eq!(MovingAverageModel::Linear, MovingAverageModel::Linear);
         assert_eq!(MovingAverageModel::Ewma, MovingAverageModel::Ewma);
         assert_eq!(MovingAverageModel::Holt, MovingAverageModel::Holt);
-        assert_eq!(MovingAverageModel::HoltWinters, MovingAverageModel::HoltWinters);
+        assert_eq!(
+            MovingAverageModel::HoltWinters,
+            MovingAverageModel::HoltWinters
+        );
     }
 }
-
