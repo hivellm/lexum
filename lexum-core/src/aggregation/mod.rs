@@ -108,6 +108,7 @@ pub use result::{
 pub use reverse_nested::ReverseNestedAggregation;
 pub use sampler::{DiversifiedSamplerAggregation, SamplerAggregation};
 pub use scripted_metric::{ScriptedMetricAggregation, ScriptedMetricResult};
+pub use serial_differencing::SerialDifferencingAggregation;
 pub use significant_terms::SignificantTermsAggregation;
 pub use stats::StatsAggregation;
 pub use string_stats::{StringStatsAggregation, StringStatsResult};
