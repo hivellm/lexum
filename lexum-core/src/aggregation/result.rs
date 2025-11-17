@@ -190,6 +190,19 @@ impl SingleBucketAggregationResult {
         }
         self
     }
+
+    /// Get doc count
+    pub fn doc_count(&self) -> usize {
+        self.doc_count
+    }
+
+    /// Get aggregations iterator
+    pub fn aggregations(&self) -> impl Iterator<Item = (&String, &AggregationResult)> {
+        self.aggregations
+            .as_ref()
+            .map(|aggs| aggs.iter())
+            .unwrap_or_else(|| HashMap::new().iter())
+    }
 }
 
 #[cfg(test)]
