@@ -27,7 +27,9 @@ pub mod executor;
 pub mod extended_stats;
 pub mod filters;
 pub mod geo_bounds;
+pub mod geo_centroid;
 pub mod geo_distance;
+pub mod geo_line;
 pub mod geohash_grid;
 pub mod global;
 pub mod histogram;
@@ -77,7 +79,9 @@ pub use executor::AggregationExecutor;
 pub use extended_stats::{ExtendedStatsAggregation, ExtendedStatsResult};
 pub use filters::FiltersAggregation;
 pub use geo_bounds::{GeoBoundsAggregation, GeoBoundsResult};
+pub use geo_centroid::{GeoCentroidAggregation, GeoCentroidResult};
 pub use geo_distance::{DistanceRange, GeoDistanceAggregation, GeoDistanceBucket};
+pub use geo_line::{GeoLineAggregation, GeoLineResult};
 pub use geohash_grid::{GeohashGridAggregation, GeohashGridBucket};
 pub use global::GlobalAggregation;
 pub use histogram::HistogramAggregation;
@@ -233,6 +237,10 @@ pub enum AggregationSpec {
     Children(ChildrenAggregation),
     /// Parent aggregation (parent documents)
     Parent(ParentAggregation),
+    /// Geo Centroid aggregation (geographic centroid)
+    GeoCentroid(GeoCentroidAggregation),
+    /// Geo Line aggregation (LineString from geo points)
+    GeoLine(GeoLineAggregation),
 }
 
 impl AggregationSpec {
@@ -287,6 +295,8 @@ impl AggregationSpec {
             AggregationSpec::Normalize(agg) => agg.name(),
             AggregationSpec::Children(agg) => agg.name(),
             AggregationSpec::Parent(agg) => agg.name(),
+            AggregationSpec::GeoCentroid(agg) => agg.name(),
+            AggregationSpec::GeoLine(agg) => agg.name(),
         }
     }
 }

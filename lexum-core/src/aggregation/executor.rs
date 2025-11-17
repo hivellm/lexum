@@ -167,6 +167,12 @@ impl AggregationExecutor {
                 super::AggregationSpec::Parent(parent_agg) => {
                     parent_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::GeoCentroid(geo_centroid_agg) => {
+                    geo_centroid_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::GeoLine(geo_line_agg) => {
+                    geo_line_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -258,6 +264,10 @@ impl AggregationExecutor {
             super::AggregationSpec::Normalize(normalize_agg) => normalize_agg.merge(results),
             super::AggregationSpec::Children(children_agg) => children_agg.merge(results),
             super::AggregationSpec::Parent(parent_agg) => parent_agg.merge(results),
+            super::AggregationSpec::GeoCentroid(geo_centroid_agg) => {
+                geo_centroid_agg.merge(results)
+            }
+            super::AggregationSpec::GeoLine(geo_line_agg) => geo_line_agg.merge(results),
         }
     }
 }

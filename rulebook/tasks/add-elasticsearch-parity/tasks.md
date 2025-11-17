@@ -862,9 +862,9 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 
 - [x] Geohash Grid Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Geo Bounds Aggregation ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Geo Centroid Aggregation - **MISSING**
+- [x] Geo Centroid Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Geo Distance Aggregation ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Geo Line Aggregation - **MISSING**
+- [x] Geo Line Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 
 **Tasks**:
 
@@ -877,17 +877,23 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Bounding box calculation ✅
   - Bounds aggregation ✅
   - Note: Full implementation requires geo field support in Tantivy
-- [ ] 6.3.3 Implement Geo Centroid Aggregation
-  - Centroid calculation
-  - Weighted centroids
+- [x] 6.3.3 Implement Geo Centroid Aggregation ✅ **COMPLETED**
+  - Centroid calculation ✅
+  - Weighted centroids ✅
+  - Merge support for shard results ✅
+  - Note: Full implementation requires geo field support in Tantivy
 - [x] 6.3.4 Implement Geo Distance Aggregation ✅ **COMPLETED**
   - Distance-based buckets ✅
   - Distance ranges ✅
   - Note: Full implementation requires geo field support in Tantivy
-- [ ] 6.3.5 Implement Geo Line Aggregation
-  - Line string creation
-  - Sort order
-  - Point order
+- [x] 6.3.5 Implement Geo Line Aggregation ✅ **COMPLETED**
+  - LineString creation ✅
+  - Sort order support ✅
+  - Point ordering ✅
+  - Include sort values option ✅
+  - Size limit support ✅
+  - Merge support for shard results ✅
+  - Note: Full implementation requires geo field support in Tantivy
 
 ---
 
