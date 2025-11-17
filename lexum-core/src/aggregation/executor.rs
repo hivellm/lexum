@@ -155,6 +155,12 @@ impl AggregationExecutor {
                 super::AggregationSpec::MovingFunction(moving_function_agg) => {
                     moving_function_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::SerialDifferencing(serial_diff_agg) => {
+                    serial_diff_agg.execute(hits, &self.field_cache)?
+                }
+                super::AggregationSpec::Normalize(normalize_agg) => {
+                    normalize_agg.execute(hits, &self.field_cache)?
+                }
             };
 
             results.insert(agg.name().to_string(), result);
@@ -240,6 +246,10 @@ impl AggregationExecutor {
             super::AggregationSpec::MovingFunction(moving_function_agg) => {
                 moving_function_agg.merge(results)
             }
+            super::AggregationSpec::SerialDifferencing(serial_diff_agg) => {
+                serial_diff_agg.merge(results)
+            }
+            super::AggregationSpec::Normalize(normalize_agg) => normalize_agg.merge(results),
         }
     }
 }

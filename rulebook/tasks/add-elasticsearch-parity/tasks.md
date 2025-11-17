@@ -316,8 +316,8 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Derivative Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Moving Average Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 - [x] Moving Function Aggregation ✅ **IMPLEMENTED** (2025-01-14)
-- [ ] Serial Differencing Aggregation - **MISSING**
-- [ ] Normalize Aggregation - **MISSING**
+- [x] Serial Differencing Aggregation ✅ **IMPLEMENTED** (2025-01-14)
+- [x] Normalize Aggregation ✅ **IMPLEMENTED** (2025-01-14)
 
 **Tasks**:
 
@@ -367,10 +367,15 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Format support ✅
   - Gap policy support (skip/insert_zeros) ✅
   - Note: Full implementation requires script engine integration and pipeline aggregation processing
-- [ ] 2.3.8 Implement Serial Differencing
-  - Lag-based differencing
-- [ ] 2.3.9 Implement Normalize Aggregation
-  - Normalization methods (rescale, percent, etc.)
+- [x] 2.3.8 Implement Serial Differencing ✅ **COMPLETED**
+  - Lag-based differencing ✅
+  - Format support ✅
+  - Gap policy support (skip/insert_zeros) ✅
+  - Note: Full implementation requires pipeline aggregation processing
+- [x] 2.3.9 Implement Normalize Aggregation ✅ **COMPLETED**
+  - Normalization methods (rescale, percent, percent_of_sum, z_score, softmax) ✅
+  - Format support ✅
+  - Note: Full implementation requires pipeline aggregation processing
 
 ---
 

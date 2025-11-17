@@ -38,6 +38,7 @@ pub mod missing;
 pub mod moving_average;
 pub mod moving_function;
 pub mod nested;
+pub mod normalize;
 pub mod percentile;
 pub mod pipeline;
 pub mod range;
@@ -46,6 +47,7 @@ pub mod result;
 pub mod reverse_nested;
 pub mod sampler;
 pub mod scripted_metric;
+pub mod serial_differencing;
 pub mod significant_terms;
 pub mod stats;
 pub mod string_stats;
@@ -86,6 +88,7 @@ pub use missing::MissingAggregation;
 pub use moving_average::{MovingAverageAggregation, MovingAverageModel};
 pub use moving_function::MovingFunctionAggregation;
 pub use nested::NestedAggregation;
+pub use normalize::{NormalizeAggregation, NormalizeMethod};
 pub use percentile::PercentileAggregation;
 pub use pipeline::PipelineAggregation;
 pub use range::RangeAggregation;
@@ -218,6 +221,10 @@ pub enum AggregationSpec {
     MovingAverage(MovingAverageAggregation),
     /// Moving Function aggregation (custom window function)
     MovingFunction(MovingFunctionAggregation),
+    /// Serial Differencing aggregation (lag-based differencing)
+    SerialDifferencing(SerialDifferencingAggregation),
+    /// Normalize aggregation (value normalization)
+    Normalize(NormalizeAggregation),
 }
 
 impl AggregationSpec {
@@ -268,6 +275,8 @@ impl AggregationSpec {
             AggregationSpec::Derivative(agg) => agg.name(),
             AggregationSpec::MovingAverage(agg) => agg.name(),
             AggregationSpec::MovingFunction(agg) => agg.name(),
+            AggregationSpec::SerialDifferencing(agg) => agg.name(),
+            AggregationSpec::Normalize(agg) => agg.name(),
         }
     }
 }
