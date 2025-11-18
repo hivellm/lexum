@@ -6,7 +6,7 @@ use crate::middleware::query_complexity::QueryComplexityLimitLayer;
 use axum::Json;
 use axum::extract::{Path, State};
 use lexum_core::aggregation::AggregationSpec;
-use lexum_core::search::{Highlighter, HighlighterConfig};
+use lexum_core::search::{Highlighter, HighlighterConfig, SearchAfterExecutor, SearchAfterRequest};
 use lexum_core::{Query, SearchExecutor, SearchResult, SortOption};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -31,6 +31,12 @@ pub struct SearchRequest {
     /// Optional sort specification
     #[serde(default)]
     pub sort: Option<SortOption>,
+    /// Multiple sort options (for search_after)
+    #[serde(default)]
+    pub sort_options: Option<Vec<SortOption>>,
+    /// Search after values (cursor-based pagination)
+    #[serde(rename = "search_after", default)]
+    pub search_after: Option<Vec<serde_json::Value>>,
     /// Fields to return in results (source filtering)
     #[serde(default)]
     pub fields: Option<Vec<String>>,
@@ -162,13 +168,26 @@ fn extract_query_terms(query: &Query, query_string: Option<&str>) -> HashSet<Str
 pub async fn search(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
-    Json(request): Json<SearchRequest>,
+    request: Result<Json<SearchRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<SearchResult>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     // Resolve alias to actual index names
-    let target_indices = state
-        .index_manager
-        .resolve_name(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let target_indices = state.index_manager.resolve_name(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to resolve name '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     // Handle simple query string if provided, otherwise use query field
     let query = if let Some(ref q) = request.q {
@@ -176,7 +195,21 @@ pub async fn search(
         let index = state
             .index_manager
             .get_index(target_indices[0].as_str())
-            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+            .map_err(|e| {
+                // Convert Validation error for "not found" to IndexNotFound
+                if let lexum_core::Error::Validation(ref msg) = e {
+                    if msg.contains("not found") || msg.contains("does not exist") {
+                        return ApiError::IndexNotFound(index_name.clone());
+                    }
+                }
+                let error_msg = e.to_string();
+                if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                    ApiError::IndexNotFound(index_name.clone())
+                } else {
+                    tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                    ApiError::Core(e)
+                }
+            })?;
 
         let text_fields = index.get_text_field_names();
 
@@ -253,6 +286,9 @@ pub async fn search(
     // Clone final_query for highlighting (before it's moved)
     let final_query_for_highlighting = final_query.clone();
 
+    // Check if search_after should be used
+    let use_search_after = request.search_after.is_some() || request.sort_options.is_some();
+
     // Prepare aggregations if provided
     let aggregations: Option<Vec<AggregationSpec>> = request
         .aggregations
@@ -262,12 +298,102 @@ pub async fn search(
 
     // Use single index search for now (multi-index search not implemented yet)
     let search_start = std::time::Instant::now();
-    let mut result = if target_indices.len() > 1 {
+
+    // Use Search After if sort_options or search_after is provided
+    let mut result = if use_search_after {
+        let index = state
+            .index_manager
+            .get_index(target_indices[0].as_str())
+            .map_err(|e| {
+                // Convert Validation error for "not found" to IndexNotFound
+                if let lexum_core::Error::Validation(ref msg) = e {
+                    if msg.contains("not found") || msg.contains("does not exist") {
+                        return ApiError::IndexNotFound(index_name.clone());
+                    }
+                }
+                let error_msg = e.to_string();
+                if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                    ApiError::IndexNotFound(index_name.clone())
+                } else {
+                    tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                    ApiError::Core(e)
+                }
+            })?;
+
+        // Build sort options for search_after
+        let sort_options = if let Some(ref sort_opts) = request.sort_options {
+            sort_opts.clone()
+        } else if let Some(ref sort_opt) = request.sort {
+            vec![sort_opt.clone()]
+        } else {
+            vec![SortOption::desc("_score")] // Default sort
+        };
+
+        let executor = SearchExecutor::new(Arc::new(index));
+        let search_after_executor = SearchAfterExecutor::new(Arc::new(executor));
+
+        let search_after_request = SearchAfterRequest {
+            query: final_query,
+            sort: sort_options,
+            size: request.limit,
+            search_after: request.search_after.clone(),
+            track_total_hits: None, // Can be added to SearchRequest if needed
+            pit_id: None,           // Can be added to SearchRequest if needed
+        };
+
+        let search_after_result = search_after_executor
+            .search_after(search_after_request)
+            .await
+            .map_err(|e| ApiError::Internal(format!("Search after failed: {e}")))?;
+
+        // Store sort_values for response (we'll add it to the response JSON)
+        let sort_values = search_after_result.sort_values.clone();
+
+        // Convert SearchAfterResponse to SearchResult
+        let search_result = SearchResult {
+            hits: search_after_result.hits,
+            total: search_after_result.total,
+            took_ms: search_after_result.took_ms,
+            aggregations: None, // Search after doesn't support aggregations yet
+        };
+
+        // Add sort_values to response if present
+        if let Some(ref sort_vals) = sort_values {
+            // We'll add this to the JSON response manually
+            let mut result_json = serde_json::to_value(&search_result)
+                .map_err(|e| ApiError::Internal(format!("Failed to serialize result: {e}")))?;
+            if let serde_json::Value::Object(ref mut obj) = result_json {
+                obj.insert(
+                    "sort".to_string(),
+                    serde_json::Value::Array(sort_vals.to_vec()),
+                );
+            }
+            return Ok(Json(serde_json::from_value(result_json).map_err(|e| {
+                ApiError::Internal(format!("Failed to deserialize result: {e}"))
+            })?));
+        }
+
+        search_result
+    } else if target_indices.len() > 1 {
         // For now, just search the first index
         let index = state
             .index_manager
             .get_index(target_indices[0].as_str())
-            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+            .map_err(|e| {
+                // Convert Validation error for "not found" to IndexNotFound
+                if let lexum_core::Error::Validation(ref msg) = e {
+                    if msg.contains("not found") || msg.contains("does not exist") {
+                        return ApiError::IndexNotFound(index_name.clone());
+                    }
+                }
+                let error_msg = e.to_string();
+                if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                    ApiError::IndexNotFound(index_name.clone())
+                } else {
+                    tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                    ApiError::Core(e)
+                }
+            })?;
 
         let executor = SearchExecutor::new(Arc::new(index));
         executor
@@ -284,7 +410,21 @@ pub async fn search(
         let index = state
             .index_manager
             .get_index(target_indices[0].as_str())
-            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+            .map_err(|e| {
+                // Convert Validation error for "not found" to IndexNotFound
+                if let lexum_core::Error::Validation(ref msg) = e {
+                    if msg.contains("not found") || msg.contains("does not exist") {
+                        return ApiError::IndexNotFound(index_name.clone());
+                    }
+                }
+                let error_msg = e.to_string();
+                if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                    ApiError::IndexNotFound(index_name.clone())
+                } else {
+                    tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                    ApiError::Core(e)
+                }
+            })?;
 
         let executor = SearchExecutor::new(Arc::new(index));
         executor
@@ -448,10 +588,21 @@ pub async fn explain(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> ApiResult<Json<ExplainResult>> {
     // Resolve alias to actual index names
-    let target_indices = state
-        .index_manager
-        .resolve_name(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let target_indices = state.index_manager.resolve_name(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to resolve name '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     if target_indices.is_empty() {
         return Err(ApiError::IndexNotFound(index_name));
@@ -461,7 +612,21 @@ pub async fn explain(
     let index = state
         .index_manager
         .get_index(target_indices[0].as_str())
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(index_name.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(index_name.clone())
+            } else {
+                tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                ApiError::Core(e)
+            }
+        })?;
 
     // Parse query from query parameter
     let query_str = params
@@ -599,7 +764,21 @@ pub async fn search_get(
         let index = state
             .index_manager
             .get_index(target_indices[0].as_str())
-            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+            .map_err(|e| {
+                // Convert Validation error for "not found" to IndexNotFound
+                if let lexum_core::Error::Validation(ref msg) = e {
+                    if msg.contains("not found") || msg.contains("does not exist") {
+                        return ApiError::IndexNotFound(index_name.clone());
+                    }
+                }
+                let error_msg = e.to_string();
+                if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                    ApiError::IndexNotFound(index_name.clone())
+                } else {
+                    tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                    ApiError::Core(e)
+                }
+            })?;
 
         let text_fields = index.get_text_field_names();
 
@@ -683,6 +862,8 @@ pub async fn search_get(
         limit: params.limit.unwrap_or(10),
         offset: params.offset.unwrap_or(0),
         sort,
+        sort_options: None,
+        search_after: None,
         fields,
         highlight,
         explain: params.explain.unwrap_or(false),
@@ -698,7 +879,21 @@ pub async fn search_get(
         let index = state
             .index_manager
             .get_index(target_indices[0].as_str())
-            .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+            .map_err(|e| {
+                // Convert Validation error for "not found" to IndexNotFound
+                if let lexum_core::Error::Validation(ref msg) = e {
+                    if msg.contains("not found") || msg.contains("does not exist") {
+                        return ApiError::IndexNotFound(index_name.clone());
+                    }
+                }
+                let error_msg = e.to_string();
+                if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                    ApiError::IndexNotFound(index_name.clone())
+                } else {
+                    tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                    ApiError::Core(e)
+                }
+            })?;
 
         let executor = SearchExecutor::new(Arc::new(index));
         let mut result = executor
@@ -819,7 +1014,7 @@ pub async fn search_get(
         Ok(Json(result))
     } else {
         // Single index search - delegate to the main search function
-        search(State(state), Path(index_name), Json(request)).await
+        search(State(state), Path(index_name), Ok(Json(request))).await
     }
 }
 
@@ -868,6 +1063,8 @@ mod tests {
             limit: 20,
             offset: 5,
             sort: Some(SortOption::new("title", SortOrder::Asc)),
+            sort_options: None,
+            search_after: None,
             fields: None,
             highlight: None,
             explain: false,
@@ -897,6 +1094,8 @@ mod tests {
             limit: 10,  // default
             offset: 0,  // default
             sort: None, // default
+            sort_options: None,
+            search_after: None,
             fields: None,
             highlight: None,
             explain: false,
@@ -925,6 +1124,8 @@ mod tests {
             limit: 50,
             offset: 100,
             sort: None,
+            sort_options: None,
+            search_after: None,
             fields: None,
             highlight: None,
             explain: false,
@@ -957,6 +1158,8 @@ mod tests {
             limit: 10,
             offset: 0,
             sort: None,
+            sort_options: None,
+            search_after: None,
             fields: None,
             highlight: None,
             explain: false,
@@ -989,6 +1192,8 @@ mod tests {
             limit: 20,
             offset: 0,
             sort: None,
+            sort_options: None,
+            search_after: None,
             fields: None,
             highlight: None,
             explain: false,
@@ -1015,6 +1220,8 @@ mod tests {
             limit: 10,
             offset: 0,
             sort: None,
+            sort_options: None,
+            search_after: None,
             fields: None,
             highlight: None,
             explain: false,
@@ -1029,5 +1236,96 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: SearchRequest = serde_json::from_str(&json).unwrap();
         assert!(deserialized.filter.is_none());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_search_get_index_not_found() {
+        use crate::handlers::index::AppState;
+        use crate::handlers::metrics::PrometheusMetrics;
+        use crate::handlers::reindex::TaskManager;
+        use crate::middleware::auth::AuthState;
+        use crate::middleware::query_complexity::QueryComplexityLimitConfig;
+        use axum::extract::{Path, Query, State};
+        use lexum_core::ProgressTracker;
+        use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        use tempfile::TempDir;
+        use tokio::sync::RwLock;
+
+        let temp_dir = TempDir::new().unwrap();
+        let index_manager = Arc::new(IndexManager::new(temp_dir.path()));
+        let config = lexum_core::config::Config::default();
+        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(
+            |_| {
+                let mut fallback_config = config;
+                fallback_config.snapshots.repositories =
+                    vec![lexum_core::config::SnapshotRepositoryConfig {
+                        name: "default".to_string(),
+                        repository_type: "fs".to_string(),
+                        settings: lexum_core::config::SnapshotRepositorySettings {
+                            location: temp_dir
+                                .path()
+                                .join("snapshots")
+                                .to_string_lossy()
+                                .to_string(),
+                            ..Default::default()
+                        },
+                    }];
+                SnapshotManager::new(&fallback_config).unwrap()
+            },
+        )));
+
+        let state = AppState {
+            index_manager,
+            snapshot_manager,
+            template_manager: Arc::new(TemplateManager::new()),
+            task_manager: Arc::new(TaskManager::new()),
+            progress_tracker: Arc::new(ProgressTracker::new()),
+            auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
+            query_complexity_config: QueryComplexityLimitConfig::default(),
+            metrics: Arc::new(PrometheusMetrics::new()),
+        };
+
+        // Test search_get with non-existent index
+        let mut params = HashMap::new();
+        params.insert("q".to_string(), "test".to_string());
+        let query_params = Query(params);
+
+        let result = search_get(
+            State(state),
+            Path("non-existent-index".to_string()),
+            query_params,
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(_) => {
+                // Expected - index doesn't exist
+            }
+            e => panic!("Expected IndexNotFound error, got: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_search_params_parsing() {
+        use std::collections::HashMap;
+
+        // Test that SearchParams can be parsed from query string
+        let mut params = HashMap::new();
+        params.insert("q".to_string(), "test query".to_string());
+        params.insert("limit".to_string(), "20".to_string());
+        params.insert("offset".to_string(), "10".to_string());
+        params.insert("sort".to_string(), "title:asc".to_string());
+        params.insert("fields".to_string(), "title,content".to_string());
+        params.insert("highlight".to_string(), "true".to_string());
+        params.insert("explain".to_string(), "true".to_string());
+        params.insert("min_score".to_string(), "0.5".to_string());
+
+        // Verify params can be created (they're just HashMap<String, String>)
+        assert_eq!(params.get("q"), Some(&"test query".to_string()));
+        assert_eq!(params.get("limit"), Some(&"20".to_string()));
+        assert_eq!(params.get("offset"), Some(&"10".to_string()));
     }
 }

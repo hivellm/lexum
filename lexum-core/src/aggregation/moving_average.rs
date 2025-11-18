@@ -3,7 +3,7 @@
 //! Calculates moving average (smoothing) of metric values across buckets.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
@@ -15,8 +15,10 @@ use utoipa::ToSchema;
 /// Moving average model type
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum MovingAverageModel {
     /// Simple moving average (SMA)
+    #[default]
     Simple,
     /// Linear moving average (LMA)
     Linear,
@@ -26,12 +28,6 @@ pub enum MovingAverageModel {
     Holt,
     /// Holt-Winters seasonal
     HoltWinters,
-}
-
-impl Default for MovingAverageModel {
-    fn default() -> Self {
-        MovingAverageModel::Simple
-    }
 }
 
 /// Moving Average Aggregation
@@ -163,10 +159,10 @@ impl AggregationTrait for MovingAverageAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn calculate_moving_average(
     buckets: &[Bucket],
-    buckets_path: &str,
-    window: usize,
-    model: MovingAverageModel,
-    settings: &HashMap<String, JsonValue>,
+    _buckets_path: &str,
+    _window: usize,
+    _model: MovingAverageModel,
+    _settings: &HashMap<String, JsonValue>,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse buckets_path to extract metric values

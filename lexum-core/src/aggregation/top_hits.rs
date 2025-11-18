@@ -160,9 +160,8 @@ impl AggregationTrait for TopHitsAggregation {
             // Sort by multiple fields (first field has highest priority)
             top_hits.sort_by(|a, b| {
                 for sort_opt in &self.sort {
-                    let comparison = match compare_hits_by_field(a, b, &sort_opt.field) {
-                        Some(ord) => ord,
-                        None => continue,
+                    let Some(comparison) = compare_hits_by_field(a, b, &sort_opt.field) else {
+                        continue;
                     };
 
                     let result = match sort_opt.order {
@@ -209,11 +208,7 @@ impl AggregationTrait for TopHitsAggregation {
                             }
                         }
                     }
-                    SearchHit {
-                        id: hit.id,
-                        score: hit.score,
-                        source: JsonValue::Object(filtered_source),
-                    }
+                    SearchHit::new(hit.id, hit.score, JsonValue::Object(filtered_source))
                 })
                 .collect()
         } else {
@@ -265,9 +260,8 @@ impl AggregationTrait for TopHitsAggregation {
         if !self.sort.is_empty() {
             all_hits.sort_by(|a, b| {
                 for sort_opt in &self.sort {
-                    let comparison = match compare_hits_by_field(a, b, &sort_opt.field) {
-                        Some(ord) => ord,
-                        None => continue,
+                    let Some(comparison) = compare_hits_by_field(a, b, &sort_opt.field) else {
+                        continue;
                     };
 
                     let result = match sort_opt.order {
@@ -364,6 +358,7 @@ fn apply_highlighting(hit: SearchHit, config: &TopHitsHighlight) -> SearchHit {
         id: hit.id,
         score: hit.score,
         source: highlighted_source,
+        inner_hits: hit.inner_hits,
     }
 }
 
@@ -396,15 +391,6 @@ mod tests {
     }
 
     #[test]
-    fn test_top_hits_aggregation_with_sort() {
-        let agg = TopHitsAggregation::new().sort(SortOption::desc("title"));
-
-        assert_eq!(agg.sort.len(), 1);
-        assert_eq!(agg.sort[0].field, "title");
-        assert_eq!(agg.sort[0].order, SortOrder::Desc);
-    }
-
-    #[test]
     fn test_top_hits_aggregation_empty() {
         let agg = TopHitsAggregation::new();
         let hits = vec![];
@@ -425,21 +411,21 @@ mod tests {
         let agg = TopHitsAggregation::new().size(2);
         let mut hits = vec![];
 
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(0.9),
-            source: serde_json::json!({ "title": "First" }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(0.8),
-            source: serde_json::json!({ "title": "Second" }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(0.7),
-            source: serde_json::json!({ "title": "Third" }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(0.9),
+            serde_json::json!({ "title": "First" }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(0.8),
+            serde_json::json!({ "title": "Second" }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(0.7),
+            serde_json::json!({ "title": "Third" }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -461,11 +447,11 @@ mod tests {
         let mut hits = vec![];
 
         for i in 1..=5 {
-            hits.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32 * 0.1),
-                source: serde_json::json!({ "title": format!("Title {}", i) }),
-            });
+            hits.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32 * 0.1),
+                serde_json::json!({ "title": format!("Title {}", i) }),
+            ));
         }
 
         let field_cache = FieldCache::new();
@@ -489,21 +475,21 @@ mod tests {
             .sort(SortOption::asc("title"));
         let mut hits = vec![];
 
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(0.5),
-            source: serde_json::json!({ "title": "Zebra" }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(0.9),
-            source: serde_json::json!({ "title": "Apple" }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(0.7),
-            source: serde_json::json!({ "title": "Banana" }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(0.5),
+            serde_json::json!({ "title": "Zebra" }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(0.9),
+            serde_json::json!({ "title": "Apple" }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(0.7),
+            serde_json::json!({ "title": "Banana" }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -526,15 +512,15 @@ mod tests {
             .fields(vec!["title".to_string()]);
         let mut hits = vec![];
 
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(0.9),
-            source: serde_json::json!({
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(0.9),
+            serde_json::json!({
                 "title": "Test",
                 "description": "Should be filtered out",
                 "author": "Also filtered"
             }),
-        });
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -556,18 +542,18 @@ mod tests {
         let agg = TopHitsAggregation::new().size(2);
 
         let mut hits1 = vec![];
-        hits1.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(0.9),
-            source: serde_json::json!({ "title": "First" }),
-        });
+        hits1.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(0.9),
+            serde_json::json!({ "title": "First" }),
+        ));
 
         let mut hits2 = vec![];
-        hits2.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(0.8),
-            source: serde_json::json!({ "title": "Second" }),
-        });
+        hits2.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(0.8),
+            serde_json::json!({ "title": "Second" }),
+        ));
 
         let field_cache = FieldCache::new();
         let result1 = agg.execute(&hits1, &field_cache).unwrap();

@@ -3,7 +3,7 @@
 //! Applies a custom window function to metric values across buckets.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
@@ -149,11 +149,11 @@ impl AggregationTrait for MovingFunctionAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn apply_moving_function(
     buckets: &[Bucket],
-    buckets_path: &str,
-    script: &str,
-    window: usize,
-    shift: i32,
-    params: &HashMap<String, JsonValue>,
+    _buckets_path: &str,
+    _script: &str,
+    _window: usize,
+    _shift: i32,
+    _params: &HashMap<String, JsonValue>,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse buckets_path to extract metric values

@@ -54,7 +54,7 @@ impl GeohashGridAggregation {
 
     /// Set geohash precision (1-12)
     pub fn precision(mut self, precision: u8) -> Self {
-        self.precision = precision.min(12).max(1);
+        self.precision = precision.clamp(1, 12);
         self
     }
 

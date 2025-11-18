@@ -55,7 +55,21 @@ pub async fn get_mapping(
     let index = state
         .index_manager
         .get_index(&resolved_index)
-        .map_err(|_| ApiError::IndexNotFound(resolved_index))?;
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(resolved_index);
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(resolved_index)
+            } else {
+                tracing::error!("Failed to get index '{}': {}", resolved_index, error_msg);
+                ApiError::Core(e)
+            }
+        })?;
 
     // Convert schema to Elasticsearch mapping
     let schema = index.schema();
@@ -159,7 +173,21 @@ pub async fn get_field_mapping(
     let index = state
         .index_manager
         .get_index(&resolved_index)
-        .map_err(|_| ApiError::IndexNotFound(resolved_index))?;
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(resolved_index);
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(resolved_index)
+            } else {
+                tracing::error!("Failed to get index '{}': {}", resolved_index, error_msg);
+                ApiError::Core(e)
+            }
+        })?;
 
     // Convert schema to Elasticsearch mapping
     let schema = index.schema();

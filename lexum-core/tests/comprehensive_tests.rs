@@ -292,17 +292,17 @@ fn test_phrase_query_high_slop() {
 fn test_search_hit_with_complex_source() {
     use lexum_core::types::{DocumentId, Score};
 
-    let hit = SearchHit {
-        id: DocumentId::new("doc1"),
-        score: Score::new(0.95),
-        source: json!({
+    let hit = SearchHit::new(
+        DocumentId::new("doc1"),
+        Score::new(0.95),
+        json!({
             "title": "Test",
             "nested": {
                 "field": "value"
             },
             "array": [1, 2, 3]
         }),
-    };
+    );
 
     assert_eq!(hit.id.as_str(), "doc1");
     assert_eq!(hit.score.value(), 0.95);
@@ -314,10 +314,12 @@ fn test_search_result_with_multiple_hits() {
     use lexum_core::types::{DocumentId, Score};
 
     let hits = (0..10)
-        .map(|i| SearchHit {
-            id: DocumentId::new(format!("doc{i}")),
-            score: Score::new(1.0 - (i as f32 * 0.1)),
-            source: json!({"id": i}),
+        .map(|i| {
+            SearchHit::new(
+                DocumentId::new(format!("doc{i}")),
+                Score::new(1.0 - (i as f32 * 0.1)),
+                json!({"id": i}),
+            )
         })
         .collect();
 

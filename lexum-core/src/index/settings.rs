@@ -146,6 +146,77 @@ impl IndexSettings {
         }
         Ok(())
     }
+
+    /// Apply a partial settings update.
+    pub fn apply_update(&mut self, update: &IndexSettingsUpdate) -> crate::Result<()> {
+        if let Some(shards) = update.number_of_shards {
+            if shards != self.number_of_shards {
+                return Err(crate::Error::Validation(
+                    "number_of_shards is static and cannot be changed after index creation"
+                        .to_string(),
+                ));
+            }
+        }
+
+        if let Some(replicas) = update.number_of_replicas {
+            if replicas == 0 {
+                return Err(crate::Error::Validation(
+                    "number_of_replicas must be greater than 0".to_string(),
+                ));
+            }
+            self.number_of_replicas = replicas;
+        }
+
+        if let Some(refresh_interval) = update.refresh_interval {
+            if refresh_interval == 0 {
+                return Err(crate::Error::Validation(
+                    "refresh_interval must be greater than 0".to_string(),
+                ));
+            }
+            self.refresh_interval = refresh_interval;
+        }
+
+        if let Some(enabled) = update.enable_memory_mapped_storage {
+            self.storage.enable_memory_mapped_storage = enabled;
+        }
+
+        if let Some(read_ahead_bytes) = &update.read_ahead_bytes {
+            self.storage.read_ahead_bytes = *read_ahead_bytes;
+        }
+
+        Ok(())
+    }
+}
+
+/// Partial update document for index settings.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct IndexSettingsUpdate {
+    /// Update number of shards (static - attempting to change will error).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number_of_shards: Option<usize>,
+    /// Update number of replicas.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number_of_replicas: Option<usize>,
+    /// Update refresh interval in seconds.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_interval: Option<u64>,
+    /// Enable/disable memory mapped storage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_memory_mapped_storage: Option<bool>,
+    /// Update read-ahead bytes (Some => set value, None => clear value)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_ahead_bytes: Option<Option<usize>>,
+}
+
+impl IndexSettingsUpdate {
+    /// Returns true if no fields are set for update.
+    pub fn is_empty(&self) -> bool {
+        self.number_of_shards.is_none()
+            && self.number_of_replicas.is_none()
+            && self.refresh_interval.is_none()
+            && self.enable_memory_mapped_storage.is_none()
+            && self.read_ahead_bytes.is_none()
+    }
 }
 
 #[cfg(test)]

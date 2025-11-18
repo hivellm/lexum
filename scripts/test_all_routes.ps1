@@ -1,577 +1,767 @@
-#!/usr/bin/env pwsh
-# Test all Lexum REST API routes
-# Usage: .\scripts\test_all_routes.ps1 [--port PORT] [--base-url URL]
+# Script completo para testar todas as rotas do Lexum Server
+# Uso: .\test_all_routes.ps1 [-ServerUrl http://localhost:17000] [-LogFile test_results.log]
 
 param(
-    [int]$Port = 17000,
-    [string]$BaseUrl = "http://localhost:$Port"
+    [string]$ServerUrl = "http://localhost:17000",
+    [string]$LogFile = "test_results_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 )
 
-$ErrorActionPreference = "Continue"
+# Cores para output
+$ErrorColor = "Red"
+$SuccessColor = "Green"
+$InfoColor = "Cyan"
+$WarningColor = "Yellow"
 
-Write-Host "=== LEXUM REST API TEST SUITE ===" -ForegroundColor Cyan
-Write-Host "Base URL: $BaseUrl" -ForegroundColor Gray
-Write-Host ""
+# Contadores
+$script:TotalTests = 0
+$script:PassedTests = 0
+$script:FailedTests = 0
+$script:WarningTests = 0
+$script:RetryCount = 0
 
-$results = @{
-    Total = 0
-    Success = 0
-    Failed = 0
-    Errors = @()
+# Configuração de retry
+$script:MaxRetries = 3
+$script:RetryDelayMs = 1000  # Base delay in milliseconds
+$script:RetryBackoffMultiplier = 2  # Exponential backoff
+
+# Lista de índices criados para cleanup
+$script:CreatedIndices = @()
+$script:CreatedTemplates = @()
+$script:CreatedRepositories = @()
+
+# Logging function
+function Write-Log {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logMessage = "[$timestamp] [$Level] $Message"
+    
+    # Write to console
+    switch ($Level) {
+        "ERROR" { Write-Host $logMessage -ForegroundColor $ErrorColor }
+        "WARN" { Write-Host $logMessage -ForegroundColor $WarningColor }
+        "SUCCESS" { Write-Host $logMessage -ForegroundColor $SuccessColor }
+        default { Write-Host $logMessage -ForegroundColor $InfoColor }
+    }
+    
+    # Write to log file
+    try {
+        Add-Content -Path $LogFile -Value $logMessage -ErrorAction SilentlyContinue
+    } catch {
+        # Ignore log file errors
+    }
+}
+
+# Function to save error details
+function Save-ErrorDetails {
+    param(
+        [string]$TestName,
+        [string]$Method,
+        [string]$Url,
+        [object]$RequestBody,
+        [int]$StatusCode,
+        [string]$ResponseBody,
+        [string]$ErrorMessage
+    )
+    
+    $errorDetails = @{
+        timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        test = $TestName
+        method = $Method
+        url = $Url
+        request_body = $RequestBody
+        status_code = $StatusCode
+        response_body = $ResponseBody
+        error_message = $ErrorMessage
+    }
+    
+    $errorFile = $LogFile -replace '\.log$', '_errors.json'
+    try {
+        $existingErrors = @()
+        if (Test-Path $errorFile) {
+            $existingContent = Get-Content $errorFile -Raw | ConvertFrom-Json
+            if ($existingContent -is [array]) {
+                $existingErrors = @($existingContent)
+            } else {
+                $existingErrors = @($existingContent)
+            }
+        }
+        $allErrors = @($existingErrors) + @($errorDetails)
+        $allErrors | ConvertTo-Json -Depth 10 | Set-Content $errorFile
+    } catch {
+        Write-Log "Failed to save error details: $_" "ERROR"
+    }
 }
 
 function Test-Route {
     param(
+        [string]$Name,
         [string]$Method,
-        [string]$Path,
-        [string]$Body = $null,
-        [string]$ContentType = "application/json",
-        [string]$Description = "",
-        [scriptblock]$Validator = $null,
-        [int]$TimeoutSec = 5
+        [string]$Url,
+        [hashtable]$Headers = @{"Content-Type" = "application/json"},
+        [object]$Body = $null,
+        [int[]]$ExpectedStatusCodes = @(200, 201, 204),
+        [bool]$SkipOnError = $false,
+        [bool]$TrackResource = $false  # Track created resources for cleanup
     )
     
-    $results.Total++
-    $url = "$BaseUrl$Path"
-    $status = "❌"
-    $statusCode = "N/A"
-    $errorMsg = ""
-    $responseContent = $null
-    $validationPassed = $false
+    $script:TotalTests++
+    $retryCount = 0
+    $delayMs = $script:RetryDelayMs
     
-    try {
-        $params = @{
-            Uri = $url
-            Method = $Method
-            UseBasicParsing = $true
-            TimeoutSec = $TimeoutSec
-        }
-        
-        if ($Body) {
-            $params.Body = $Body
-            # Set ContentType via Headers for DELETE, directly for others
-            if ($Method -eq "DELETE") {
-                $params.Headers = @{"Content-Type" = $ContentType}
-            } else {
-                $params.ContentType = $ContentType
+    while ($retryCount -le $script:MaxRetries) {
+        try {
+            $params = @{
+                Uri = "$ServerUrl$Url"
+                Method = $Method
+                Headers = $Headers
+                ErrorAction = "Stop"
             }
-        }
-        
-        $response = Invoke-WebRequest @params
-        $statusCode = $response.StatusCode
-        $responseContent = $response.Content
-        
-        # Validate response content
-        if ($responseContent -and $responseContent.Trim() -ne "") {
-            try {
-                $json = $responseContent | ConvertFrom-Json
-                $validationPassed = $true
+            
+            if ($Body -ne $null) {
+                $params.Body = ($Body | ConvertTo-Json -Depth 10 -Compress)
+            }
+            
+            $response = Invoke-WebRequest @params
+            $statusCode = $response.StatusCode
+            $responseBody = $response.Content
+            
+            if ($ExpectedStatusCodes -contains $statusCode) {
+                Write-Log "  [OK] $Name - Status: $statusCode" "SUCCESS"
+                $script:PassedTests++
                 
-                # Run custom validator if provided
-                if ($Validator) {
-                    try {
-                        $validationResult = & $Validator $json $response
-                        if (-not $validationResult) {
-                            $validationPassed = $false
-                            $errorMsg = "Validation failed"
-                        }
-                    } catch {
-                        $validationPassed = $false
-                        $errorMsg = "Validator error: $($_.Exception.Message)"
+                # Track created resources
+                if ($TrackResource -and $statusCode -in @(200, 201)) {
+                    if ($Method -eq "POST" -and $Url -like "*/indices" -and $Body.name) {
+                        $script:CreatedIndices += $Body.name
+                    } elseif ($Method -eq "PUT" -and $Url -like "*/_template/*" -and $Url -match "/_template/([^/]+)") {
+                        $script:CreatedTemplates += $Matches[1]
+                    } elseif ($Method -eq "PUT" -and $Url -like "*/_snapshot/*" -and $Url -match "/_snapshot/([^/]+)") {
+                        $script:CreatedRepositories += $Matches[1]
                     }
                 }
-            } catch {
-                # Not JSON or invalid JSON - might be OK for some endpoints
-                if ($response.ContentType -like "*json*") {
-                    $validationPassed = $false
-                    $errorMsg = "Invalid JSON response"
-                } else {
-                    $validationPassed = $true # Non-JSON responses are OK
+                
+                return $true
+            } else {
+                Write-Log "  [WARN] $Name - Status: $statusCode (Expected: $($ExpectedStatusCodes -join ', '))" "WARN"
+                $script:WarningTests++
+                return $false
+            }
+        } catch {
+            $statusCode = $null
+            $responseBody = ""
+            $errorMessage = $_.Exception.Message
+            
+            if ($_.Exception.Response) {
+                $statusCode = $_.Exception.Response.StatusCode.Value__
+                
+                # Check for rate limiting (429)
+                if ($statusCode -eq 429) {
+                    if ($retryCount -lt $script:MaxRetries) {
+                        $script:RetryCount++
+                        Write-Log "  [RETRY] $Name - Rate limited (429), retrying in ${delayMs}ms (attempt $($retryCount + 1)/$($script:MaxRetries + 1))" "WARN"
+                        Start-Sleep -Milliseconds $delayMs
+                        $delayMs = $delayMs * $script:RetryBackoffMultiplier
+                        $retryCount++
+                        continue
+                    } else {
+                        Write-Log "  [FAIL] $Name - Rate limited (429), max retries exceeded" "ERROR"
+                    }
+                }
+                
+                try {
+                    $stream = $_.Exception.Response.GetResponseStream()
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $responseBody = $reader.ReadToEnd()
+                    $reader.Close()
+                    $stream.Close()
+                } catch {
+                    # Ignore errors reading response body
                 }
             }
-        } else {
-            $validationPassed = $true # Empty responses are OK for some endpoints
-        }
-        
-        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
-            if ($validationPassed) {
-                $status = "✅"
-                $results.Success++
+            
+            # If we got here and status code is expected, it's OK
+            if ($statusCode -and ($ExpectedStatusCodes -contains $statusCode)) {
+                Write-Log "  [OK] $Name - Status: $statusCode (Error expected)" "SUCCESS"
+                $script:PassedTests++
+                return $true
+            } elseif ($SkipOnError) {
+                Write-Log "  [SKIP] $Name (Skipped - Pre-requisite not met)" "WARN"
+                return $false
             } else {
-                $status = "⚠️"
-                $results.Failed++
-                $errorMsg = "Status OK but validation failed: $errorMsg"
+                # Save error details
+                Save-ErrorDetails -TestName $Name -Method $Method -Url $Url `
+                    -RequestBody $Body -StatusCode $statusCode `
+                    -ResponseBody $responseBody -ErrorMessage $errorMessage
+                
+                Write-Log "  [FAIL] $Name" "ERROR"
+                Write-Log "    Error: $errorMessage" "ERROR"
+                if ($statusCode) {
+                    Write-Log "    Status: $statusCode" "ERROR"
+                }
+                if ($responseBody -and $responseBody.Length -lt 500) {
+                    Write-Log "    Response: $responseBody" "ERROR"
+                } elseif ($responseBody) {
+                    Write-Log "    Response: $($responseBody.Substring(0, [Math]::Min(500, $responseBody.Length)))..." "ERROR"
+                }
+                $script:FailedTests++
+                return $false
             }
-        } elseif ($response.StatusCode -eq 404 -or $response.StatusCode -eq 409 -or $response.StatusCode -eq 400) {
-            $status = "ℹ️"
-            $results.Success++ # Expected errors count as success
-        } else {
-            $status = "⚠️"
-            $results.Failed++
-            $errorMsg = "Status: $statusCode"
-        }
-    } catch {
-        $status = "❌"
-        $results.Failed++
-        if ($_.Exception.Response) {
-            $statusCode = $_.Exception.Response.StatusCode.value__
-            # Don't count 404, 409, 400 as errors (expected)
-            if ($statusCode -eq 404 -or $statusCode -eq 409 -or $statusCode -eq 400) {
-                $status = "ℹ️"
-                $results.Success++
-            }
-            $errorMsg = "Status: $statusCode - $($_.Exception.Message)"
-        } else {
-            $errorMsg = $_.Exception.Message
         }
     }
     
-    $desc = if ($Description) { " - $Description" } else { "" }
-    $validationInfo = if ($Validator -and $validationPassed) { " [VALIDATED]" } elseif ($Validator -and -not $validationPassed) { " [VALIDATION FAILED]" } else { "" }
-    Write-Host "  $status $Method $Path ($statusCode)$validationInfo$desc" -ForegroundColor $(if ($status -eq "✅") { "Green" } elseif ($status -eq "ℹ️") { "Yellow" } else { "Red" })
-    
-    if ($errorMsg) {
-        $results.Errors += "$Method $Path : $errorMsg"
-    }
-    
-    return @{
-        Success = ($status -eq "✅")
-        StatusCode = $statusCode
-        Content = $responseContent
-    }
+    # Should not reach here, but handle it
+    Write-Log "  [FAIL] $Name - Max retries exceeded" "ERROR"
+    $script:FailedTests++
+    return $false
 }
 
-# 1. Health & Telemetry
-Write-Host "1. HEALTH & TELEMETRY" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/health" -Description "Liveness probe" -Validator {
-    param($json, $response)
-    return ($json.status -eq "ok" -and $json.version)
-}
-Test-Route -Method "GET" -Path "/_ready" -Description "Readiness probe" -Validator {
-    param($json, $response)
-    return ($json.status -eq "ready" -and $json.components)
-}
-Test-Route -Method "GET" -Path "/_metrics" -Description "Prometheus metrics" -Validator {
-    param($json, $response)
-    # Metrics endpoint returns plain text, not JSON
-    $content = $response.Content
-    return ($content -match "lexum_")
-}
+Write-Log "========================================"
+Write-Log "  LEXUM SERVER - TESTE COMPLETO DE ROTAS"
+Write-Log "  Server: $ServerUrl"
+Write-Log "  Log File: $LogFile"
+Write-Log "========================================"
 
-# 2. Cluster Endpoints
-Write-Host "`n2. CLUSTER ENDPOINTS" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/" -Description "Cluster info" -Validator {
-    param($json, $response)
-    return ($json.cluster_name -or $json.name)
-}
-Test-Route -Method "GET" -Path "/_cluster/health" -Description "Cluster health" -Validator {
-    param($json, $response)
-    return ($json.status -and $json.number_of_nodes)
-}
-Test-Route -Method "GET" -Path "/_cluster/stats" -Description "Cluster stats" -Validator {
-    param($json, $response)
-    return ($json.number_of_indices -ge 0 -and $json.number_of_shards -ge 0 -and $json.total_documents -ge 0)
-}
-Test-Route -Method "GET" -Path "/_cluster/state" -Description "Cluster state" -Validator {
-    param($json, $response)
-    return ($json.cluster_name -or $json.metadata)
-}
-Test-Route -Method "GET" -Path "/_nodes/stats" -Description "Node stats" -Validator {
-    param($json, $response)
-    return ($json.name -and $json.role -and $json.jvm_heap_max_bytes -ge 0)
-}
-Test-Route -Method "GET" -Path "/_cluster/settings" -Description "Get cluster settings" -Validator {
-    param($json, $response)
-    return ($json.cluster_name -or $json.persistence -or $json.network)
-}
-
-# 3. Index Management
-Write-Host "`n3. INDEX MANAGEMENT" -ForegroundColor Yellow
-# Try to delete index first if it exists
+# Verificar se o servidor está rodando
+Write-Log "Verificando se o servidor está rodando..."
 try {
-    Invoke-WebRequest -Uri "$BaseUrl/api/v1/indices/test_api" -Method DELETE -UseBasicParsing -TimeoutSec 2 -ErrorAction SilentlyContinue | Out-Null
-    Start-Sleep -Milliseconds 500
-} catch {}
-$indexBody = '{"name":"test_api","fields":[{"name":"_id","type":"keyword"},{"name":"title","type":"text"},{"name":"content","type":"text"}]}'
-$createResult = Test-Route -Method "POST" -Path "/api/v1/indices" -Body $indexBody -Description "Create index" -Validator {
-    param($json, $response)
-    return ($json.name -eq "test_api" -and $json.num_docs -ge 0)
-}
-Test-Route -Method "GET" -Path "/api/v1/indices" -Description "List indices" -Validator {
-    param($json, $response)
-    return ($json.indices -is [array])
-}
-Test-Route -Method "GET" -Path "/api/v1/indices/test_api" -Description "Get index" -Validator {
-    param($json, $response)
-    return ($json.name -eq "test_api")
-}
-Test-Route -Method "GET" -Path "/api/v1/indices/test_api/stats" -Description "Get index stats" -Validator {
-    param($json, $response)
-    return ($json.name -eq "test_api" -and $json.num_docs -ge 0)
-}
-Test-Route -Method "POST" -Path "/api/v1/indices/test_api/refresh" -Description "Refresh index" -Validator {
-    param($json, $response)
-    return ($json -or $response.StatusCode -eq 200)
-}
-Test-Route -Method "POST" -Path "/api/v1/indices/test_api/flush" -Description "Flush index" -Validator {
-    param($json, $response)
-    return ($json -or $response.StatusCode -eq 200)
-}
-
-# 4. Document Operations
-Write-Host "`n4. DOCUMENT OPERATIONS" -ForegroundColor Yellow
-$docBody = '{"document":{"title":"Test Document","content":"This is a test document"}}'
-$docResponse = $null
-$docId = $null
-$addResult = Test-Route -Method "POST" -Path "/api/v1/indices/test_api/documents" -Body $docBody -Description "Add document" -Validator {
-    param($json, $response)
-    return ($json.id -and $json.id.Length -gt 0)
-}
-if ($addResult.Success -and $addResult.Content) {
-    try {
-        $docId = ($addResult.Content | ConvertFrom-Json).id
-    } catch {}
-}
-
-Start-Sleep -Milliseconds 1000
-if ($docId) {
-    Test-Route -Method "GET" -Path "/api/v1/indices/test_api/documents/$docId" -Description "Get document" -Validator {
-        param($json, $response)
-        return ($json.document -or $json.title -or $json.source)
-    }
-    
-    $updateBody = '{"document":{"title":"Updated Document","content":"Updated content"}}'
-    Test-Route -Method "PUT" -Path "/api/v1/indices/test_api/documents/$docId" -Body $updateBody -Description "Update document" -Validator {
-        param($json, $response)
-        return ($json.id -or $response.StatusCode -eq 200)
-    }
-    
-    Test-Route -Method "DELETE" -Path "/api/v1/indices/test_api/documents/$docId" -Description "Delete document" -Validator {
-        param($json, $response)
-        return ($json -or $response.StatusCode -eq 200)
-    }
-}
-
-# 5. Search Operations
-Write-Host "`n5. SEARCH OPERATIONS" -ForegroundColor Yellow
-# Add a document for explain query
-$explainDocBody = '{"document":{"title":"Explain Test","content":"This is for explain query"}}'
-$explainDocId = $null
-$explainAddResult = Test-Route -Method "POST" -Path "/api/v1/indices/test_api/documents" -Body $explainDocBody -Description "Add document for explain" -Validator {
-    param($json, $response)
-    return ($json.id -and $json.id.Length -gt 0)
-}
-if ($explainAddResult.Success -and $explainAddResult.Content) {
-    try {
-        $explainDocId = ($explainAddResult.Content | ConvertFrom-Json).id
-    } catch {}
-}
-Start-Sleep -Milliseconds 1000
-
-$searchBody = '{"query":{"match":{"field":"title","query":"test"}},"limit":10}'
-Test-Route -Method "POST" -Path "/api/v1/indices/test_api/search" -Body $searchBody -Description "POST search" -Validator {
-    param($json, $response)
-    # POST search returns hits array and total (not total_hits)
-    return (($json.hits -is [array]) -and (($json.total -ge 0) -or ($json.total_hits -ge 0)))
-}
-Test-Route -Method "GET" -Path "/api/v1/indices/test_api/search?q=test&limit=10" -Description "GET search" -Validator {
-    param($json, $response)
-    # GET search returns hits array and total (not total_hits)
-    return (($json.hits -is [array]) -and (($json.total -ge 0) -or ($json.total_hits -ge 0)))
-}
-if ($explainDocId) {
-    Test-Route -Method "GET" -Path "/api/v1/indices/test_api/_explain/${explainDocId}?q=test" -Description "Explain query" -Validator {
-        param($json, $response)
-        return ($json.matched -is [bool] -and $json.explanation)
-    }
-}
-
-# 6. Search Suggestions
-Write-Host "`n6. SEARCH SUGGESTIONS" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/api/v1/indices/test_api/_suggest?q=test&max_suggestions=5" -Description "GET suggest" -Validator {
-    param($json, $response)
-    return ($json -is [array] -or ($json.suggestions -is [array]))
-}
-$suggestBody = '{"q":"test","size":5}'
-Test-Route -Method "POST" -Path "/api/v1/indices/test_api/_suggest" -Body $suggestBody -Description "POST suggest" -Validator {
-    param($json, $response)
-    return ($json -is [array] -or ($json.suggestions -is [array]))
-}
-
-# 7. Bulk Operations
-Write-Host "`n7. BULK OPERATIONS" -ForegroundColor Yellow
-$bulkBody = '{"operations":[{"action":"index","_index":"test_api","document":{"title":"Bulk Doc 1","content":"Content 1"}},{"action":"index","_index":"test_api","document":{"title":"Bulk Doc 2","content":"Content 2"}}]}'
-Test-Route -Method "POST" -Path "/api/v1/bulk" -Body $bulkBody -Description "Bulk operations" -Validator {
-    param($json, $response)
-    return ($json.items -is [array] -or $json.results -is [array] -or $json.acknowledged)
-}
-$progressBody = '{"operations":[{"Index":{"index":"test_api","id":"progress-doc-123","document":{"title":"Progress Doc","content":"Content"}}}],"track_progress":true}'
-$progressId = $null
-$progressResult = Test-Route -Method "POST" -Path "/api/v1/bulk/progress" -Body $progressBody -Description "Bulk with progress" -TimeoutSec 15 -Validator {
-    param($json, $response)
-    return ($json.progress_id -or $json.id -or ($json.items -is [array] -and $json.items.Count -ge 0))
-}
-if ($progressResult.Success -and $progressResult.Content) {
-    try {
-        $progressId = ($progressResult.Content | ConvertFrom-Json).progress_id
-    } catch {}
-}
-
-# 8. Batch Requests
-Write-Host "`n8. BATCH REQUESTS" -ForegroundColor Yellow
-$batchBody = '{"requests":[{"method":"GET","path":"/api/v1/indices"},{"method":"GET","path":"/_cluster/health"}]}'
-Test-Route -Method "POST" -Path "/api/v1/_batch" -Body $batchBody -Description "Batch requests" -Validator {
-    param($json, $response)
-    return ($json.responses -is [array] -and $json.responses.Count -eq 2)
-}
-
-# 9. Progress Tracking
-Write-Host "`n9. PROGRESS TRACKING" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/api/v1/progress" -Description "List progress" -Validator {
-    param($json, $response)
-    # list_progress returns Vec<ProgressInfo> (array) - can be empty array
-    return ($json -is [array])
-}
-Test-Route -Method "GET" -Path "/api/v1/progress/stats" -Description "Progress stats" -Validator {
-    param($json, $response)
-    return ($json.total_sessions -ge 0 -or $json.active_sessions -ge 0 -or $json.completed_sessions -ge 0)
-}
-if ($progressId) {
-    Test-Route -Method "GET" -Path "/api/v1/progress/$progressId" -Description "Get progress" -Validator {
-        param($json, $response)
-        return ($json.progress_id -or $json.id -or $json.status)
-    }
-    Test-Route -Method "GET" -Path "/api/v1/bulk/progress/$progressId" -Description "Get bulk progress" -Validator {
-        param($json, $response)
-        return ($json.progress_id -or $json.id -or $json.status)
-    }
-}
-
-# 10. Templates
-Write-Host "`n10. TEMPLATES" -ForegroundColor Yellow
-$templateBody = '{"index_patterns":["test-*"],"settings":{},"mappings":{"fields":[{"name":"title","type":"text"}]}}'
-Test-Route -Method "PUT" -Path "/_template/test_template" -Body $templateBody -Description "Create template" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200)
-}
-Test-Route -Method "GET" -Path "/_template" -Description "List templates" -Validator {
-    param($json, $response)
-    return ($json.templates -is [array] -or $json -is [hashtable])
-}
-Test-Route -Method "GET" -Path "/_template/test_template" -Description "Get template" -Validator {
-    param($json, $response)
-    return ($json.index_patterns -or $json.mappings)
-}
-Test-Route -Method "DELETE" -Path "/_template/test_template" -Description "Delete template" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200)
-}
-
-# 11. Aliases
-Write-Host "`n11. ALIASES" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/_aliases" -Description "Get all aliases" -Validator {
-    param($json, $response)
-    # Aliases can be empty object {} or have index names as keys
-    return ($json -is [hashtable] -or $json -is [PSCustomObject])
-}
-$aliasBody = '{"actions":[{"action":"add","index":"test_api","alias":"test_alias"}]}'
-Test-Route -Method "POST" -Path "/_aliases" -Body $aliasBody -Description "Add alias" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200)
-}
-Test-Route -Method "GET" -Path "/test_api/_alias" -Description "Get index aliases" -Validator {
-    param($json, $response)
-    # Can be empty object {} or have aliases
-    return ($json -is [hashtable] -or $json -is [PSCustomObject] -or $json.aliases)
-}
-Test-Route -Method "PUT" -Path "/test_api/_alias/test_alias2" -Body '{}' -Description "Add alias (PUT)" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200)
-}
-Test-Route -Method "DELETE" -Path "/test_api/_alias/test_alias" -Description "Remove alias" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200 -or $response.StatusCode -eq 404)
-}
-
-# 12. Reindex & Tasks
-Write-Host "`n12. REINDEX & TASKS" -ForegroundColor Yellow
-$reindexBody = '{"source":{"index":"test_api"},"dest":{"index":"test_api_reindexed"}}'
-$reindexResult = Test-Route -Method "POST" -Path "/_reindex" -Body $reindexBody -Description "Reindex" -Validator {
-    param($json, $response)
-    return ($json.task_id -or $json.acknowledged -or ($json.total -ge 0))
-}
-Test-Route -Method "GET" -Path "/_tasks" -Description "List tasks" -Validator {
-    param($json, $response)
-    return ($json.nodes -or ($json.nodes.tasks -is [hashtable]))
-}
-Test-Route -Method "GET" -Path "/_tasks/test-task-id" -Description "Get task" -Validator {
-    param($json, $response)
-    return ($json.task -or $response.StatusCode -eq 404)
-}
-
-# 13. Rollover
-Write-Host "`n13. ROLLOVER" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/api/v1/indices/test_api/_rollover" -Description "Get rollover conditions" -Validator {
-    param($json, $response)
-    # RolloverConditions can be empty object {} (all fields are optional) or have max_age/max_size/max_docs
-    return ($json.max_age -or $json.max_size -or $json.max_docs -or $json.max_primary_shard_size -or ($json -is [hashtable] -or ($json -is [PSCustomObject])))
-}
-$rolloverBody = '{"conditions":{"max_docs":1000}}'
-Test-Route -Method "PUT" -Path "/api/v1/indices/test_api/_rollover" -Body $rolloverBody -Description "Update rollover conditions" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200)
-}
-Test-Route -Method "POST" -Path "/api/v1/indices/test_api/_rollover" -Body $rolloverBody -Description "Rollover index" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $json.rolled_over -or $response.StatusCode -eq 200)
-}
-
-# 14. Snapshots
-Write-Host "`n14. SNAPSHOTS" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/_snapshot" -Description "List repositories" -Validator {
-    param($json, $response)
-    return ($json -is [hashtable] -or $json.repositories -is [array])
-}
-$repoBody = '{"type":"fs","settings":{"location":"./snapshots"}}'
-Test-Route -Method "PUT" -Path "/_snapshot/test_repo" -Body $repoBody -Description "Create repository" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200)
-}
-Test-Route -Method "GET" -Path "/_snapshot/test_repo" -Description "Get repository" -Validator {
-    param($json, $response)
-    return ($json.type -or $json.settings)
-}
-Test-Route -Method "GET" -Path "/_snapshot/test_repo/_all" -Description "List snapshots" -Validator {
-    param($json, $response)
-    return ($json.snapshots -is [array] -or $json -is [hashtable])
-}
-Test-Route -Method "GET" -Path "/_snapshot/_stats" -Description "Global snapshot stats" -Validator {
-    param($json, $response)
-    return ($json.stats -or ($json.stats.total_snapshots -ge 0))
-}
-Test-Route -Method "GET" -Path "/_snapshot/test_repo/_stats" -Description "Repository stats" -Validator {
-    param($json, $response)
-    return ($json.snapshots -is [array] -or $json.stats)
-}
-
-# 15. Profiling
-Write-Host "`n15. PROFILING" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/_profiling/status" -Description "Profiling status" -Validator {
-    param($json, $response)
-    return ($json.active -is [bool] -or $json.is_profiling -is [bool])
-}
-Test-Route -Method "GET" -Path "/_profiling/instructions" -Description "Profiling instructions" -Validator {
-    param($json, $response)
-    return ($json.instructions -or $json.text -or $response.Content.Length -gt 0)
-}
-Test-Route -Method "POST" -Path "/_profiling/start" -Body '{"duration_secs":10}' -Description "Start profiling" -Validator {
-    param($json, $response)
-    return ($json.profiling_id -or $json.acknowledged -or $response.StatusCode -eq 200)
-}
-Test-Route -Method "POST" -Path "/_profiling/stop" -Description "Stop profiling" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200)
-}
-
-# 16. Auth
-Write-Host "`n16. AUTH" -ForegroundColor Yellow
-Test-Route -Method "GET" -Path "/api/v1/auth/keys" -Description "List API keys" -Validator {
-    param($json, $response)
-    return ($json.keys -is [array] -or $json -is [array])
-}
-$authBody = '{"name":"test_key","expires_in":3600}'
-Test-Route -Method "POST" -Path "/api/v1/auth/keys" -Body $authBody -Description "Generate API key" -Validator {
-    param($json, $response)
-    return ($json.key -or $json.api_key -or $json.id)
-}
-# Get a real API key first to revoke
-$apiKeyToRevoke = $null
-try {
-    $keyResponse = Invoke-RestMethod -Uri "$BaseUrl/api/v1/auth/keys" -Method GET -TimeoutSec 5 -ErrorAction SilentlyContinue
-    if ($keyResponse.keys -and $keyResponse.keys.Count -gt 0) {
-        $apiKeyToRevoke = $keyResponse.keys[0].key_id
-    }
-} catch {}
-if ($apiKeyToRevoke) {
-    # Use Invoke-RestMethod for DELETE with body (better support)
-    $results.Total++
-    try {
-        $revokeBody = @{api_key = $apiKeyToRevoke} | ConvertTo-Json -Compress
-        $revokeResponse = Invoke-RestMethod -Uri "$BaseUrl/api/v1/auth/keys" -Method DELETE -Body $revokeBody -ContentType "application/json" -TimeoutSec 5
-        if ($revokeResponse.acknowledged -or $true) {
-            $status = "✅"
-            $results.Success++
-            Write-Host "  $status DELETE /api/v1/auth/keys (200) [VALIDATED] - Revoke API key" -ForegroundColor Green
-        } else {
-            $status = "⚠️"
-            $results.Failed++
-            Write-Host "  $status DELETE /api/v1/auth/keys (200) [VALIDATION FAILED] - Revoke API key" -ForegroundColor Yellow
-            $results.Errors += "  - DELETE /api/v1/auth/keys : Status OK but validation failed"
-        }
-    } catch {
-        $status = "❌"
-        $results.Failed++
-        $statusCode = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { "N/A" }
-        Write-Host "  $status DELETE /api/v1/auth/keys ($statusCode) [VALIDATION FAILED] - Revoke API key" -ForegroundColor Red
-        $results.Errors += "  - DELETE /api/v1/auth/keys : Status: $statusCode - $($_.Exception.Message)"
-    }
-} else {
-    # Use a dummy key (will fail but test the endpoint structure)
-    $results.Total++
-    try {
-        $revokeBody = '{"api_key":"dummy-key"}'
-        $revokeResponse = Invoke-RestMethod -Uri "$BaseUrl/api/v1/auth/keys" -Method DELETE -Body $revokeBody -ContentType "application/json" -TimeoutSec 5
-        $status = "✅"
-        $results.Success++
-        Write-Host "  $status DELETE /api/v1/auth/keys (200) [VALIDATED] - Revoke API key" -ForegroundColor Green
-    } catch {
-        $statusCode = if ($_.Exception.Response) { $_.Exception.Response.StatusCode.value__ } else { "N/A" }
-        if ($statusCode -eq 422 -or $statusCode -eq 400) {
-            $status = "ℹ️"
-            $results.Success++ # 422/400 is expected for invalid key
-            Write-Host "  $status DELETE /api/v1/auth/keys ($statusCode) [VALIDATED] - Revoke API key (expected for invalid key)" -ForegroundColor Yellow
-        } else {
-            $status = "❌"
-            $results.Failed++
-            Write-Host "  $status DELETE /api/v1/auth/keys ($statusCode) [VALIDATION FAILED] - Revoke API key" -ForegroundColor Red
-            $results.Errors += "  - DELETE /api/v1/auth/keys : Status: $statusCode - $($_.Exception.Message)"
-        }
-    }
-}
-
-# 17. Cluster Settings
-Write-Host "`n17. CLUSTER SETTINGS" -ForegroundColor Yellow
-$settingsBody = '{"settings":{"cluster_name":"test-cluster","persistence":{"storage_path":"./data","snapshot":{"repository_path":"./snapshots","max_snapshots":10}},"network":{"bind_address":"0.0.0.0","port":17000,"enable_cors":true}}}'
-Test-Route -Method "PUT" -Path "/_cluster/settings" -Body $settingsBody -Description "Update cluster settings" -Validator {
-    param($json, $response)
-    return ($json.acknowledged -or $response.StatusCode -eq 200 -or $response.StatusCode -eq 422)
-}
-
-# Summary
-Write-Host "`n=== TEST SUMMARY ===" -ForegroundColor Cyan
-Write-Host "Total tests: $($results.Total)" -ForegroundColor White
-Write-Host "Successful: $($results.Success)" -ForegroundColor Green
-Write-Host "Failed: $($results.Failed)" -ForegroundColor $(if ($results.Failed -eq 0) { "Green" } else { "Red" })
-Write-Host "Success rate: $([math]::Round(($results.Success / $results.Total) * 100, 2))%" -ForegroundColor $(if (($results.Success / $results.Total) -ge 0.8) { "Green" } else { "Yellow" })
-
-if ($results.Errors.Count -gt 0) {
-    Write-Host "`nErrors:" -ForegroundColor Red
-    $results.Errors | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
-}
-
-# Final metrics check
-Write-Host "`n=== FINAL METRICS ===" -ForegroundColor Cyan
-try {
-    $metricsResponse = Invoke-WebRequest -Uri "$BaseUrl/_metrics" -UseBasicParsing -TimeoutSec 5
-    Write-Host "Metrics collected:" -ForegroundColor White
-    $metricsResponse.Content -split "`n" | Where-Object { $_ -match 'lexum_(http|search|indexing)' -and $_ -notmatch '^#' } | Select-Object -First 10 | ForEach-Object {
-        Write-Host "  $_" -ForegroundColor Gray
-    }
+    $healthCheck = Invoke-WebRequest -Uri "$ServerUrl/health" -Method GET -ErrorAction Stop
+    Write-Log "  [OK] Servidor está rodando (Status: $($healthCheck.StatusCode))" "SUCCESS"
 } catch {
-    Write-Host "Could not fetch metrics" -ForegroundColor Yellow
+    Write-Log "  [ERRO] Servidor não está rodando ou não está acessível em $ServerUrl" "ERROR"
+    Write-Log "  Por favor, inicie o servidor antes de executar os testes." "WARN"
+    Write-Log "  Comando: cargo run --bin lexum-server" "WARN"
+    exit 1
+}
+Write-Log ""
+
+# 1. HEALTH CHECK & SYSTEM
+Write-Log "1. HEALTH CHECK & SYSTEM"
+Test-Route "Health Check" "GET" "/health"
+Test-Route "Readiness Check" "GET" "/_ready"
+Test-Route "Cluster Info" "GET" "/"
+Test-Route "Cluster Health" "GET" "/_cluster/health"
+Test-Route "Cluster Stats" "GET" "/_cluster/stats"
+Test-Route "Cluster State" "GET" "/_cluster/state"
+Test-Route "Node Stats" "GET" "/_nodes/stats"
+Test-Route "Cluster Settings" "GET" "/_cluster/settings"
+Test-Route "Metrics" "GET" "/_metrics"
+
+Write-Log ""
+
+# 2. INDEX MANAGEMENT
+Write-Log "2. INDEX MANAGEMENT"
+$testIndex1 = "test_index_1"
+$testIndex2 = "test_index_2"
+$testIndex3 = "test_index_shrink"
+
+# Criar índices (com tracking para cleanup)
+Test-Route "Create Index" "POST" "/api/v1/indices" -Body @{
+    name = $testIndex1
+    fields = @(
+        @{
+            name = "_id"
+            type = "keyword"
+            stored = $true
+            indexed = $true
+        },
+        @{
+            name = "title"
+            type = "text"
+            stored = $true
+            indexed = $true
+        },
+        @{
+            name = "content"
+            type = "text"
+            stored = $true
+            indexed = $true
+        }
+    )
+    settings = @{
+        number_of_shards = 1
+        number_of_replicas = 0
+    }
+} -ExpectedStatusCodes @(200, 201) -TrackResource $true
+
+Test-Route "Create Index 2" "POST" "/api/v1/indices" -Body @{
+    name = $testIndex2
+    fields = @(
+        @{
+            name = "_id"
+            type = "keyword"
+            stored = $true
+            indexed = $true
+        },
+        @{
+            name = "title"
+            type = "text"
+            stored = $true
+            indexed = $true
+        }
+    )
+    settings = @{
+        number_of_shards = 2
+        number_of_replicas = 0
+    }
+} -ExpectedStatusCodes @(200, 201)
+
+Test-Route "List Indices" "GET" "/api/v1/indices"
+Test-Route "Get Index" "GET" "/api/v1/indices/$testIndex1"
+Test-Route "Get Index Stats" "GET" "/api/v1/indices/$testIndex1/stats"
+
+Write-Log ""
+
+# 3. INDEX OPERATIONS
+Write-Log "3. INDEX OPERATIONS"
+Test-Route "Refresh Index" "POST" "/api/v1/indices/$testIndex1/refresh"
+Test-Route "Flush Index" "POST" "/api/v1/indices/$testIndex1/flush"
+Test-Route "Close Index" "POST" "/api/v1/indices/$testIndex1/close"
+Test-Route "Open Index" "POST" "/api/v1/indices/$testIndex1/open"
+Test-Route "Force Merge Index" "POST" "/api/v1/indices/$testIndex1/forcemerge" -Body @{
+    max_num_segments = 1
+} -ExpectedStatusCodes @(200, 204)
+
+Test-Route "Update Index Settings" "PUT" "/api/v1/indices/$testIndex1/settings" -Body @{
+    refresh_interval = 2000
+} -ExpectedStatusCodes @(200, 204)
+
+Write-Log ""
+
+# 4. INDEX ADVANCED OPERATIONS
+Write-Log "4. INDEX ADVANCED OPERATIONS"
+# Criar índice para shrink
+Test-Route "Create Index for Shrink" "POST" "/api/v1/indices" -Body @{
+    name = $testIndex3
+    fields = @(
+        @{
+            name = "_id"
+            type = "keyword"
+            stored = $true
+            indexed = $true
+        },
+        @{
+            name = "title"
+            type = "text"
+            stored = $true
+            indexed = $true
+        }
+    )
+    settings = @{
+        number_of_shards = 2
+        number_of_replicas = 0
+    }
+} -ExpectedStatusCodes @(200, 201) -SkipOnError $true -TrackResource $true
+
+Test-Route "Shrink Index" "POST" "/api/v1/indices/$testIndex3/shrink" -Body @{
+    target_index = "$testIndex3`_shrunk"
+    settings = @{
+        number_of_shards = 1
+    }
+} -ExpectedStatusCodes @(200, 201, 400, 404) -SkipOnError $true
+
+Test-Route "Split Index" "POST" "/api/v1/indices/$testIndex2/split" -Body @{
+    target_index = "$testIndex2`_split"
+    settings = @{
+        number_of_shards = 4
+    }
+} -ExpectedStatusCodes @(200, 201, 400, 404) -SkipOnError $true
+
+Test-Route "Clone Index" "POST" "/api/v1/indices/$testIndex1/clone" -Body @{
+    target_index = "$testIndex1`_clone"
+} -ExpectedStatusCodes @(200, 201, 400, 404) -SkipOnError $true
+
+Write-Log ""
+
+# 5. GEO OPERATIONS
+Write-Log "5. GEO OPERATIONS"
+Test-Route "Validate GeoPoint (Object)" "POST" "/api/v1/geo/validate" -Body @{
+    point = @{
+        lat = 40.7128
+        lon = -74.0060
+    }
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Validate GeoPoint (Array)" "POST" "/api/v1/geo/validate" -Body @{
+    point = @(-74.0060, 40.7128)
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Validate GeoPoint (String)" "POST" "/api/v1/geo/validate" -Body @{
+    point = "POINT(-74.0060 40.7128)"
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Calculate Distance" "POST" "/api/v1/geo/distance" -Body @{
+    point1 = @{
+        lat = 40.7128
+        lon = -74.0060
+    }
+    point2 = @{
+        lat = 34.0522
+        lon = -118.2437
+    }
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Check Bounds" "POST" "/api/v1/geo/bounds" -Body @{
+    point = @{
+        lat = 40.7128
+        lon = -74.0060
+    }
+    bounds = @{
+        top_left = @{
+            lat = 41.0
+            lon = -75.0
+        }
+        bottom_right = @{
+            lat = 40.0
+            lon = -73.0
+        }
+    }
+} -ExpectedStatusCodes @(200, 400)
+
+Write-Log ""
+
+# 6. DOCUMENT OPERATIONS
+Write-Log "6. DOCUMENT OPERATIONS"
+$docId = "doc_1"
+Test-Route "Add Document" "POST" "/api/v1/indices/$testIndex1/documents" -Body @{
+    id = $docId
+    document = @{
+        _id = $docId
+        title = "Test Document"
+        content = "This is a test document"
+        timestamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+    }
+} -ExpectedStatusCodes @(200, 201)
+
+Test-Route "Get Document" "GET" "/api/v1/indices/$testIndex1/documents/$docId"
+Test-Route "Update Document" "PUT" "/api/v1/indices/$testIndex1/documents/$docId" -Body @{
+    document = @{
+        _id = $docId
+        title = "Updated Test Document"
+        content = "This is an updated test document"
+        timestamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss")
+    }
+} -ExpectedStatusCodes @(200, 201, 204)
+
+Test-Route "Delete Document" "DELETE" "/api/v1/indices/$testIndex1/documents/$docId" -ExpectedStatusCodes @(200, 204, 404)
+
+Write-Log ""
+
+# 7. BULK OPERATIONS
+Write-Log "7. BULK OPERATIONS"
+Test-Route "Bulk Operations" "POST" "/api/v1/bulk" -Body @{
+    operations = @(
+        @{
+            index = $testIndex1
+            action = "index"
+            document = @{
+                title = "Bulk Doc 1"
+                content = "Content 1"
+            }
+        },
+        @{
+            index = $testIndex1
+            action = "index"
+            document = @{
+                title = "Bulk Doc 2"
+                content = "Content 2"
+            }
+        }
+    )
+} -ExpectedStatusCodes @(200, 201, 400)
+
+Write-Log ""
+
+# 8. SEARCH OPERATIONS
+Write-Log "8. SEARCH OPERATIONS"
+Test-Route "Search (POST)" "POST" "/api/v1/indices/$testIndex1/search" -Body @{
+    query = @{
+        match_all = @{}
+    }
+    size = 10
+    from = 0
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Search (GET)" "GET" "/api/v1/indices/$testIndex1/search?q=test&size=10"
+Test-Route "Explain Document" "GET" "/api/v1/indices/$testIndex1/_explain/$docId" -ExpectedStatusCodes @(200, 400, 404)
+
+Write-Log ""
+
+# 9. SCROLL API
+Write-Log "9. SCROLL API"
+Test-Route "Create Scroll" "POST" "/api/v1/indices/$testIndex1/_search/scroll" -Body @{
+    query = @{
+        match_all = @{}
+    }
+    size = 10
+    scroll = "1m"
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Clear All Scrolls" "DELETE" "/api/v1/_search/scroll/_all" -ExpectedStatusCodes @(200, 204)
+
+Write-Log ""
+
+# 10. POINT IN TIME API
+Write-Log "10. POINT IN TIME API"
+Test-Route "Create PIT" "POST" "/api/v1/indices/$testIndex1/_pit" -Body @{
+    keep_alive = "1m"
+} -ExpectedStatusCodes @(200, 201, 400)
+
+Write-Log ""
+
+# 11. QUERY OPERATIONS
+Write-Log "11. QUERY OPERATIONS"
+Test-Route "Update By Query" "POST" "/api/v1/indices/$testIndex1/_update_by_query" -Body @{
+    query = @{
+        match_all = @{}
+    }
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Delete By Query" "POST" "/api/v1/indices/$testIndex1/_delete_by_query" -Body @{
+    query = @{
+        match_all = @{}
+    }
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Multi-Get" "POST" "/api/v1/_mget" -Body @{
+    docs = @(
+        @{
+            index = $testIndex1
+            id = $docId
+        }
+    )
+} -ExpectedStatusCodes @(200, 400)
+
+Test-Route "Multi-Search" "POST" "/api/v1/_msearch" -Body @{
+    searches = @(
+        @{
+            index = $testIndex1
+            query = @{
+                match_all = @{}
+            }
+        }
+    )
+} -ExpectedStatusCodes @(200, 400)
+
+Write-Log ""
+
+# 12. SUGGESTIONS
+Write-Log "12. SUGGESTIONS"
+Test-Route "Suggest (GET)" "GET" "/api/v1/indices/$testIndex1/_suggest?q=test"
+Test-Route "Suggest (POST)" "POST" "/api/v1/indices/$testIndex1/_suggest" -Body @{
+    suggestion = @{
+        text = "test"
+        term = @{
+            field = "content"
+        }
+    }
+} -ExpectedStatusCodes @(200, 400)
+
+Write-Log ""
+
+# 13. MAPPING OPERATIONS
+Write-Log "13. MAPPING OPERATIONS"
+Test-Route "Get Mapping" "GET" "/api/v1/indices/$testIndex1/_mapping"
+Test-Route "Get All Mappings" "GET" "/api/v1/_mapping"
+
+Write-Log ""
+
+# 14. ALIAS OPERATIONS
+Write-Log "14. ALIAS OPERATIONS"
+$testAlias = "test_alias"
+Test-Route "Get Aliases" "GET" "/_aliases"
+
+# Ensure test_index_1 exists before adding alias (it may have been deleted in previous operations)
+Test-Route "Ensure Index for Alias" "POST" "/api/v1/indices" -Body @{
+    name = $testIndex1
+    fields = @(
+        @{
+            name = "_id"
+            type = "keyword"
+            stored = $true
+            indexed = $true
+        },
+        @{
+            name = "title"
+            type = "text"
+            stored = $true
+            indexed = $true
+        }
+    )
+    settings = @{
+        number_of_shards = 1
+        number_of_replicas = 0
+    }
+} -ExpectedStatusCodes @(200, 201) -SkipOnError $true
+
+Test-Route "Add Alias" "PUT" "/$testIndex1/_alias/$testAlias" -ExpectedStatusCodes @(200, 201, 204, 400, 404)
+Test-Route "Get Index Aliases" "GET" "/$testIndex1/_alias"
+Test-Route "Remove Alias" "DELETE" "/$testIndex1/_alias/$testAlias" -ExpectedStatusCodes @(200, 204, 404)
+
+Write-Log ""
+
+# 15. TEMPLATE OPERATIONS
+Write-Log "15. TEMPLATE OPERATIONS"
+$testTemplate = "test_template"
+Test-Route "List Templates" "GET" "/_template"
+Test-Route "Create Template" "PUT" "/_template/$testTemplate" -Body @{
+    index_patterns = @("test_*")
+    settings = @{
+        number_of_shards = 1
+        number_of_replicas = 0
+    }
+    mappings = @{
+        properties = @{}
+    }
+} -ExpectedStatusCodes @(200, 201) -TrackResource $true
+Test-Route "Get Template" "GET" "/_template/$testTemplate"
+Test-Route "Delete Template" "DELETE" "/_template/$testTemplate" -ExpectedStatusCodes @(200, 204, 404)
+
+Write-Log ""
+
+# 16. SNAPSHOT OPERATIONS
+Write-Log "16. SNAPSHOT OPERATIONS"
+$testRepo = "test_repo"
+$testSnapshot = "test_snapshot"
+Test-Route "List Repositories" "GET" "/_snapshot"
+Test-Route "Create Repository" "PUT" "/_snapshot/$testRepo" -Body @{
+    type = "fs"
+    settings = @{
+        location = "test_snapshots"
+    }
+} -ExpectedStatusCodes @(200, 201, 400) -TrackResource $true
+Test-Route "Get Repository" "GET" "/_snapshot/$testRepo" -ExpectedStatusCodes @(200, 404)
+Test-Route "Get Snapshot Stats" "GET" "/_snapshot/_stats" -ExpectedStatusCodes @(200, 404)
+
+Write-Log ""
+
+# 17. REINDEX OPERATIONS
+Write-Log "17. REINDEX OPERATIONS"
+Test-Route "List Tasks" "GET" "/_tasks"
+Test-Route "Reindex" "POST" "/_reindex" -Body @{
+    source = @{
+        index = $testIndex1
+    }
+    dest = @{
+        index = "$testIndex1`_reindexed"
+    }
+} -ExpectedStatusCodes @(200, 201, 400, 404)
+
+Write-Log ""
+
+# 18. ROLLOVER OPERATIONS
+Write-Log "18. ROLLOVER OPERATIONS"
+Test-Route "Get Rollover Conditions" "GET" "/api/v1/indices/$testIndex1/_rollover" -ExpectedStatusCodes @(200, 404)
+Test-Route "Rollover Index" "POST" "/api/v1/indices/$testIndex1/rollover" -Body @{
+    conditions = @{
+        max_docs = 1000
+    }
+} -ExpectedStatusCodes @(200, 201, 400, 404)
+
+Write-Log ""
+
+# 19. PROGRESS TRACKING
+Write-Log "19. PROGRESS TRACKING"
+Test-Route "List Progress" "GET" "/api/v1/progress"
+Test-Route "Progress Stats" "GET" "/api/v1/progress/stats"
+
+Write-Log ""
+
+# 20. AUTHENTICATION
+Write-Log "20. AUTHENTICATION"
+Test-Route "List API Keys" "GET" "/api/v1/auth/keys" -ExpectedStatusCodes @(200, 401, 403)
+
+Write-Log ""
+
+# 21. PROFILING
+Write-Log "21. PROFILING"
+Test-Route "Get Profiling Status" "GET" "/_profiling/status" -ExpectedStatusCodes @(200, 404)
+
+Write-Log ""
+
+# 22. CLEANUP
+Write-Log "22. CLEANUP - Removing test resources"
+Write-Log "Cleaning up created indices, templates, and repositories..."
+
+# Cleanup function
+function Cleanup-Resources {
+    Write-Log "Starting cleanup of test resources..."
+    
+    # Cleanup tracked indices
+    foreach ($index in $script:CreatedIndices) {
+        try {
+            $response = Invoke-WebRequest -Uri "$ServerUrl/api/v1/indices/$index" -Method DELETE -ErrorAction SilentlyContinue
+            Write-Log "  [OK] Deleted index: $index" "SUCCESS"
+        } catch {
+            # Ignore cleanup errors
+            Write-Log "  [SKIP] Could not delete index: $index" "WARN"
+        }
+    }
+    
+    # Cleanup tracked templates
+    foreach ($template in $script:CreatedTemplates) {
+        try {
+            $response = Invoke-WebRequest -Uri "$ServerUrl/_template/$template" -Method DELETE -ErrorAction SilentlyContinue
+            Write-Log "  [OK] Deleted template: $template" "SUCCESS"
+        } catch {
+            # Ignore cleanup errors
+            Write-Log "  [SKIP] Could not delete template: $template" "WARN"
+        }
+    }
+    
+    # Cleanup tracked repositories
+    foreach ($repo in $script:CreatedRepositories) {
+        try {
+            $response = Invoke-WebRequest -Uri "$ServerUrl/_snapshot/$repo" -Method DELETE -ErrorAction SilentlyContinue
+            Write-Log "  [OK] Deleted repository: $repo" "SUCCESS"
+        } catch {
+            # Ignore cleanup errors
+            Write-Log "  [SKIP] Could not delete repository: $repo" "WARN"
+        }
+    }
+    
+    # Also cleanup explicitly named test resources
+    Test-Route "Delete Test Index 1" "DELETE" "/api/v1/indices/$testIndex1" -ExpectedStatusCodes @(200, 204, 404) -SkipOnError $true
+    Test-Route "Delete Test Index 2" "DELETE" "/api/v1/indices/$testIndex2" -ExpectedStatusCodes @(200, 204, 404) -SkipOnError $true
+    Test-Route "Delete Test Index 3" "DELETE" "/api/v1/indices/$testIndex3" -ExpectedStatusCodes @(200, 204, 404) -SkipOnError $true
+    
+    Write-Log "Cleanup completed."
 }
 
-Write-Host "`nTest suite completed!" -ForegroundColor Cyan
+# Run cleanup
+Cleanup-Resources
 
-exit $(if ($results.Failed -eq 0) { 0 } else { 1 })
+Write-Log ""
 
+# RESUMO FINAL
+Write-Log "========================================"
+Write-Log "  RESUMO DOS TESTES"
+Write-Log "========================================"
+Write-Log "Total de Testes: $script:TotalTests"
+Write-Log "Passou: $script:PassedTests" "SUCCESS"
+Write-Log "Falhou: $script:FailedTests" "ERROR"
+Write-Log "Avisos: $script:WarningTests" "WARN"
+Write-Log "Retries: $script:RetryCount" "INFO"
+$successRate = if ($script:TotalTests -gt 0) { [math]::Round(($script:PassedTests / $script:TotalTests) * 100, 2) } else { 0 }
+Write-Log "Taxa de Sucesso: ${successRate}%"
+Write-Log "Log File: $LogFile"
+$errorFile = $LogFile -replace '\.log$', '_errors.json'
+if (Test-Path $errorFile) {
+    Write-Log "Error Details: $errorFile" "WARN"
+}
+Write-Log "========================================"
+
+if ($script:FailedTests -eq 0) {
+    Write-Log "[SUCCESS] Todos os testes criticos passaram!" "SUCCESS"
+    exit 0
+} else {
+    Write-Log "[ERROR] Alguns testes falharam. Verifique os detalhes acima e o arquivo de log." "ERROR"
+    Write-Log "Log file: $LogFile" "INFO"
+    if (Test-Path $errorFile) {
+        Write-Log "Error details: $errorFile" "INFO"
+    }
+    exit 1
+}

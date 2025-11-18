@@ -116,16 +116,41 @@ pub async fn suggest(
     axum::extract::Query(params): axum::extract::Query<SuggestParams>,
 ) -> ApiResult<Json<SuggestResponse>> {
     // Resolve alias to actual index names
-    let target_indices = state
-        .index_manager
-        .resolve_name(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let target_indices = state.index_manager.resolve_name(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to resolve name '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     // Get the first index (for now, we only support single index suggestions)
     let index = state
         .index_manager
         .get_index(target_indices[0].as_str())
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(index_name.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(index_name.clone())
+            } else {
+                tracing::error!("Failed to get index '{}': {}", target_indices[0], error_msg);
+                ApiError::Core(e)
+            }
+        })?;
 
     let index_arc = Arc::new(index);
 
@@ -170,6 +195,133 @@ pub async fn suggest(
     }))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::handlers::index::AppState;
+    use crate::handlers::metrics::PrometheusMetrics;
+    use crate::handlers::reindex::TaskManager;
+    use crate::middleware::auth::AuthState;
+    use crate::middleware::query_complexity::QueryComplexityLimitConfig;
+    use axum::extract::{Path, Query, State};
+    use lexum_core::ProgressTracker;
+    use lexum_core::{IndexManager, SnapshotManager, TemplateManager};
+    use std::sync::Arc;
+    use tempfile::TempDir;
+    use tokio::sync::RwLock;
+
+    fn create_test_app_state() -> (TempDir, AppState) {
+        let temp_dir = TempDir::new().unwrap();
+        let index_manager = Arc::new(IndexManager::new(temp_dir.path()));
+        let config = lexum_core::config::Config::default();
+        let snapshot_manager = Arc::new(RwLock::new(SnapshotManager::new(&config).unwrap_or_else(
+            |_| {
+                let mut fallback_config = config;
+                fallback_config.snapshots.repositories =
+                    vec![lexum_core::config::SnapshotRepositoryConfig {
+                        name: "default".to_string(),
+                        repository_type: "fs".to_string(),
+                        settings: lexum_core::config::SnapshotRepositorySettings {
+                            location: temp_dir
+                                .path()
+                                .join("snapshots")
+                                .to_string_lossy()
+                                .to_string(),
+                            ..Default::default()
+                        },
+                    }];
+                SnapshotManager::new(&fallback_config).unwrap()
+            },
+        )));
+
+        let state = AppState {
+            index_manager,
+            snapshot_manager,
+            template_manager: Arc::new(TemplateManager::new()),
+            task_manager: Arc::new(TaskManager::new()),
+            progress_tracker: Arc::new(ProgressTracker::new()),
+            auth_state: AuthState::new(crate::middleware::auth::AuthConfig::default()),
+            query_complexity_config: QueryComplexityLimitConfig::default(),
+            metrics: Arc::new(PrometheusMetrics::new()),
+        };
+
+        (temp_dir, state)
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_suggest_index_not_found() {
+        let (_temp_dir, state) = create_test_app_state();
+
+        // Test suggest with non-existent index
+        let params = SuggestParams {
+            q: "test".to_string(),
+            fields: None,
+            size: 10,
+            min_prefix_length: 2,
+            fuzziness: 1,
+            include_phrases: true,
+            max_phrase_length: 5,
+        };
+
+        let result = suggest(
+            State(state),
+            Path("non-existent-index".to_string()),
+            Query(params),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(_) => {
+                // Expected - index doesn't exist
+            }
+            e => panic!("Expected IndexNotFound error, got: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn test_suggest_params_defaults() {
+        let params = SuggestParams {
+            q: "test".to_string(),
+            fields: None,
+            size: default_max_suggestions(),
+            min_prefix_length: default_min_prefix(),
+            fuzziness: default_fuzziness(),
+            include_phrases: default_include_phrases(),
+            max_phrase_length: default_max_phrase_length(),
+        };
+
+        assert_eq!(params.q, "test");
+        assert!(params.fields.is_none());
+        assert_eq!(params.size, 10);
+        assert_eq!(params.min_prefix_length, 2);
+        assert_eq!(params.fuzziness, 1);
+        assert_eq!(params.include_phrases, true);
+        assert_eq!(params.max_phrase_length, 5);
+    }
+
+    #[test]
+    fn test_suggest_params_with_all_fields() {
+        let params = SuggestParams {
+            q: "search term".to_string(),
+            fields: Some(vec!["title".to_string(), "content".to_string()]),
+            size: 20,
+            min_prefix_length: 3,
+            fuzziness: 2,
+            include_phrases: false,
+            max_phrase_length: 10,
+        };
+
+        assert_eq!(params.q, "search term");
+        assert_eq!(params.fields.as_ref().unwrap().len(), 2);
+        assert_eq!(params.size, 20);
+        assert_eq!(params.min_prefix_length, 3);
+        assert_eq!(params.fuzziness, 2);
+        assert_eq!(params.include_phrases, false);
+        assert_eq!(params.max_phrase_length, 10);
+    }
+}
+
 /// POST suggest handler (for more complex requests)
 #[utoipa::path(
     post,
@@ -188,8 +340,10 @@ pub async fn suggest(
 pub async fn suggest_post(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
-    Json(params): Json<SuggestParams>,
+    params: Result<Json<SuggestParams>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<SuggestResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(params) = params.map_err(ApiError::from)?;
     // Resolve alias to actual index names
     let target_indices = state
         .index_manager

@@ -357,25 +357,25 @@ mod tests {
     use crate::types::{DocumentId, Score};
 
     fn create_test_hit(id: &str, category: &str, brand: &str) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({
                 "category": category,
                 "brand": brand
             }),
-        }
+        )
     }
 
     fn create_test_hit_numeric(id: &str, category: &str, price: f64) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({
                 "category": category,
                 "price": price
             }),
-        }
+        )
     }
 
     #[test]
@@ -666,16 +666,16 @@ mod tests {
 
         let hits = vec![
             create_test_hit("1", "electronics", "sony"),
-            SearchHit {
-                id: DocumentId::new("2"),
-                score: Score::new(1.0),
-                source: serde_json::json!({}), // Missing both fields
-            },
-            SearchHit {
-                id: DocumentId::new("3"),
-                score: Score::new(1.0),
-                source: serde_json::json!({ "category": "electronics" }), // Missing brand
-            },
+            SearchHit::new(
+                DocumentId::new("2"),
+                Score::new(1.0),
+                serde_json::json!({}), // Missing both fields
+            ),
+            SearchHit::new(
+                DocumentId::new("3"),
+                Score::new(1.0),
+                serde_json::json!({ "category": "electronics" }), // Missing brand
+            ),
         ];
 
         let result = agg.execute(&hits, &field_cache).unwrap();

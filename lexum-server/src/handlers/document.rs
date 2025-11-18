@@ -42,12 +42,25 @@ pub struct AddDocumentResponse {
 pub async fn add_document(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
-    Json(request): Json<AddDocumentRequest>,
+    request: Result<Json<AddDocumentRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<(StatusCode, Json<AddDocumentResponse>)> {
-    let index = state
-        .index_manager
-        .get_index(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
+    let index = state.index_manager.get_index(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     let store = DocumentStore::new(Arc::new(index.clone()));
     let doc_id = store.add_document(request.document).await?;
@@ -89,16 +102,36 @@ pub async fn get_document(
     State(state): State<AppState>,
     Path((index_name, doc_id)): Path<(String, String)>,
 ) -> ApiResult<Json<JsonValue>> {
-    let index = state
-        .index_manager
-        .get_index(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let index = state.index_manager.get_index(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     let store = DocumentStore::new(Arc::new(index));
     let doc = store
         .get_document(&lexum_core::types::DocumentId::new(doc_id.clone()))
         .await
-        .map_err(|_| ApiError::DocumentNotFound(doc_id))?;
+        .map_err(|e| {
+            // Check if error is "not found" and return 404, otherwise 500
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::DocumentNotFound(doc_id)
+            } else {
+                tracing::error!("Failed to get document '{}': {}", doc_id, error_msg);
+                ApiError::Internal(format!("Failed to get document: {e}"))
+            }
+        })?;
 
     Ok(Json(doc))
 }
@@ -122,12 +155,25 @@ pub async fn get_document(
 pub async fn update_document(
     State(state): State<AppState>,
     Path((index_name, doc_id)): Path<(String, String)>,
-    Json(request): Json<AddDocumentRequest>,
+    request: Result<Json<AddDocumentRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<StatusCode> {
-    let index = state
-        .index_manager
-        .get_index(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
+    let index = state.index_manager.get_index(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     let store = DocumentStore::new(Arc::new(index.clone()));
     store
@@ -136,7 +182,16 @@ pub async fn update_document(
             request.document,
         )
         .await
-        .map_err(|e| ApiError::Internal(format!("Failed to update document: {e}")))?;
+        .map_err(|e| {
+            // Check if error is "not found" and return 404, otherwise 500
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::DocumentNotFound(doc_id)
+            } else {
+                tracing::error!("Failed to update document '{}': {}", doc_id, error_msg);
+                ApiError::Internal(format!("Failed to update document: {e}"))
+            }
+        })?;
 
     // Refresh index to make changes immediately available
     state
@@ -170,10 +225,21 @@ pub async fn delete_document(
     State(state): State<AppState>,
     Path((index_name, doc_id)): Path<(String, String)>,
 ) -> ApiResult<StatusCode> {
-    let index = state
-        .index_manager
-        .get_index(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let index = state.index_manager.get_index(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     let store = DocumentStore::new(Arc::new(index.clone()));
     store
@@ -299,8 +365,10 @@ pub struct BulkResponse {
 )]
 pub async fn bulk_operations(
     State(state): State<AppState>,
-    Json(request): Json<BulkRequest>,
+    request: Result<Json<BulkRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<BulkResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     use std::time::Instant;
     let start = Instant::now();
 

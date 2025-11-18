@@ -116,16 +116,16 @@ fn test_sort_options() {
 #[test]
 fn test_search_result_creation() {
     let hits = vec![
-        SearchHit {
-            id: DocumentId::new("doc1"),
-            score: Score::new(0.95),
-            source: json!({"title": "Test"}),
-        },
-        SearchHit {
-            id: DocumentId::new("doc2"),
-            score: Score::new(0.85),
-            source: json!({"title": "Another Test"}),
-        },
+        SearchHit::new(
+            DocumentId::new("doc1"),
+            Score::new(0.95),
+            json!({"title": "Test"}),
+        ),
+        SearchHit::new(
+            DocumentId::new("doc2"),
+            Score::new(0.85),
+            json!({"title": "Another Test"}),
+        ),
     ];
 
     let result = SearchResult::new(hits.clone(), 2, 10);

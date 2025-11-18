@@ -302,8 +302,10 @@ pub async fn perform_atomic_alias_operations(
 pub async fn add_alias(
     State(state): State<AppState>,
     Path((index, alias)): Path<(String, String)>,
-    Json(body): Json<Option<serde_json::Value>>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+    body: Result<Json<Option<serde_json::Value>>, axum::extract::rejection::JsonRejection>,
+) -> ApiResult<Json<serde_json::Value>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(body) = body.map_err(ApiError::from)?;
     tracing::info!(
         "Adding alias '{}' to index '{}' with body: {:?}",
         alias,
@@ -318,6 +320,12 @@ pub async fn add_alias(
         CoreAliasConfig::default()
     };
 
+    // Check if index exists first
+    let index_exists = state.index_manager.get_index(&index).is_ok();
+    if !index_exists {
+        return Err(ApiError::IndexNotFound(index));
+    }
+
     // Create alias using the core manager
     match state
         .index_manager
@@ -330,8 +338,15 @@ pub async fn add_alias(
             })))
         }
         Err(e) => {
-            tracing::error!("Failed to create alias '{}': {}", alias, e);
-            Err(StatusCode::BAD_REQUEST)
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") {
+                Err(ApiError::IndexNotFound(index))
+            } else {
+                tracing::error!("Failed to create alias '{}': {}", alias, e);
+                Err(ApiError::InvalidRequest(format!(
+                    "Failed to create alias: {e}"
+                )))
+            }
         }
     }
 }
@@ -350,7 +365,7 @@ pub async fn add_alias(
 pub async fn remove_alias(
     State(state): State<AppState>,
     Path((index, alias)): Path<(String, String)>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+) -> ApiResult<Json<serde_json::Value>> {
     tracing::info!("Removing alias '{}' from index '{}'", alias, index);
 
     // Remove indices from alias using the core manager
@@ -365,8 +380,9 @@ pub async fn remove_alias(
             })))
         }
         Err(e) => {
+            let error_msg = e.to_string();
             // If the alias doesn't exist or has no indices, try to delete it completely
-            if e.to_string().contains("not found") || e.to_string().contains("no indices") {
+            if error_msg.contains("not found") || error_msg.contains("no indices") {
                 match state.index_manager.delete_alias(&alias) {
                     Ok(_) => {
                         tracing::info!("Alias '{}' deleted successfully", alias);
@@ -374,14 +390,24 @@ pub async fn remove_alias(
                             "acknowledged": true
                         })))
                     }
-                    Err(_) => {
-                        tracing::error!("Failed to delete alias '{}': {}", alias, e);
-                        Err(StatusCode::NOT_FOUND)
+                    Err(delete_err) => {
+                        let delete_error_msg = delete_err.to_string();
+                        if delete_error_msg.contains("not found") {
+                            tracing::debug!("Alias '{}' not found (expected for DELETE)", alias);
+                            Err(ApiError::AliasNotFound(alias))
+                        } else {
+                            tracing::error!("Failed to delete alias '{}': {}", alias, delete_err);
+                            Err(ApiError::Internal(format!(
+                                "Failed to delete alias: {delete_err}"
+                            )))
+                        }
                     }
                 }
             } else {
                 tracing::error!("Failed to remove indices from alias '{}': {}", alias, e);
-                Err(StatusCode::BAD_REQUEST)
+                Err(ApiError::InvalidRequest(format!(
+                    "Failed to remove alias: {e}"
+                )))
             }
         }
     }

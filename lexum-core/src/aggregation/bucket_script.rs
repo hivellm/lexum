@@ -3,7 +3,7 @@
 //! Executes a script per bucket with access to sibling aggregation results.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
@@ -122,9 +122,9 @@ impl AggregationTrait for BucketScriptAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn execute_bucket_script(
     buckets: &[Bucket],
-    script: &str,
-    sibling_aggs: &HashMap<String, AggregationResult>,
-    params: &HashMap<String, JsonValue>,
+    _script: &str,
+    _sibling_aggs: &HashMap<String, AggregationResult>,
+    _params: &HashMap<String, JsonValue>,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse and execute the script for each bucket

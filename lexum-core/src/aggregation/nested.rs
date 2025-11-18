@@ -1,6 +1,6 @@
 //! Nested aggregation
 
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::AggregationResult;
 use super::{AggregationSpec, AggregationTrait};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
@@ -34,16 +34,16 @@ impl AggregationTrait for NestedAggregation {
                 match nested_value {
                     serde_json::Value::Array(arr) => {
                         // Array of nested objects - create a hit for each nested object
-                        for (idx, nested_obj) in arr.iter().enumerate() {
+                        for nested_obj in arr.iter() {
                             if let serde_json::Value::Object(_) = nested_obj {
                                 // Create a new hit with the nested object as source
                                 let mut nested_source = serde_json::Map::new();
                                 nested_source.insert("_nested".to_string(), nested_obj.clone());
-                                nested_hits.push(SearchHit {
-                                    id: hit.id.clone(),
-                                    score: hit.score.clone(),
-                                    source: serde_json::Value::Object(nested_source),
-                                });
+                                nested_hits.push(SearchHit::new(
+                                    hit.id.clone(),
+                                    hit.score,
+                                    serde_json::Value::Object(nested_source),
+                                ));
                             }
                         }
                     }
@@ -51,11 +51,11 @@ impl AggregationTrait for NestedAggregation {
                         // Single nested object
                         let mut nested_source = serde_json::Map::new();
                         nested_source.insert("_nested".to_string(), nested_value.clone());
-                        nested_hits.push(SearchHit {
-                            id: hit.id.clone(),
-                            score: hit.score.clone(),
-                            source: serde_json::Value::Object(nested_source),
-                        });
+                        nested_hits.push(SearchHit::new(
+                            hit.id.clone(),
+                            hit.score,
+                            serde_json::Value::Object(nested_source),
+                        ));
                     }
                     _ => {
                         // Other types - skip
@@ -147,6 +147,7 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::MedianAbsoluteDeviation(mad_agg) => {
                     mad_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::GeoCentroid(_) | AggregationSpec::GeoLine(_) => todo!(),
                 AggregationSpec::WeightedAverage(weighted_avg_agg) => {
                     weighted_avg_agg.execute(&nested_hits, field_cache)?
                 }
@@ -236,7 +237,7 @@ impl AggregationTrait for NestedAggregation {
                 for (name, sub_result) in single_bucket.aggregations() {
                     merged_sub_results
                         .entry(name.clone())
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(sub_result.clone());
                 }
             }
@@ -339,6 +340,7 @@ impl AggregationTrait for NestedAggregation {
                     AggregationSpec::Normalize(normalize_agg) => normalize_agg.merge(sub_results),
                     AggregationSpec::Children(children_agg) => children_agg.merge(sub_results),
                     AggregationSpec::Parent(parent_agg) => parent_agg.merge(sub_results),
+                    &AggregationSpec::GeoCentroid(_) | &AggregationSpec::GeoLine(_) => todo!(),
                 } {
                     merged_aggregations.insert(name.clone(), merged_result);
                 }
@@ -400,11 +402,11 @@ mod tests {
             serde_json::Value::Object(nested_obj),
         );
 
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::Value::Object(source),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::Value::Object(source),
+        )
     }
 
     #[test]

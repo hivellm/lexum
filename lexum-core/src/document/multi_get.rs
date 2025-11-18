@@ -1,6 +1,6 @@
 //! Multi-Get (mget) - Batch document retrieval
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::index::Index;
 use crate::types::DocumentId;
 use serde::{Deserialize, Serialize};
@@ -117,22 +117,21 @@ impl MultiGet {
 
         for item in request.docs {
             let doc_id = DocumentId::new(item.id.clone());
-            let index_name = item.index.as_deref().unwrap_or(self.index.name());
+            let index_name = item.index.as_deref().unwrap_or(self.index.name().as_str());
 
             // Get document
             match self.store.get_document(&doc_id).await {
-                Ok(Some(mut doc)) => {
+                Ok(mut doc) => {
                     // Apply source filtering if specified
                     if let Some(ref source_filter) = item.source {
                         doc = Self::apply_source_filter(doc, source_filter);
                     }
 
                     // Apply stored fields filtering if specified
-                    let fields = if let Some(ref stored_fields) = item.stored_fields {
-                        Some(Self::extract_stored_fields(&doc, stored_fields))
-                    } else {
-                        None
-                    };
+                    let fields = item
+                        .stored_fields
+                        .as_ref()
+                        .map(|stored_fields| Self::extract_stored_fields(&doc, stored_fields));
 
                     response_items.push(MultiGetResponseItem {
                         index: index_name.to_string(),
@@ -144,21 +143,17 @@ impl MultiGet {
                         error: None,
                     });
                 }
-                Ok(None) => {
-                    response_items.push(MultiGetResponseItem {
-                        index: index_name.to_string(),
-                        id: item.id,
-                        version: None,
-                        found: false,
-                        source: None,
-                        fields: None,
-                        error: Some(MultiGetError {
-                            error_type: "not_found_exception".to_string(),
-                            reason: "Document not found".to_string(),
-                        }),
-                    });
-                }
                 Err(e) => {
+                    let error_reason = if e.to_string().contains("not found") {
+                        "Document not found".to_string()
+                    } else {
+                        e.to_string()
+                    };
+                    let error_type = if e.to_string().contains("not found") {
+                        "not_found_exception"
+                    } else {
+                        "internal_exception"
+                    };
                     response_items.push(MultiGetResponseItem {
                         index: index_name.to_string(),
                         id: item.id,
@@ -167,8 +162,8 @@ impl MultiGet {
                         source: None,
                         fields: None,
                         error: Some(MultiGetError {
-                            error_type: "internal_exception".to_string(),
-                            reason: e.to_string(),
+                            error_type: error_type.to_string(),
+                            reason: error_reason,
                         }),
                     });
                 }
@@ -189,10 +184,10 @@ impl MultiGet {
             SourceFilter::Exclude(fields) => Self::exclude_fields(&doc, fields),
             SourceFilter::Object { includes, excludes } => {
                 let mut result = doc;
-                if let Some(ref includes) = includes {
+                if let Some(includes) = includes {
                     result = Self::include_fields(&result, includes);
                 }
-                if let Some(ref excludes) = excludes {
+                if let Some(excludes) = excludes {
                     result = Self::exclude_fields(&result, excludes);
                 }
                 result

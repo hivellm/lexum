@@ -146,6 +146,7 @@ impl SchemaBuilder {
                     }
                     tantivy_builder.add_u64_field(&config.name, options)
                 }
+                FieldType::GeoPoint => todo!(),
             };
 
             field_map.insert(config.name.clone(), field);

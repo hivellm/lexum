@@ -2,10 +2,11 @@
 
 use crate::handlers::index::AppState;
 use crate::handlers::{
-    admin, alias, auth, batch, bottleneck, document, health, index, mapping, metrics, profiling,
-    progress, progress_bulk, query_ops, reindex, rollover, scroll, search, snapshot, suggest,
-    template,
+    admin, alias, auth, batch, bottleneck, document, geo, health, index, mapping, metrics,
+    point_in_time, profiling, progress, progress_bulk, query_ops, reindex, rollover, scroll,
+    search, snapshot, suggest, template,
 };
+use crate::middleware::content_type::{ContentTypeValidationConfig, ContentTypeValidationLayer};
 use crate::middleware::http2_push::{Http2PushConfig, Http2PushLayer};
 use crate::middleware::ip_filter::{IpFilterConfig, IpFilterLayer};
 use crate::middleware::query_complexity::{QueryComplexityLimitConfig, QueryComplexityLimitLayer};
@@ -55,6 +56,36 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
         .route("/api/v1/indices/{name}/stats", get(index::get_index_stats))
         .route("/api/v1/indices/{name}/refresh", post(index::refresh_index))
         .route("/api/v1/indices/{name}/flush", post(index::flush_index))
+        .route("/api/v1/indices/{name}/close", post(index::close_index))
+        .route("/api/v1/indices/{name}/open", post(index::open_index))
+        .route(
+            "/api/v1/indices/{name}/forcemerge",
+            post(index::force_merge_index),
+        )
+        .route(
+            "/api/v1/indices/{name}/settings",
+            put(index::update_index_settings),
+        )
+        .route(
+            "/api/v1/indices/{source_index}/shrink",
+            post(index::shrink_index),
+        )
+        .route(
+            "/api/v1/indices/{source_index}/split",
+            post(index::split_index),
+        )
+        .route(
+            "/api/v1/indices/{source_index}/clone",
+            post(index::clone_index),
+        )
+        .route(
+            "/api/v1/indices/{alias}/rollover",
+            post(index::rollover_index),
+        )
+        // Geo endpoints
+        .route("/api/v1/geo/validate", post(geo::validate_geo_point))
+        .route("/api/v1/geo/distance", post(geo::calculate_distance))
+        .route("/api/v1/geo/bounds", post(geo::check_bounds))
         // Mapping endpoints
         .route(
             "/api/v1/indices/{index}/_mapping",
@@ -120,6 +151,14 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
             "/api/v1/_search/scroll/_all",
             delete(scroll::clear_all_scrolls),
         )
+        // Point in Time API
+        .route(
+            "/api/v1/indices/{index}/_pit",
+            post(point_in_time::create_pit),
+        )
+        .route("/api/v1/_pit/{pit_id}", post(point_in_time::extend_pit))
+        .route("/api/v1/_pit/{pit_id}", delete(point_in_time::delete_pit))
+        .route("/api/v1/_search/pit", post(point_in_time::search_with_pit))
         // Query-based operations
         .route(
             "/api/v1/indices/{index}/_update_by_query",
@@ -271,6 +310,9 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
         // Middleware (security layers)
         .layer(
             ServiceBuilder::new()
+                .layer(ContentTypeValidationLayer::new(
+                    ContentTypeValidationConfig::default(),
+                ))
                 .layer(IpFilterLayer::new(IpFilterConfig::default()))
                 .layer(RateLimitLayer::new(RateLimitConfig::default()))
                 .layer(RequestSizeLimitLayer::new(RequestSizeLimitConfig::default()))

@@ -3,13 +3,11 @@
 //! Calculates the difference between values at a specified lag.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
-use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Serial Differencing Aggregation
@@ -105,8 +103,8 @@ impl AggregationTrait for SerialDifferencingAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn calculate_serial_differencing(
     buckets: &[Bucket],
-    buckets_path: &str,
-    lag: usize,
+    _buckets_path: &str,
+    _lag: usize,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse buckets_path to extract metric values (e.g., "my_histogram>_count")

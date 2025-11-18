@@ -20,7 +20,7 @@ pub struct GeoDistanceAggregation {
     pub field: String,
     /// Origin point for distance calculation
     pub origin: GeoPoint,
-    /// Distance ranges (e.g., ["0-100km", "100-500km"])
+    /// Distance ranges (e.g., [`"0-100km"`, `"100-500km"`])
     pub ranges: Vec<DistanceRange>,
     /// Distance unit (km, mi, m, yd, ft, in, nmi)
     #[serde(default = "default_unit")]

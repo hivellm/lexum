@@ -209,7 +209,7 @@ pub enum AggregationSpec {
     /// Rate aggregation (time-based rate calculation)
     Rate(RateAggregation),
     /// T-Test aggregation (statistical t-test for A/B testing)
-    TTest(TTestAggregation),
+    TTest(Box<TTestAggregation>),
     /// Top Hits aggregation (document retrieval within buckets)
     TopHits(TopHitsAggregation),
     /// Scripted Metric aggregation (custom script execution)

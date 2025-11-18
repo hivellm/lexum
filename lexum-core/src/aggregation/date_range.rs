@@ -318,11 +318,11 @@ mod tests {
     use crate::types::{DocumentId, Score};
 
     fn create_test_hit_date(id: &str, field: &str, date_str: &str) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({ field: date_str }),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({ field: date_str }),
+        )
     }
 
     fn create_test_hit_timestamp(id: &str, field: &str, timestamp: i64) -> SearchHit {
@@ -493,11 +493,11 @@ mod tests {
         let agg = DateRangeAggregation::new("date", ranges);
         let field_cache = FieldCache::new();
 
-        let hits = vec![SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "other_field": "value" }),
-        }];
+        let hits = vec![SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "other_field": "value" }),
+        )];
 
         let result = agg.execute(&hits, &field_cache).unwrap();
 

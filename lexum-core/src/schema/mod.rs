@@ -7,7 +7,7 @@ pub mod mapping;
 
 pub use builder::SchemaBuilder;
 pub use converter::{mapping_to_schema, schema_to_mapping};
-pub use field_type::{FieldConfig, FieldType};
+pub use field_type::{FieldConfig, FieldType, GeoPoint, GeoPointFormat};
 pub use mapping::{
     DynamicMapping, ElasticsearchFieldType, ElasticsearchMapping, FieldMapping, IndexOptions,
 };

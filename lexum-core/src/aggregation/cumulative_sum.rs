@@ -3,13 +3,11 @@
 //! Calculates cumulative sum of metric values across buckets.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
-use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Cumulative Sum Aggregation
@@ -74,7 +72,7 @@ impl AggregationTrait for CumulativeSumAggregation {
 
 /// Calculate cumulative sum for buckets
 /// This is a helper function that would be called during pipeline aggregation processing
-pub fn calculate_cumulative_sum(buckets: &[Bucket], buckets_path: &str) -> Result<Vec<Bucket>> {
+pub fn calculate_cumulative_sum(buckets: &[Bucket], _buckets_path: &str) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse buckets_path to extract metric values (e.g., "my_histogram>_count")
     // 2. Calculate cumulative sum: bucket[i].cumulative_sum = sum(bucket[0..i].value)

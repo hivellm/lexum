@@ -246,21 +246,21 @@ mod tests {
         let agg = RateAggregation::new("value").mode("sum");
         let mut hits = vec![];
 
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 10 }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 20 }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 30 }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 10 }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 20 }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 30 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -282,16 +282,16 @@ mod tests {
         let agg = RateAggregation::new("value").mode("value_count");
         let mut hits = vec![];
 
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 10 }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 20 }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 10 }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 20 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -314,19 +314,19 @@ mod tests {
 
         // Create first result: sum = 10
         let mut hits1 = vec![];
-        hits1.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 10 }),
-        });
+        hits1.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 10 }),
+        ));
 
         // Create second result: sum = 20
         let mut hits2 = vec![];
-        hits2.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 20 }),
-        });
+        hits2.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 20 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result1 = agg.execute(&hits1, &field_cache).unwrap();

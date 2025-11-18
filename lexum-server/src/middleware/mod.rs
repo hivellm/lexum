@@ -2,6 +2,7 @@
 
 pub mod auth;
 pub mod connection_pool;
+pub mod content_type;
 pub mod http2_push;
 pub mod ip_filter;
 pub mod metrics;
@@ -15,6 +16,7 @@ pub use auth::{
     create_unauthorized_response,
 };
 pub use connection_pool::{ConnectionPoolConfig, ConnectionPoolStats};
+pub use content_type::{ContentTypeValidationConfig, ContentTypeValidationLayer};
 pub use http2_push::{Http2PushConfig, Http2PushLayer};
 pub use ip_filter::{IpFilterConfig, IpFilterLayer};
 pub use query_complexity::{QueryComplexityLimitConfig, QueryComplexityLimitLayer};

@@ -116,7 +116,7 @@ impl AggregationTrait for ScriptedMetricAggregation {
         // - Returns a placeholder result
 
         // Initialize state with init script (if provided)
-        let mut state = if let Some(ref init_script) = self.init_script {
+        let _state = if let Some(ref _init_script) = self.init_script {
             // In a full implementation, this would execute the init script
             // For now, return empty state
             JsonValue::Object(serde_json::Map::new())
@@ -282,16 +282,16 @@ mod tests {
         let agg = ScriptedMetricAggregation::new("_source.value", "states", "states");
         let mut hits = vec![];
 
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 10 }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 20 }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 10 }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 20 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -315,19 +315,19 @@ mod tests {
 
         // Create first result
         let mut hits1 = vec![];
-        hits1.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 10 }),
-        });
+        hits1.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 10 }),
+        ));
 
         // Create second result
         let mut hits2 = vec![];
-        hits2.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 20 }),
-        });
+        hits2.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 20 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result1 = agg.execute(&hits1, &field_cache).unwrap();

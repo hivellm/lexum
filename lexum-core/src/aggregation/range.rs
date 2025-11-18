@@ -210,11 +210,11 @@ mod tests {
     use crate::types::{DocumentId, Score};
 
     fn create_test_hit_numeric(id: &str, field: &str, value: f64) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({ field: value }),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({ field: value }),
+        )
     }
 
     #[test]
@@ -527,16 +527,16 @@ mod tests {
 
         // Hits without the price field
         let hits = vec![
-            SearchHit {
-                id: DocumentId::new("1"),
-                score: Score::new(1.0),
-                source: serde_json::json!({ "name": "item1" }),
-            },
-            SearchHit {
-                id: DocumentId::new("2"),
-                score: Score::new(1.0),
-                source: serde_json::json!({ "name": "item2" }),
-            },
+            SearchHit::new(
+                DocumentId::new("1"),
+                Score::new(1.0),
+                serde_json::json!({ "name": "item1" }),
+            ),
+            SearchHit::new(
+                DocumentId::new("2"),
+                Score::new(1.0),
+                serde_json::json!({ "name": "item2" }),
+            ),
         ];
 
         let result = agg.execute(&hits, &field_cache).unwrap();

@@ -1,6 +1,7 @@
 //! API error types
 
 use axum::Json;
+use axum::extract::rejection::JsonRejection;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,10 @@ pub enum ApiError {
     /// Template not found
     #[error("Template not found: {0}")]
     TemplateNotFound(String),
+
+    /// Alias not found
+    #[error("Alias not found: {0}")]
+    AliasNotFound(String),
 
     /// Task not found
     #[error("Task not found: {0}")]
@@ -102,6 +107,7 @@ impl ApiError {
             Self::IndexNotFound(_)
             | Self::DocumentNotFound(_)
             | Self::TemplateNotFound(_)
+            | Self::AliasNotFound(_)
             | Self::TaskNotFound(_) => StatusCode::NOT_FOUND,
             Self::InvalidRequest(_) | Self::Validation(_) => StatusCode::BAD_REQUEST,
             Self::Authentication(_) => StatusCode::UNAUTHORIZED,
@@ -131,6 +137,121 @@ impl IntoResponse for ApiError {
         let body = Json(self.to_response());
 
         (status, body).into_response()
+    }
+}
+
+/// Convert JsonRejection to ApiError for better error messages
+impl From<JsonRejection> for ApiError {
+    fn from(rejection: JsonRejection) -> Self {
+        let (error_message, details) = match &rejection {
+            JsonRejection::JsonDataError(err) => {
+                let err_str = err.to_string();
+                // Try to extract line/column information from error message
+                let details = extract_json_error_details(&err_str);
+                (
+                    format!("Invalid JSON format: {err}"),
+                    details,
+                )
+            }
+            JsonRejection::JsonSyntaxError(err) => {
+                let err_str = err.to_string();
+                // Try to extract line/column information from error message
+                let details = extract_json_error_details(&err_str);
+                (
+                    format!("JSON syntax error: {err}"),
+                    details,
+                )
+            }
+            JsonRejection::MissingJsonContentType(_) => {
+                (
+                    "Missing Content-Type: application/json header".to_string(),
+                    Some("Please ensure your request includes the header: Content-Type: application/json".to_string()),
+                )
+            }
+            JsonRejection::BytesRejection(_) => {
+                (
+                    "Failed to read request body".to_string(),
+                    Some("The request body could not be read. Check that the request is properly formatted.".to_string()),
+                )
+            }
+            _ => {
+                (
+                    format!("JSON parsing error: {rejection}"),
+                    Some("Check that your JSON payload is valid and properly formatted.".to_string()),
+                )
+            }
+        };
+
+        // Create error with details
+        let mut api_error = ApiError::Serialization(error_message);
+        // Store details in the error message for now (we'll enhance ErrorResponse later)
+        if let Some(details) = details {
+            if let ApiError::Serialization(ref mut msg) = api_error {
+                *msg = format!("{msg}\nDetails: {details}");
+            }
+        }
+        api_error
+    }
+}
+
+/// Extract line/column information from JSON error messages
+pub(crate) fn extract_json_error_details(error_msg: &str) -> Option<String> {
+    // Look for common patterns in serde_json error messages
+    // Example: "key must be a string at line 1 column 2"
+    // Example: "invalid type: integer `123`, expected a string at line 2 column 5"
+
+    let mut details = Vec::new();
+
+    // Extract line number
+    if let Some(line_pos) = error_msg.find("line ") {
+        let line_part = &error_msg[line_pos..];
+        if let Some(space_pos) = line_part.find(' ') {
+            let after_line = &line_part[space_pos + 1..];
+            if let Some(end_pos) = after_line.find(|c: char| !c.is_ascii_digit()) {
+                if let Ok(line_num) = after_line[..end_pos].parse::<usize>() {
+                    details.push(format!("Line: {line_num}"));
+                }
+            }
+        }
+    }
+
+    // Extract column number
+    if let Some(col_pos) = error_msg.find("column ") {
+        let col_part = &error_msg[col_pos..];
+        if let Some(space_pos) = col_part.find(' ') {
+            let after_col = &col_part[space_pos + 1..];
+            if let Some(end_pos) = after_col.find(|c: char| !c.is_ascii_digit() && c != ' ') {
+                if let Ok(col_num) = after_col[..end_pos].trim().parse::<usize>() {
+                    details.push(format!("Column: {col_num}"));
+                }
+            }
+        }
+    }
+
+    // Extract field name if present
+    if let Some(field_pos) = error_msg.find("field `") {
+        let field_part = &error_msg[field_pos + 7..];
+        if let Some(end_pos) = field_part.find('`') {
+            let field_name = &field_part[..end_pos];
+            details.push(format!("Field: {field_name}"));
+        }
+    }
+
+    // Extract expected type if present
+    if let Some(expected_pos) = error_msg.find("expected ") {
+        let expected_part = &error_msg[expected_pos + 9..];
+        if let Some(end_pos) = expected_part.find([' ', '`', '\n']) {
+            let expected_type = expected_part[..end_pos].trim();
+            if !expected_type.is_empty() {
+                details.push(format!("Expected type: {expected_type}"));
+            }
+        }
+    }
+
+    if details.is_empty() {
+        None
+    } else {
+        Some(details.join(", "))
     }
 }
 
@@ -245,4 +366,37 @@ mod tests {
         assert_eq!(success_function(), "success");
         assert!(error_function().is_err());
     }
+
+    #[test]
+    fn test_extract_json_error_details_with_line_column() {
+        let error_msg = "key must be a string at line 1 column 2";
+        let details = extract_json_error_details(error_msg);
+        assert!(details.is_some());
+        let details_str = details.unwrap();
+        assert!(details_str.contains("Line: 1"));
+        assert!(details_str.contains("Column: 2"));
+    }
+
+    #[test]
+    fn test_extract_json_error_details_with_field() {
+        let error_msg =
+            "invalid type: integer `123`, expected a string at field `age` at line 2 column 5";
+        let details = extract_json_error_details(error_msg);
+        assert!(details.is_some());
+        let details_str = details.unwrap();
+        assert!(details_str.contains("Line: 2"));
+        assert!(details_str.contains("Column: 5"));
+        assert!(details_str.contains("Field: age"));
+        assert!(details_str.contains("Expected type: string"));
+    }
+
+    #[test]
+    fn test_extract_json_error_details_no_info() {
+        let error_msg = "Some generic error";
+        let details = extract_json_error_details(error_msg);
+        assert!(details.is_none());
+    }
+
+    // Note: MissingJsonContentType is private, so we can't test it directly
+    // The error handling is tested through integration tests
 }

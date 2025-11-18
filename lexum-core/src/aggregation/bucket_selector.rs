@@ -3,7 +3,7 @@
 //! Filters buckets based on a script condition.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
@@ -113,9 +113,9 @@ impl AggregationTrait for BucketSelectorAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn filter_buckets_by_script(
     buckets: &[Bucket],
-    script: &str,
-    sibling_aggs: &HashMap<String, AggregationResult>,
-    params: &HashMap<String, JsonValue>,
+    _script: &str,
+    _sibling_aggs: &HashMap<String, AggregationResult>,
+    _params: &HashMap<String, JsonValue>,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse and execute the script condition for each bucket

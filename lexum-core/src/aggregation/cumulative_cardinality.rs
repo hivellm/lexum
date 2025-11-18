@@ -3,13 +3,11 @@
 //! Calculates cumulative cardinality (unique count) across buckets.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
-use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Cumulative Cardinality Aggregation
@@ -76,7 +74,7 @@ impl AggregationTrait for CumulativeCardinalityAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn calculate_cumulative_cardinality(
     buckets: &[Bucket],
-    buckets_path: &str,
+    _buckets_path: &str,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse buckets_path to extract cardinality values (e.g., "my_histogram>unique_users")

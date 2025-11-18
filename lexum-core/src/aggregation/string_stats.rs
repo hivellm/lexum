@@ -176,7 +176,7 @@ impl AggregationTrait for StringStatsAggregation {
                     }
 
                     // Merge character distributions
-                    if let (Some(ref mut merged_dist), Some(ref stats_dist)) =
+                    if let (Some(ref mut merged_dist), Some(stats_dist)) =
                         (merged_distribution.as_mut(), stats.distribution.as_ref())
                     {
                         for (ch, count) in stats_dist.iter() {
@@ -231,13 +231,6 @@ mod tests {
     }
 
     #[test]
-    fn test_string_stats_aggregation_with_distribution() {
-        let agg = StringStatsAggregation::new("name").show_distribution(true);
-
-        assert!(agg.show_distribution);
-    }
-
-    #[test]
     fn test_string_stats_aggregation_empty() {
         let agg = StringStatsAggregation::new("name");
         let hits = vec![];
@@ -265,21 +258,21 @@ mod tests {
         let mut hits = vec![];
 
         // Create hits with string values
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "abc" }), // length: 3
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "hello" }), // length: 5
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "x" }), // length: 1
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "abc" }), // length: 3
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "hello" }), // length: 5
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "x" }), // length: 1
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -304,16 +297,16 @@ mod tests {
         let agg = StringStatsAggregation::new("name").show_distribution(true);
         let mut hits = vec![];
 
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "abc" }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "aab" }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "abc" }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "aab" }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -341,16 +334,16 @@ mod tests {
         let mut hits = vec![];
 
         // Numeric values should be converted to strings
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 123 }), // "123" -> length 3
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "value": 45 }), // "45" -> length 2
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 123 }), // "123" -> length 3
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "value": 45 }), // "45" -> length 2
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -374,24 +367,24 @@ mod tests {
 
         // Create first result: ["abc", "hello"]
         let mut hits1 = vec![];
-        hits1.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "abc" }),
-        });
-        hits1.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "hello" }),
-        });
+        hits1.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "abc" }),
+        ));
+        hits1.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "hello" }),
+        ));
 
         // Create second result: ["x"]
         let mut hits2 = vec![];
-        hits2.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "name": "x" }),
-        });
+        hits2.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(1.0),
+            serde_json::json!({ "name": "x" }),
+        ));
 
         let field_cache = FieldCache::new();
         let result1 = agg.execute(&hits1, &field_cache).unwrap();

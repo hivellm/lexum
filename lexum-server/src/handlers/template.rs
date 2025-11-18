@@ -104,8 +104,10 @@ pub struct TemplateResponse {
 pub async fn put_template(
     State(state): State<AppState>,
     Path(name): Path<String>,
-    Json(request): Json<PutTemplateRequest>,
+    request: Result<Json<PutTemplateRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<TemplateResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     // Convert request to IndexTemplate
     let template = IndexTemplate {
         name: TemplateName::from(name.clone()),

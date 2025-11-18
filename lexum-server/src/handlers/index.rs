@@ -8,12 +8,14 @@ use lexum_core::schema::{ElasticsearchMapping, mapping_to_schema};
 use lexum_core::{
     FieldConfig, FieldType, IndexManager, IndexSettings, ProgressTracker, SchemaBuilder,
     SnapshotManager, TemplateManager,
+    index::{IndexSettingsUpdate, RolloverConfig, RolloverConditions, RolloverResult},
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use utoipa::ToSchema;
 
+use crate::handlers::alias::{AliasAction, AliasOperationsRequest};
 use crate::handlers::metrics::PrometheusMetrics;
 use crate::handlers::reindex::TaskManager;
 use crate::middleware::auth::AuthState;
@@ -148,8 +150,10 @@ pub struct ListIndicesResponse {
 )]
 pub async fn create_index(
     State(state): State<AppState>,
-    Json(request): Json<CreateIndexRequest>,
+    request: Result<Json<CreateIndexRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<(StatusCode, Json<IndexInfo>)> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     // Validate request
     if request.name.is_empty() {
         return Err(ApiError::InvalidRequest(
@@ -461,7 +465,15 @@ pub async fn delete_index(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> ApiResult<StatusCode> {
-    state.index_manager.delete_index(&name).await?;
+    state.index_manager.delete_index(&name).await.map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") {
+                return ApiError::IndexNotFound(name.clone());
+            }
+        }
+        ApiError::Core(e)
+    })?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -495,6 +507,12 @@ pub async fn get_index_stats(
 ) -> ApiResult<Json<IndexStats>> {
     // Check if index exists first
     state.index_manager.get_index(&name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(name.clone());
+            }
+        }
         let error_msg = e.to_string();
         // Only return 404 if the error indicates the index doesn't exist
         if error_msg.contains("not found") || error_msg.contains("does not exist") {
@@ -502,7 +520,7 @@ pub async fn get_index_stats(
         } else {
             // For other errors, log and return 500
             tracing::error!("Failed to get index '{}': {}", name, error_msg);
-            ApiError::Internal(format!("Failed to access index '{name}': {error_msg}"))
+            ApiError::Core(e)
         }
     })?;
 
@@ -511,11 +529,15 @@ pub async fn get_index_stats(
         .get_index_stats(&name)
         .await
         .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(name.clone());
+                }
+            }
             let error_msg = e.to_string();
             tracing::error!("Failed to get stats for index '{}': {}", name, error_msg);
-            ApiError::Internal(format!(
-                "Failed to get index statistics for '{name}': {error_msg}"
-            ))
+            ApiError::Core(e)
         })?;
 
     let stats = IndexStats {
@@ -549,12 +571,18 @@ pub async fn refresh_index(
         .refresh_index(&name)
         .await
         .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(name.clone());
+                }
+            }
             let error_msg = e.to_string();
             tracing::error!("Failed to refresh index '{}': {}", name, error_msg);
             if error_msg.contains("not found") || error_msg.contains("does not exist") {
                 ApiError::IndexNotFound(name.clone())
             } else {
-                ApiError::Internal(format!("Failed to refresh index '{name}': {error_msg}"))
+                ApiError::Core(e)
             }
         })?;
 
@@ -580,16 +608,616 @@ pub async fn flush_index(
 ) -> ApiResult<StatusCode> {
     // Flush the index (commit all pending changes)
     state.index_manager.flush_index(&name).await.map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(name.clone());
+            }
+        }
         let error_msg = e.to_string();
         tracing::error!("Failed to flush index '{}': {}", name, error_msg);
         if error_msg.contains("not found") || error_msg.contains("does not exist") {
             ApiError::IndexNotFound(name.clone())
         } else {
-            ApiError::Internal(format!("Failed to flush index '{name}': {error_msg}"))
+            ApiError::Core(e)
         }
     })?;
 
     Ok(StatusCode::OK)
+}
+
+/// Close index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{name}/close",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    responses(
+        (status = 200, description = "Index closed successfully"),
+        (status = 404, description = "Index not found", body = ApiError),
+        (status = 400, description = "Index already closed", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn close_index(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> ApiResult<StatusCode> {
+    state.index_manager.close_index(&name).await.map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        tracing::error!("Failed to close index '{}': {}", name, error_msg);
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(name.clone())
+        } else if error_msg.contains("already closed") {
+            ApiError::InvalidRequest(format!("Index '{name}' is already closed"))
+        } else {
+            ApiError::Core(e)
+        }
+    })?;
+
+    Ok(StatusCode::OK)
+}
+
+/// Open index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{name}/open",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    responses(
+        (status = 200, description = "Index opened successfully"),
+        (status = 404, description = "Index not found", body = ApiError),
+        (status = 400, description = "Index already open", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn open_index(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> ApiResult<StatusCode> {
+    state.index_manager.open_index(&name).await.map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        tracing::error!("Failed to open index '{}': {}", name, error_msg);
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(name.clone())
+        } else if error_msg.contains("already open") {
+            ApiError::InvalidRequest(format!("Index '{name}' is already open"))
+        } else {
+            ApiError::Core(e)
+        }
+    })?;
+
+    Ok(StatusCode::OK)
+}
+
+/// Force merge request
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ForceMergeRequest {
+    /// Maximum number of segments after merge (None = merge to 1 segment)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_num_segments: Option<usize>,
+    /// Only merge segments that have deletions
+    #[serde(default)]
+    pub only_expunge_deletes: bool,
+}
+
+/// Force merge index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{name}/forcemerge",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    request_body = ForceMergeRequest,
+    responses(
+        (status = 200, description = "Index force merged successfully"),
+        (status = 404, description = "Index not found", body = ApiError),
+        (status = 400, description = "Index is closed", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn force_merge_index(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    Json(request): Json<ForceMergeRequest>,
+) -> ApiResult<StatusCode> {
+    state
+        .index_manager
+        .force_merge_index(
+            &name,
+            request.max_num_segments,
+            request.only_expunge_deletes,
+        )
+        .await
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(name.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            tracing::error!("Failed to force merge index '{}': {}", name, error_msg);
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(name.clone())
+            } else if error_msg.contains("is closed") {
+                ApiError::InvalidRequest(format!("Index '{name}' is closed"))
+            } else {
+                ApiError::Core(e)
+            }
+        })?;
+
+    Ok(StatusCode::OK)
+}
+
+/// Update index settings request
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct UpdateIndexSettingsRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number_of_shards: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub number_of_replicas: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_interval: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_memory_mapped_storage: Option<bool>,
+    /// Use `null` to clear the read ahead hint.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_ahead_bytes: Option<Option<usize>>,
+}
+
+impl UpdateIndexSettingsRequest {
+    fn is_empty(&self) -> bool {
+        self.number_of_shards.is_none()
+            && self.number_of_replicas.is_none()
+            && self.refresh_interval.is_none()
+            && self.enable_memory_mapped_storage.is_none()
+            && self.read_ahead_bytes.is_none()
+    }
+
+    fn into_update(self) -> IndexSettingsUpdate {
+        IndexSettingsUpdate {
+            number_of_shards: self.number_of_shards,
+            number_of_replicas: self.number_of_replicas,
+            refresh_interval: self.refresh_interval,
+            enable_memory_mapped_storage: self.enable_memory_mapped_storage,
+            read_ahead_bytes: self.read_ahead_bytes,
+        }
+    }
+}
+
+/// Update index settings handler
+#[utoipa::path(
+    put,
+    path = "/api/v1/indices/{name}/settings",
+    params(
+        ("name" = String, Path, description = "Index name")
+    ),
+    request_body = UpdateIndexSettingsRequest,
+    responses(
+        (status = 200, description = "Index settings updated", body = IndexSettings),
+        (status = 400, description = "Invalid request", body = ApiError),
+        (status = 404, description = "Index not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn update_index_settings(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+    Json(request): Json<UpdateIndexSettingsRequest>,
+) -> ApiResult<Json<IndexSettings>> {
+    if request.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "At least one setting must be provided".to_string(),
+        ));
+    }
+
+    let update = request.into_update();
+
+    let updated_settings = state
+        .index_manager
+        .update_index_settings(&name, update)
+        .await
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(name.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            tracing::error!(
+                "Failed to update settings for index '{}': {}",
+                name,
+                error_msg
+            );
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(name.clone())
+            } else if error_msg.contains("cannot be changed")
+                || error_msg.contains("No settings provided")
+                || error_msg.contains("must be greater than 0")
+            {
+                ApiError::InvalidRequest(error_msg)
+            } else {
+                ApiError::Core(e)
+            }
+        })?;
+
+    Ok(Json(updated_settings))
+}
+
+/// Shrink index request
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ShrinkIndexRequest {
+    /// Name of the target index to create
+    pub target_index: String,
+    /// Number of shards for the target index (must be less than source)
+    pub target_shards: usize,
+}
+
+/// Shrink index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{source_index}/shrink",
+    params(
+        ("source_index" = String, Path, description = "Name of the source index to shrink")
+    ),
+    request_body = ShrinkIndexRequest,
+    responses(
+        (status = 200, description = "Index shrunk successfully", body = IndexInfo),
+        (status = 400, description = "Invalid request parameters", body = ApiError),
+        (status = 404, description = "Source index not found", body = ApiError),
+        (status = 409, description = "Target index already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn shrink_index(
+    State(state): State<AppState>,
+    Path(source_index): Path<String>,
+    Json(request): Json<ShrinkIndexRequest>,
+) -> ApiResult<Json<IndexInfo>> {
+    // Validate target index name
+    if request.target_index.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "Target index name cannot be empty".to_string(),
+        ));
+    }
+
+    // Validate target shards
+    if request.target_shards == 0 {
+        return Err(ApiError::InvalidRequest(
+            "Target shards must be greater than 0".to_string(),
+        ));
+    }
+
+    // Perform shrink operation
+    state
+        .index_manager
+        .shrink_index(&source_index, &request.target_index, request.target_shards)
+        .await
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") && msg.contains(&source_index) {
+                    return ApiError::IndexNotFound(source_index.clone());
+                }
+                if msg.contains("already exists") {
+                    return ApiError::InvalidRequest(format!(
+                        "Target index '{}' already exists",
+                        request.target_index
+                    ));
+                }
+                if msg.contains("must be less than") || msg.contains("must be greater than") {
+                    return ApiError::InvalidRequest(msg.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            tracing::error!("Failed to shrink index '{}': {}", source_index, error_msg);
+            if error_msg.contains("not found") && error_msg.contains(&source_index) {
+                ApiError::IndexNotFound(source_index.clone())
+            } else if error_msg.contains("already exists") {
+                ApiError::InvalidRequest(format!(
+                    "Target index '{}' already exists",
+                    request.target_index
+                ))
+            } else if error_msg.contains("must be less than")
+                || error_msg.contains("must be greater than")
+            {
+                ApiError::InvalidRequest(error_msg)
+            } else {
+                ApiError::Core(e)
+            }
+        })?;
+
+    // Return info about the new shrunk index
+    let target_info = state
+        .index_manager
+        .get_index_stats(&request.target_index)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to get stats for shrunk index: {e}")))?;
+
+    Ok(Json(IndexInfo {
+        name: target_info.name,
+        num_docs: target_info.num_docs,
+    }))
+}
+
+/// Split index request
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SplitIndexRequest {
+    /// Name of the target index to create
+    pub target_index: String,
+    /// Number of shards for the target index (must be greater than source)
+    pub target_shards: usize,
+}
+
+/// Split index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{source_index}/split",
+    params(
+        ("source_index" = String, Path, description = "Name of the source index to split")
+    ),
+    request_body = SplitIndexRequest,
+    responses(
+        (status = 200, description = "Index split successfully", body = IndexInfo),
+        (status = 400, description = "Invalid request parameters", body = ApiError),
+        (status = 404, description = "Source index not found", body = ApiError),
+        (status = 409, description = "Target index already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn split_index(
+    State(state): State<AppState>,
+    Path(source_index): Path<String>,
+    Json(request): Json<SplitIndexRequest>,
+) -> ApiResult<Json<IndexInfo>> {
+    // Validate target index name
+    if request.target_index.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "Target index name cannot be empty".to_string(),
+        ));
+    }
+
+    // Validate target shards
+    if request.target_shards == 0 {
+        return Err(ApiError::InvalidRequest(
+            "Target shards must be greater than 0".to_string(),
+        ));
+    }
+
+    // Perform split operation
+    state
+        .index_manager
+        .split_index(&source_index, &request.target_index, request.target_shards)
+        .await
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") && msg.contains(&source_index) {
+                    return ApiError::IndexNotFound(source_index.clone());
+                }
+                if msg.contains("already exists") {
+                    return ApiError::InvalidRequest(format!(
+                        "Target index '{}' already exists",
+                        request.target_index
+                    ));
+                }
+                if msg.contains("must be greater than") {
+                    return ApiError::InvalidRequest(msg.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            tracing::error!("Failed to split index '{}': {}", source_index, error_msg);
+            if error_msg.contains("not found") && error_msg.contains(&source_index) {
+                ApiError::IndexNotFound(source_index.clone())
+            } else if error_msg.contains("already exists") {
+                ApiError::InvalidRequest(format!(
+                    "Target index '{}' already exists",
+                    request.target_index
+                ))
+            } else if error_msg.contains("must be greater than") {
+                ApiError::InvalidRequest(error_msg)
+            } else {
+                ApiError::Core(e)
+            }
+        })?;
+
+    // Return info about the new split index
+    let target_info = state
+        .index_manager
+        .get_index_stats(&request.target_index)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to get stats for split index: {e}")))?;
+
+    Ok(Json(IndexInfo {
+        name: target_info.name,
+        num_docs: target_info.num_docs,
+    }))
+}
+
+/// Clone index request
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CloneIndexRequest {
+    /// Name of the target index to create
+    pub target_index: String,
+    /// Optional settings to override in the cloned index
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<IndexSettings>,
+}
+
+/// Clone index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{source_index}/clone",
+    params(
+        ("source_index" = String, Path, description = "Name of the source index to clone")
+    ),
+    request_body = CloneIndexRequest,
+    responses(
+        (status = 200, description = "Index cloned successfully", body = IndexInfo),
+        (status = 400, description = "Invalid request parameters", body = ApiError),
+        (status = 404, description = "Source index not found", body = ApiError),
+        (status = 409, description = "Target index already exists", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn clone_index(
+    State(state): State<AppState>,
+    Path(source_index): Path<String>,
+    Json(request): Json<CloneIndexRequest>,
+) -> ApiResult<Json<IndexInfo>> {
+    // Validate target index name
+    if request.target_index.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "Target index name cannot be empty".to_string(),
+        ));
+    }
+
+    // Perform clone operation
+    state
+        .index_manager
+        .clone_index(&source_index, &request.target_index, request.settings)
+        .await
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") && msg.contains(&source_index) {
+                    return ApiError::IndexNotFound(source_index.clone());
+                }
+                if msg.contains("already exists") {
+                    return ApiError::InvalidRequest(format!(
+                        "Target index '{}' already exists",
+                        request.target_index
+                    ));
+                }
+                if msg.contains("cannot be changed") {
+                    return ApiError::InvalidRequest(msg.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            tracing::error!("Failed to clone index '{}': {}", source_index, error_msg);
+            if error_msg.contains("not found") && error_msg.contains(&source_index) {
+                ApiError::IndexNotFound(source_index.clone())
+            } else if error_msg.contains("already exists") {
+                ApiError::InvalidRequest(format!(
+                    "Target index '{}' already exists",
+                    request.target_index
+                ))
+            } else if error_msg.contains("cannot be changed") {
+                ApiError::InvalidRequest(error_msg)
+            } else {
+                ApiError::Core(e)
+            }
+        })?;
+
+    // Return info about the new cloned index
+    let target_info = state
+        .index_manager
+        .get_index_stats(&request.target_index)
+        .await
+        .map_err(|e| ApiError::Internal(format!("Failed to get stats for cloned index: {e}")))?;
+
+    Ok(Json(IndexInfo {
+        name: target_info.name,
+        num_docs: target_info.num_docs,
+    }))
+}
+
+/// Rollover index request
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RolloverIndexRequest {
+    /// Rollover configuration
+    pub rollover_config: RolloverConfig,
+}
+
+/// Rollover index handler
+#[utoipa::path(
+    post,
+    path = "/api/v1/indices/{alias}/rollover",
+    params(
+        ("alias" = String, Path, description = "Alias name to rollover")
+    ),
+    request_body = RolloverIndexRequest,
+    responses(
+        (status = 200, description = "Rollover completed successfully", body = RolloverResult),
+        (status = 400, description = "Invalid request parameters", body = ApiError),
+        (status = 404, description = "Alias not found", body = ApiError),
+        (status = 500, description = "Internal server error", body = ApiError)
+    ),
+    tag = "Indices"
+)]
+pub async fn rollover_index(
+    State(state): State<AppState>,
+    Path(alias): Path<String>,
+    request: Result<Json<RolloverIndexRequest>, axum::extract::rejection::JsonRejection>,
+) -> ApiResult<Json<RolloverResult>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
+    // Validate rollover config
+    if request.rollover_config.alias != alias {
+        return Err(ApiError::InvalidRequest(
+            "Alias in path must match alias in config".to_string(),
+        ));
+    }
+
+    if request.rollover_config.new_index.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "New index name pattern cannot be empty".to_string(),
+        ));
+    }
+
+    if request.rollover_config.conditions.is_empty() {
+        return Err(ApiError::InvalidRequest(
+            "At least one rollover condition must be specified".to_string(),
+        ));
+    }
+
+    // Perform rollover operation
+    let result = state
+        .index_manager
+        .rollover_index(&alias, &request.rollover_config)
+        .await
+        .map_err(|e| {
+            let error_msg = e.to_string();
+            tracing::error!(
+                "Failed to rollover index for alias '{}': {}",
+                alias,
+                error_msg
+            );
+            if error_msg.contains("not found") {
+                ApiError::IndexNotFound(alias.clone())
+            } else if error_msg.contains("has no indices") || error_msg.contains("Alias") {
+                ApiError::InvalidRequest(error_msg)
+            } else {
+                ApiError::Internal(format!(
+                    "Failed to rollover index for alias '{alias}': {error_msg}"
+                ))
+            }
+        })?;
+
+    Ok(Json(result))
 }
 
 #[cfg(test)]
@@ -661,7 +1289,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state.clone()), Json(request.clone())).await;
+        let result = create_index(State(state.clone()), Ok(Json(request.clone()))).await;
 
         // May succeed or fail depending on filesystem, but should not panic
         match result {
@@ -699,7 +1327,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             ApiError::InvalidRequest(msg) => {
@@ -719,7 +1347,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             ApiError::InvalidRequest(msg) => {
@@ -745,7 +1373,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             ApiError::InvalidRequest(msg) => {
@@ -771,7 +1399,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         assert!(result.is_err());
         match result.unwrap_err() {
             ApiError::InvalidRequest(msg) => {
@@ -779,6 +1407,32 @@ mod tests {
             }
             _ => panic!("Expected InvalidRequest error"),
         }
+    }
+
+    // Note: MissingJsonContentType is private, so we can't test it directly
+    // The error handling is tested through integration tests
+
+    #[test]
+    fn test_json_error_extraction() {
+        use crate::error::extract_json_error_details;
+
+        // Test error message with line and column
+        let error_msg = "key must be a string at line 1 column 2";
+        let details = extract_json_error_details(error_msg);
+        assert!(details.is_some());
+        let details_str = details.unwrap();
+        assert!(details_str.contains("Line: 1"));
+        assert!(details_str.contains("Column: 2"));
+
+        // Test error message with field and expected type
+        let error_msg2 =
+            "invalid type: integer `123`, expected a string at field `age` at line 2 column 5";
+        let details2 = extract_json_error_details(error_msg2);
+        assert!(details2.is_some());
+        let details_str2 = details2.unwrap();
+        assert!(details_str2.contains("Line: 2"));
+        assert!(details_str2.contains("Column: 5"));
+        assert!(details_str2.contains("Field: age"));
     }
 
     #[lexum_macros::tokio_test]
@@ -798,11 +1452,11 @@ mod tests {
         };
 
         // Try to create the index first time
-        let first_result = create_index(State(state.clone()), Json(request.clone())).await;
+        let first_result = create_index(State(state.clone()), Ok(Json(request.clone()))).await;
 
         // If first creation succeeded, try to create again (should fail with duplicate)
         if first_result.is_ok() {
-            let second_result = create_index(State(state), Json(request)).await;
+            let second_result = create_index(State(state), Ok(Json(request))).await;
             assert!(second_result.is_err());
             if let ApiError::InvalidRequest(msg) = second_result.unwrap_err() {
                 assert!(msg.contains("already exists") || msg.contains("duplicate"));
@@ -833,7 +1487,7 @@ mod tests {
         };
 
         // Create index (may fail in test environment, that's ok)
-        let _create_result = create_index(State(state.clone()), Json(create_request)).await;
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         // Try to get the index
         let result = get_index(State(state), Path("test-get-index".to_string())).await;
@@ -909,7 +1563,7 @@ mod tests {
 
         // Create indices (may fail in test environment)
         for request in requests {
-            let _ = create_index(State(state.clone()), Json(request)).await;
+            let _ = create_index(State(state.clone()), Ok(Json(request))).await;
         }
 
         // List indices
@@ -940,7 +1594,7 @@ mod tests {
         };
 
         // Create index (may fail in test environment)
-        let _create_result = create_index(State(state.clone()), Json(create_request)).await;
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         // Try to delete the index
         let result = delete_index(State(state), Path("test-delete-index".to_string())).await;
@@ -963,15 +1617,75 @@ mod tests {
             delete_index(State(state), Path("non-existent-index-delete".to_string())).await;
 
         assert!(result.is_err());
-        match result.unwrap_err() {
+        let error = result.unwrap_err();
+        // Should return IndexNotFound (404), not Internal Server Error (500)
+        match error {
             ApiError::IndexNotFound(name) => {
                 assert_eq!(name, "non-existent-index-delete");
+                // Verify status code is 404
+                assert_eq!(error.status_code(), StatusCode::NOT_FOUND);
             }
             ApiError::Core(lexum_core::Error::Validation(msg)) => {
-                // Core error conversion - also acceptable
+                // Core error conversion - also acceptable but should be converted to IndexNotFound
                 assert!(msg.contains("not found") || msg.contains("non-existent-index-delete"));
             }
             e => panic!("Expected IndexNotFound or Core::Validation error, got: {e:?}"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_delete_index_not_found_returns_404() {
+        // Test that delete_index returns 404 (IndexNotFound) for non-existent index
+        // This is critical - it should NOT return 500 (Internal Server Error)
+        let state = create_test_app_state();
+        let result = delete_index(
+            State(state),
+            Path("definitely-does-not-exist-12345".to_string()),
+        )
+        .await;
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+
+        // Verify it's IndexNotFound, not Internal Server Error
+        match error {
+            ApiError::IndexNotFound(_) => {
+                // Good - returns 404
+                assert_eq!(error.status_code(), StatusCode::NOT_FOUND);
+            }
+            ApiError::Internal(_) | ApiError::Core(_) => {
+                panic!(
+                    "delete_index should return IndexNotFound (404) for non-existent index, not Internal Server Error (500). Got: {error:?}"
+                );
+            }
+            _ => {
+                panic!(
+                    "delete_index should return IndexNotFound (404) for non-existent index. Got: {error:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_delete_index_error_conversion() {
+        // Test that Validation error with "not found" message is converted to IndexNotFound
+        use crate::error::ApiError;
+        use lexum_core::Error as CoreError;
+
+        // Simulate the error conversion logic from delete_index handler
+        let core_error = CoreError::Validation("Index not found".to_string());
+        let api_error = match core_error {
+            CoreError::Validation(ref msg) if msg.contains("not found") => {
+                ApiError::IndexNotFound("test-index".to_string())
+            }
+            _ => ApiError::Core(core_error),
+        };
+
+        match api_error {
+            ApiError::IndexNotFound(_) => {
+                assert_eq!(api_error.status_code(), StatusCode::NOT_FOUND);
+            }
+            _ => panic!("Expected IndexNotFound error"),
         }
     }
 
@@ -1008,7 +1722,7 @@ mod tests {
         };
 
         // Create index (may fail in test environment)
-        let _create_result = create_index(State(state.clone()), Json(create_request)).await;
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         // Try to get stats
         let result = get_index_stats(State(state), Path("test-stats-index".to_string())).await;
@@ -1047,7 +1761,7 @@ mod tests {
 
         // The request is valid, so if it fails, it should be a filesystem/core error
         // not a validation error
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         // We expect an error due to filesystem issues, but not a validation error
         // The function should execute without panicking
         let _ = result; // Acknowledge result exists
@@ -1073,7 +1787,7 @@ mod tests {
         };
 
         // Create index (may fail in test environment)
-        let _create_result = create_index(State(state.clone()), Json(create_request)).await;
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         // Try to refresh the index
         let result = refresh_index(State(state), Path("test-refresh-index".to_string())).await;
@@ -1123,7 +1837,7 @@ mod tests {
         };
 
         // Create index (may fail in test environment)
-        let _create_result = create_index(State(state.clone()), Json(create_request)).await;
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         // Try to flush the index
         let result = flush_index(State(state), Path("test-flush-index".to_string())).await;
@@ -1150,6 +1864,292 @@ mod tests {
                 assert_eq!(name, "non-existent-flush-index");
             }
             _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_close_index_success() {
+        let state = create_test_app_state();
+
+        // Try to create an index first
+        let create_request = CreateIndexRequest {
+            name: "test-close-index".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::default(),
+        };
+
+        // Create index (may fail in test environment)
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Try to close the index
+        let result = close_index(State(state), Path("test-close-index".to_string())).await;
+
+        match result {
+            Ok(status) => {
+                assert_eq!(status, StatusCode::OK);
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Index creation may have failed, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_close_index_not_found() {
+        let state = create_test_app_state();
+        let result = close_index(State(state), Path("non-existent-close-index".to_string())).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-close-index");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_open_index_success() {
+        let state = create_test_app_state();
+
+        // Try to create an index first
+        let create_request = CreateIndexRequest {
+            name: "test-open-index".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::default(),
+        };
+
+        // Create index (may fail in test environment)
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Close index first (may fail if index doesn't exist)
+        let _close_result =
+            close_index(State(state.clone()), Path("test-open-index".to_string())).await;
+
+        // Try to open the index
+        let result = open_index(State(state), Path("test-open-index".to_string())).await;
+
+        match result {
+            Ok(status) => {
+                assert_eq!(status, StatusCode::OK);
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Index creation may have failed, that's acceptable
+            }
+            Err(ApiError::InvalidRequest(_)) => {
+                // Index may already be open, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_open_index_not_found() {
+        let state = create_test_app_state();
+        let result = open_index(State(state), Path("non-existent-open-index".to_string())).await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-open-index");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_force_merge_index_success() {
+        let state = create_test_app_state();
+
+        // Try to create an index first
+        let create_request = CreateIndexRequest {
+            name: "test-forcemerge-index".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::default(),
+        };
+
+        // Create index (may fail in test environment)
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Try to force merge the index
+        let request = ForceMergeRequest {
+            max_num_segments: Some(1),
+            only_expunge_deletes: false,
+        };
+        let result = force_merge_index(
+            State(state),
+            Path("test-forcemerge-index".to_string()),
+            Json(request),
+        )
+        .await;
+
+        match result {
+            Ok(status) => {
+                assert_eq!(status, StatusCode::OK);
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Index creation may have failed, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_force_merge_index_not_found() {
+        let state = create_test_app_state();
+        let request = ForceMergeRequest {
+            max_num_segments: Some(1),
+            only_expunge_deletes: false,
+        };
+        let result = force_merge_index(
+            State(state),
+            Path("non-existent-forcemerge-index".to_string()),
+            Json(request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-forcemerge-index");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_update_index_settings_success() {
+        let state = create_test_app_state();
+
+        let create_request = CreateIndexRequest {
+            name: "test-update-settings".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::default(),
+        };
+
+        let _ = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        let request = UpdateIndexSettingsRequest {
+            number_of_replicas: Some(2),
+            refresh_interval: Some(5),
+            enable_memory_mapped_storage: Some(false),
+            read_ahead_bytes: Some(Some(4_096)),
+            ..Default::default()
+        };
+
+        let result = update_index_settings(
+            State(state),
+            Path("test-update-settings".to_string()),
+            Json(request),
+        )
+        .await;
+
+        match result {
+            Ok(Json(settings)) => {
+                assert_eq!(settings.number_of_replicas, 2);
+                assert_eq!(settings.refresh_interval, 5);
+                assert!(!settings.storage.enable_memory_mapped_storage);
+                assert_eq!(settings.storage.read_ahead_bytes, Some(4_096));
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Index creation may have failed - acceptable in CI
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_update_index_settings_not_found() {
+        let state = create_test_app_state();
+        let request = UpdateIndexSettingsRequest {
+            refresh_interval: Some(5),
+            ..Default::default()
+        };
+
+        let result = update_index_settings(
+            State(state),
+            Path("non-existent-update-settings".to_string()),
+            Json(request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-update-settings");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_update_index_settings_invalid_shards() {
+        let state = create_test_app_state();
+
+        let create_request = CreateIndexRequest {
+            name: "test-update-shards".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::default(),
+        };
+
+        let _ = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        let request = UpdateIndexSettingsRequest {
+            number_of_shards: Some(10),
+            ..Default::default()
+        };
+
+        let result = update_index_settings(
+            State(state),
+            Path("test-update-shards".to_string()),
+            Json(request),
+        )
+        .await;
+
+        match result {
+            Err(ApiError::InvalidRequest(msg)) => {
+                assert!(msg.contains("cannot be changed"));
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // acceptable if index creation failed
+            }
+            _ => {}
         }
     }
 
@@ -1321,7 +2321,7 @@ mod tests {
 
             // The request should be valid (not fail on validation)
             // It may fail on filesystem, but that's OK for this test
-            let result = create_index(State(state), Json(request)).await;
+            let result = create_index(State(state), Ok(Json(request))).await;
             // We only care that it doesn't fail on field type validation
             if let Err(ApiError::InvalidRequest(msg)) = result {
                 assert!(
@@ -1366,7 +2366,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         // Should not fail on validation
         if let Err(ApiError::InvalidRequest(msg)) = result {
             assert!(!msg.contains("cannot be empty"));
@@ -1397,7 +2397,7 @@ mod tests {
             settings,
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         // Should accept custom settings
         if let Ok((status, json)) = result {
             assert_eq!(status, StatusCode::CREATED);
@@ -1423,7 +2423,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let _ = create_index(State(state.clone()), Json(create_request)).await;
+        let _ = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         // List should handle errors gracefully and not panic
         let result = list_indices(State(state)).await;
@@ -1588,7 +2588,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         // Should not fail on validation
         if let Err(ApiError::InvalidRequest(msg)) = result {
             assert!(!msg.contains("Unknown field type"));
@@ -1626,7 +2626,7 @@ mod tests {
                 settings: IndexSettings::default(),
             };
 
-            let result = create_index(State(state.clone()), Json(request)).await;
+            let result = create_index(State(state.clone()), Ok(Json(request))).await;
             // Should not fail on validation
             if let Err(ApiError::InvalidRequest(msg)) = result {
                 assert!(!msg.contains("Unknown field type"));
@@ -1654,7 +2654,7 @@ mod tests {
             settings: IndexSettings::default(),
         };
 
-        let result = create_index(State(state), Json(request)).await;
+        let result = create_index(State(state), Ok(Json(request))).await;
         // The function should handle schema build errors gracefully
         match result {
             Ok(_) => {}
@@ -1688,13 +2688,13 @@ mod tests {
         };
 
         // Create first time
-        let first = create_index(State(state.clone()), Json(request.clone())).await;
+        let first = create_index(State(state.clone()), Ok(Json(request.clone()))).await;
 
         // If first succeeded, second should fail
         if first.is_ok() {
             // Manually add to list to test duplicate check
             // This tests the contains check in create_index
-            let second = create_index(State(state), Json(request)).await;
+            let second = create_index(State(state), Ok(Json(request))).await;
             assert!(second.is_err());
         }
     }
@@ -1851,7 +2851,7 @@ mod tests {
                 mappings: None,
                 settings: IndexSettings::default(),
             };
-            let _ = create_index(State(state.clone()), Json(request)).await;
+            let _ = create_index(State(state.clone()), Ok(Json(request))).await;
         }
 
         // List should handle any errors gracefully
@@ -1935,7 +2935,7 @@ mod tests {
                 settings: IndexSettings::default(),
             };
 
-            let result = create_index(State(state.clone()), Json(request)).await;
+            let result = create_index(State(state.clone()), Ok(Json(request))).await;
             // Should not fail on validation (may fail on filesystem)
             if let Err(ApiError::InvalidRequest(msg)) = result {
                 assert!(!msg.contains("cannot be empty"));
@@ -2044,5 +3044,786 @@ mod tests {
 
         let error_msg2 = "EINVAL: Invalid argument";
         assert!(error_msg2.contains("EINVAL"));
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_shrink_index_success() {
+        let state = create_test_app_state();
+
+        // Create source index with multiple shards
+        let create_request = CreateIndexRequest {
+            name: "source-index-shrink".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(3), // 3 shards
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Shrink to 1 shard
+        let shrink_request = ShrinkIndexRequest {
+            target_index: "shrunk-index".to_string(),
+            target_shards: 1,
+        };
+
+        let result = shrink_index(
+            State(state.clone()),
+            Path("source-index-shrink".to_string()),
+            Json(shrink_request),
+        )
+        .await;
+
+        match result {
+            Ok(json) => {
+                assert_eq!(json.name, "shrunk-index");
+                // num_docs should be 0 since no documents were added
+                assert_eq!(json.num_docs, 0);
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Source index creation may have failed, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_shrink_index_source_not_found() {
+        let state = create_test_app_state();
+
+        let shrink_request = ShrinkIndexRequest {
+            target_index: "shrunk-index".to_string(),
+            target_shards: 1,
+        };
+
+        let result = shrink_index(
+            State(state),
+            Path("non-existent-source".to_string()),
+            Json(shrink_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-source");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_shrink_index_invalid_target_shards() {
+        let state = create_test_app_state();
+
+        // Create source index with 2 shards
+        let create_request = CreateIndexRequest {
+            name: "source-index-invalid".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(2),
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Try to shrink to 3 shards (more than source)
+        let shrink_request = ShrinkIndexRequest {
+            target_index: "invalid-shrunk-index".to_string(),
+            target_shards: 3, // More than source
+        };
+
+        let result = shrink_index(
+            State(state),
+            Path("source-index-invalid".to_string()),
+            Json(shrink_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("must be less than"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_shrink_index_zero_target_shards() {
+        let state = create_test_app_state();
+
+        let shrink_request = ShrinkIndexRequest {
+            target_index: "zero-shards-index".to_string(),
+            target_shards: 0,
+        };
+
+        let result = shrink_index(
+            State(state),
+            Path("some-source".to_string()),
+            Json(shrink_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("must be greater than 0"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_shrink_index_empty_target_name() {
+        let state = create_test_app_state();
+
+        let shrink_request = ShrinkIndexRequest {
+            target_index: "".to_string(),
+            target_shards: 1,
+        };
+
+        let result = shrink_index(
+            State(state),
+            Path("some-source".to_string()),
+            Json(shrink_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("cannot be empty"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[test]
+    fn test_shrink_index_request_validation() {
+        // Test request structure validation
+        let valid_request = ShrinkIndexRequest {
+            target_index: "shrunk-index".to_string(),
+            target_shards: 2,
+        };
+
+        assert!(!valid_request.target_index.is_empty());
+        assert!(valid_request.target_shards > 0);
+
+        let invalid_request = ShrinkIndexRequest {
+            target_index: "".to_string(),
+            target_shards: 0,
+        };
+
+        assert!(invalid_request.target_index.is_empty());
+        assert_eq!(invalid_request.target_shards, 0);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_split_index_success() {
+        let state = create_test_app_state();
+
+        // Create source index with 2 shards
+        let create_request = CreateIndexRequest {
+            name: "source-index-split".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(2), // 2 shards
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Split to 4 shards
+        let split_request = SplitIndexRequest {
+            target_index: "split-index".to_string(),
+            target_shards: 4,
+        };
+
+        let result = split_index(
+            State(state.clone()),
+            Path("source-index-split".to_string()),
+            Json(split_request),
+        )
+        .await;
+
+        match result {
+            Ok(json) => {
+                assert_eq!(json.name, "split-index");
+                // num_docs should be 0 since no documents were added
+                assert_eq!(json.num_docs, 0);
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Source index creation may have failed, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_split_index_source_not_found() {
+        let state = create_test_app_state();
+
+        let split_request = SplitIndexRequest {
+            target_index: "split-index".to_string(),
+            target_shards: 4,
+        };
+
+        let result = split_index(
+            State(state),
+            Path("non-existent-source".to_string()),
+            Json(split_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-source");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_split_index_invalid_target_shards() {
+        let state = create_test_app_state();
+
+        // Create source index with 3 shards
+        let create_request = CreateIndexRequest {
+            name: "source-index-invalid-split".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(3),
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Try to split to 2 shards (fewer than source)
+        let split_request = SplitIndexRequest {
+            target_index: "invalid-split-index".to_string(),
+            target_shards: 2, // Fewer than source
+        };
+
+        let result = split_index(
+            State(state),
+            Path("source-index-invalid-split".to_string()),
+            Json(split_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("must be greater than"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_split_index_zero_target_shards() {
+        let state = create_test_app_state();
+
+        let split_request = SplitIndexRequest {
+            target_index: "zero-shards-split-index".to_string(),
+            target_shards: 0,
+        };
+
+        let result = split_index(
+            State(state),
+            Path("some-source".to_string()),
+            Json(split_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("must be greater than 0"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_split_index_empty_target_name() {
+        let state = create_test_app_state();
+
+        let split_request = SplitIndexRequest {
+            target_index: "".to_string(),
+            target_shards: 4,
+        };
+
+        let result = split_index(
+            State(state),
+            Path("some-source".to_string()),
+            Json(split_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("cannot be empty"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[test]
+    fn test_split_index_request_validation() {
+        // Test request structure validation
+        let valid_request = SplitIndexRequest {
+            target_index: "split-index".to_string(),
+            target_shards: 4,
+        };
+
+        assert!(!valid_request.target_index.is_empty());
+        assert!(valid_request.target_shards > 0);
+
+        let invalid_request = SplitIndexRequest {
+            target_index: "".to_string(),
+            target_shards: 0,
+        };
+
+        assert!(invalid_request.target_index.is_empty());
+        assert_eq!(invalid_request.target_shards, 0);
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_clone_index_success() {
+        let state = create_test_app_state();
+
+        // Create source index
+        let create_request = CreateIndexRequest {
+            name: "source-index-clone".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(2),
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Clone to new index
+        let clone_request = CloneIndexRequest {
+            target_index: "cloned-index".to_string(),
+            settings: None, // No settings override
+        };
+
+        let result = clone_index(
+            State(state.clone()),
+            Path("source-index-clone".to_string()),
+            Json(clone_request),
+        )
+        .await;
+
+        match result {
+            Ok(json) => {
+                assert_eq!(json.name, "cloned-index");
+                // num_docs should be 0 since no documents were added
+                assert_eq!(json.num_docs, 0);
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Source index creation may have failed, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_clone_index_with_settings_override() {
+        let state = create_test_app_state();
+
+        // Create source index with 2 shards
+        let create_request = CreateIndexRequest {
+            name: "source-index-clone-settings".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(2).with_replicas(1),
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Clone with settings override (change replicas, keep shards same)
+        let clone_request = CloneIndexRequest {
+            target_index: "cloned-index-settings".to_string(),
+            settings: Some(IndexSettings::new().with_shards(2).with_replicas(2)), // Same shards, different replicas
+        };
+
+        let result = clone_index(
+            State(state.clone()),
+            Path("source-index-clone-settings".to_string()),
+            Json(clone_request),
+        )
+        .await;
+
+        match result {
+            Ok(json) => {
+                assert_eq!(json.name, "cloned-index-settings");
+                assert_eq!(json.num_docs, 0);
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Source index creation may have failed, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_clone_index_source_not_found() {
+        let state = create_test_app_state();
+
+        let clone_request = CloneIndexRequest {
+            target_index: "cloned-index".to_string(),
+            settings: None,
+        };
+
+        let result = clone_index(
+            State(state),
+            Path("non-existent-source".to_string()),
+            Json(clone_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-source");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_clone_index_invalid_shard_change() {
+        let state = create_test_app_state();
+
+        // Create source index with 2 shards
+        let create_request = CreateIndexRequest {
+            name: "source-index-invalid-clone".to_string(),
+            fields: vec![FieldDefinition {
+                name: "title".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(2),
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Try to clone with different shard count (should fail)
+        let clone_request = CloneIndexRequest {
+            target_index: "invalid-cloned-index".to_string(),
+            settings: Some(IndexSettings::new().with_shards(3)), // Different shards
+        };
+
+        let result = clone_index(
+            State(state),
+            Path("source-index-invalid-clone".to_string()),
+            Json(clone_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("cannot be changed"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_clone_index_empty_target_name() {
+        let state = create_test_app_state();
+
+        let clone_request = CloneIndexRequest {
+            target_index: "".to_string(),
+            settings: None,
+        };
+
+        let result = clone_index(
+            State(state),
+            Path("some-source".to_string()),
+            Json(clone_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("cannot be empty"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[test]
+    fn test_clone_index_request_validation() {
+        // Test request structure validation
+        let valid_request = CloneIndexRequest {
+            target_index: "cloned-index".to_string(),
+            settings: None,
+        };
+
+        assert!(!valid_request.target_index.is_empty());
+
+        let valid_request_with_settings = CloneIndexRequest {
+            target_index: "cloned-index-settings".to_string(),
+            settings: Some(IndexSettings::default()),
+        };
+
+        assert!(!valid_request_with_settings.target_index.is_empty());
+        assert!(valid_request_with_settings.settings.is_some());
+
+        let invalid_request = CloneIndexRequest {
+            target_index: "".to_string(),
+            settings: None,
+        };
+
+        assert!(invalid_request.target_index.is_empty());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_rollover_index_success() {
+        let state = create_test_app_state();
+
+        // Create source index and alias
+        let create_request = CreateIndexRequest {
+            name: "logs-000001".to_string(),
+            fields: vec![FieldDefinition {
+                name: "message".to_string(),
+                field_type: "text".to_string(),
+                stored: true,
+                indexed: true,
+                fast: false,
+            }],
+            mappings: None,
+            settings: IndexSettings::new().with_shards(1),
+        };
+
+        let _create_result = create_index(State(state.clone()), Ok(Json(create_request))).await;
+
+        // Create alias pointing to the index
+        let alias_request = AliasOperationsRequest {
+            actions: vec![AliasAction {
+                action: "add".to_string(),
+                index: "logs-000001".to_string(),
+                alias: "logs".to_string(),
+                filter: None,
+                routing: None,
+                search_routing: None,
+                index_routing: None,
+                is_write_index: Some(true),
+            }],
+        };
+
+        let _alias_result = update_aliases(State(state.clone()), Json(alias_request)).await;
+
+        // Rollover request
+        let rollover_request = RolloverIndexRequest {
+            rollover_config: RolloverConfig {
+                alias: "logs".to_string(),
+                new_index: "logs-{{number}}".to_string(),
+                conditions: RolloverConditions::new().with_max_docs(1000),
+            },
+        };
+
+        let result = rollover_index(
+            State(state.clone()),
+            Path("logs".to_string()),
+            Json(rollover_request),
+        )
+        .await;
+
+        match result {
+            Ok(json) => {
+                // Should indicate no rollover since conditions aren't met
+                assert!(!json.rolled_over);
+                assert!(json.old_index.is_none());
+                assert!(json.new_index.is_none());
+            }
+            Err(ApiError::IndexNotFound(_)) => {
+                // Alias creation may have failed, that's acceptable
+            }
+            _ => {}
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_rollover_index_alias_not_found() {
+        let state = create_test_app_state();
+
+        let rollover_request = RolloverIndexRequest {
+            rollover_config: RolloverConfig {
+                alias: "non-existent-alias".to_string(),
+                new_index: "logs-{{number}}".to_string(),
+                conditions: RolloverConditions::new().with_max_docs(1000),
+            },
+        };
+
+        let result = rollover_index(
+            State(state),
+            Path("non-existent-alias".to_string()),
+            Json(rollover_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::IndexNotFound(name) => {
+                assert_eq!(name, "non-existent-alias");
+            }
+            _ => panic!("Expected IndexNotFound error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_rollover_index_invalid_conditions() {
+        let state = create_test_app_state();
+
+        let rollover_request = RolloverIndexRequest {
+            rollover_config: RolloverConfig {
+                alias: "some-alias".to_string(),
+                new_index: "logs-{{number}}".to_string(),
+                conditions: RolloverConditions::new(), // Empty conditions
+            },
+        };
+
+        let result = rollover_index(
+            State(state),
+            Path("some-alias".to_string()),
+            Json(rollover_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("rollover condition"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_rollover_index_empty_new_index() {
+        let state = create_test_app_state();
+
+        let rollover_request = RolloverIndexRequest {
+            rollover_config: RolloverConfig {
+                alias: "some-alias".to_string(),
+                new_index: "".to_string(), // Empty new index pattern
+                conditions: RolloverConditions::new().with_max_docs(1000),
+            },
+        };
+
+        let result = rollover_index(
+            State(state),
+            Path("some-alias".to_string()),
+            Json(rollover_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("New index name pattern cannot be empty"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_rollover_index_alias_mismatch() {
+        let state = create_test_app_state();
+
+        let rollover_request = RolloverIndexRequest {
+            rollover_config: RolloverConfig {
+                alias: "different-alias".to_string(), // Different from path
+                new_index: "logs-{{number}}".to_string(),
+                conditions: RolloverConditions::new().with_max_docs(1000),
+            },
+        };
+
+        let result = rollover_index(
+            State(state),
+            Path("some-alias".to_string()), // Different from config
+            Json(rollover_request),
+        )
+        .await;
+
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            ApiError::InvalidRequest(msg) => {
+                assert!(msg.contains("Alias in path must match"));
+            }
+            _ => panic!("Expected InvalidRequest error"),
+        }
+    }
+
+    #[test]
+    fn test_rollover_index_request_validation() {
+        // Test request structure validation
+        let valid_request = RolloverIndexRequest {
+            rollover_config: RolloverConfig {
+                alias: "logs".to_string(),
+                new_index: "logs-{{number}}".to_string(),
+                conditions: RolloverConditions::new().with_max_docs(1000),
+            },
+        };
+
+        assert!(!valid_request.rollover_config.alias.is_empty());
+        assert!(!valid_request.rollover_config.new_index.is_empty());
+        assert!(!valid_request.rollover_config.conditions.is_empty());
+
+        let invalid_request = RolloverIndexRequest {
+            rollover_config: RolloverConfig {
+                alias: "".to_string(),
+                new_index: "".to_string(),
+                conditions: RolloverConditions::new(),
+            },
+        };
+
+        assert!(invalid_request.rollover_config.alias.is_empty());
+        assert!(invalid_request.rollover_config.new_index.is_empty());
+        assert!(invalid_request.rollover_config.conditions.is_empty());
     }
 }

@@ -3,13 +3,11 @@
 //! Sorts buckets based on metric values.
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
-use crate::search::result::{SearchHit, SortOption, SortOrder};
+use crate::search::result::{SearchHit, SortOption};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
-use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Bucket Sort Aggregation
@@ -115,16 +113,16 @@ impl AggregationTrait for BucketSortAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn sort_and_paginate_buckets(
     buckets: &[Bucket],
-    sort_options: &[SortOption],
-    size: usize,
-    from: usize,
+    _sort_options: &[SortOption],
+    _size: usize,
+    _from: usize,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Sort buckets based on sort options
     //    - By metric value (e.g., "my_metric.value")
     //    - By bucket key
     //    - By bucket doc_count
-    // 2. Apply pagination (skip from, take size)
+    // 2. Apply pagination (skip _from, take _size)
     //
     // For now, return buckets as-is (placeholder)
     Ok(buckets.to_vec())
@@ -133,6 +131,7 @@ pub fn sort_and_paginate_buckets(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::search::result::SortOrder;
 
     #[test]
     fn test_bucket_sort_aggregation() {

@@ -336,11 +336,11 @@ mod tests {
         // Q3 (75th percentile) ≈ 7.75
         // IQR = 7.75 - 3.25 = 4.5
         for i in 1..=10 {
-            hits.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i }),
-            });
+            hits.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i }),
+            ));
         }
 
         let field_cache = FieldCache::new();
@@ -375,11 +375,11 @@ mod tests {
         // Q3 (75th percentile) = 40
         // IQR = 40 - 20 = 20
         for i in 1..=5 {
-            hits.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         let field_cache = FieldCache::new();
@@ -409,11 +409,11 @@ mod tests {
         // Lower whisker = max(20 - 1.5*20, 10) = max(-10, 10) = 10
         // Upper whisker = min(40 + 1.5*20, 50) = min(70, 50) = 50
         for i in 1..=5 {
-            hits.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         let field_cache = FieldCache::new();
@@ -438,21 +438,21 @@ mod tests {
         // Create first result: [10, 20, 30]
         let mut hits1 = vec![];
         for i in 1..=3 {
-            hits1.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits1.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         // Create second result: [40, 50]
         let mut hits2 = vec![];
         for i in 4..=5 {
-            hits2.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits2.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         let field_cache = FieldCache::new();

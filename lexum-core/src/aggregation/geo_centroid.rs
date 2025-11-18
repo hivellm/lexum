@@ -8,7 +8,6 @@ use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use utoipa::ToSchema;
 

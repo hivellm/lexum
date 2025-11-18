@@ -1,0 +1,133 @@
+name: API Route Tests
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'lexum-server/**'
+      - '.github/workflows/test-routes.yml'
+  pull_request:
+    branches: [main, master, develop]
+    paths:
+      - 'lexum-server/**'
+      - '.github/workflows/test-routes.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  route-integration-tests:
+    name: Route Integration Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-git-
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-build-target-
+
+      - name: Build lexum-server
+        working-directory: lexum-server
+        run: cargo build --tests --verbose
+
+      - name: Run route integration tests
+        working-directory: lexum-server
+        run: cargo test --test route_integration_test --verbose -- --nocapture
+        continue-on-error: false
+
+      - name: Run critical route tests
+        working-directory: lexum-server
+        run: |
+          cargo test --test route_integration_test \
+            test_health_check \
+            test_create_index \
+            test_list_indices \
+            test_search_post \
+            test_search_get \
+            test_add_document \
+            test_get_document \
+            test_content_type_validation_missing_header \
+            test_content_type_validation_valid_header \
+            --verbose -- --nocapture
+        continue-on-error: false
+
+      - name: Generate test report
+        if: always()
+        working-directory: lexum-server
+        run: |
+          cargo test --test route_integration_test --verbose -- --test-threads=1 --nocapture 2>&1 | tee test-report.txt || true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: route-test-report-${{ matrix.os }}
+          path: |
+            lexum-server/test-report.txt
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Check test results
+        if: failure()
+        run: |
+          echo "::error::Critical route tests failed. Check the test report for details."
+          exit 1
+
+  route-coverage:
+    name: Route Test Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Generate coverage for route tests
+        working-directory: lexum-server
+        run: |
+          cargo llvm-cov --test route_integration_test --lcov --output-path route-coverage.lcov
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: lexum-server/route-coverage.lcov
+          flags: route-tests
+          fail_ci_if_error: false
+

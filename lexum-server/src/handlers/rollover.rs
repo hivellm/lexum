@@ -89,8 +89,10 @@ pub struct IndexStats {
 pub async fn rollover_index(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
-    Json(request): Json<RolloverRequest>,
+    request: Result<Json<RolloverRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<RolloverResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     tracing::info!("Rollover request for index '{}'", index_name);
 
     // Check if index exists
@@ -103,7 +105,25 @@ pub async fn rollover_index(
         .index_manager
         .get_index_stats(&index_name)
         .await
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(index_name.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(index_name.clone())
+            } else {
+                tracing::error!(
+                    "Failed to get stats for index '{}': {}",
+                    index_name,
+                    error_msg
+                );
+                ApiError::Core(e)
+            }
+        })?;
 
     let stats = IndexStats {
         num_docs: index_stats.num_docs,
@@ -302,10 +322,21 @@ async fn perform_rollover(
     );
 
     // Get the schema from the old index
-    let old_index_info = state
-        .index_manager
-        .get_index(old_index)
-        .map_err(|_| ApiError::IndexNotFound(old_index.to_string()))?;
+    let old_index_info = state.index_manager.get_index(old_index).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(old_index.to_string());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(old_index.to_string())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", old_index, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     // Create new index with the same schema
     let schema = old_index_info.schema();
@@ -356,18 +387,36 @@ async fn copy_documents(
         dest_index
     );
 
-    let source_index_arc = Arc::new(
-        state
-            .index_manager
-            .get_index(source_index)
-            .map_err(|_| ApiError::IndexNotFound(source_index.to_string()))?,
-    );
-    let dest_index_arc = Arc::new(
-        state
-            .index_manager
-            .get_index(dest_index)
-            .map_err(|_| ApiError::IndexNotFound(dest_index.to_string()))?,
-    );
+    let source_index_arc = Arc::new(state.index_manager.get_index(source_index).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(source_index.to_string());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(source_index.to_string())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", source_index, error_msg);
+            ApiError::Core(e)
+        }
+    })?);
+    let dest_index_arc = Arc::new(state.index_manager.get_index(dest_index).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(dest_index.to_string());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(dest_index.to_string())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", dest_index, error_msg);
+            ApiError::Core(e)
+        }
+    })?);
 
     let search_executor = SearchExecutor::new(source_index_arc.clone());
     let dest_store = DocumentStore::new(dest_index_arc);

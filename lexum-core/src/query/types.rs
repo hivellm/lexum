@@ -522,6 +522,9 @@ pub struct NestedQuery {
     /// Score mode for nested queries
     #[serde(default)]
     pub score_mode: NestedScoreMode,
+    /// Inner hits configuration (optional)
+    #[serde(rename = "inner_hits", skip_serializing_if = "Option::is_none")]
+    pub inner_hits: Option<crate::search::inner_hits::InnerHitsConfig>,
 }
 
 /// Score mode for nested queries
@@ -548,12 +551,19 @@ impl NestedQuery {
             path: path.into(),
             query: Box::new(query),
             score_mode: NestedScoreMode::Avg,
+            inner_hits: None,
         }
     }
 
     /// Set score mode
     pub fn score_mode(mut self, mode: NestedScoreMode) -> Self {
         self.score_mode = mode;
+        self
+    }
+
+    /// Set inner hits configuration
+    pub fn inner_hits(mut self, inner_hits: crate::search::inner_hits::InnerHitsConfig) -> Self {
+        self.inner_hits = Some(inner_hits);
         self
     }
 }
@@ -1830,6 +1840,9 @@ pub struct HasChildQuery {
     /// Boost factor for this query (default: 1.0)
     #[serde(default = "default_boost")]
     pub boost: f32,
+    /// Inner hits configuration (optional)
+    #[serde(rename = "inner_hits", skip_serializing_if = "Option::is_none")]
+    pub inner_hits: Option<crate::search::inner_hits::InnerHitsConfig>,
 }
 
 impl HasChildQuery {
@@ -1842,6 +1855,7 @@ impl HasChildQuery {
             min_children: None,
             max_children: None,
             boost: 1.0,
+            inner_hits: None,
         }
     }
 
@@ -1868,6 +1882,12 @@ impl HasChildQuery {
         self.boost = boost;
         self
     }
+
+    /// Set inner hits configuration
+    pub fn inner_hits(mut self, inner_hits: crate::search::inner_hits::InnerHitsConfig) -> Self {
+        self.inner_hits = Some(inner_hits);
+        self
+    }
 }
 
 /// Has parent query for finding child documents with matching parents
@@ -1883,6 +1903,9 @@ pub struct HasParentQuery {
     /// Boost factor for this query (default: 1.0)
     #[serde(default = "default_boost")]
     pub boost: f32,
+    /// Inner hits configuration (optional)
+    #[serde(rename = "inner_hits", skip_serializing_if = "Option::is_none")]
+    pub inner_hits: Option<crate::search::inner_hits::InnerHitsConfig>,
 }
 
 impl HasParentQuery {
@@ -1893,6 +1916,7 @@ impl HasParentQuery {
             query: Box::new(query),
             score_mode: ParentChildScoreMode::None,
             boost: 1.0,
+            inner_hits: None,
         }
     }
 
@@ -1905,6 +1929,12 @@ impl HasParentQuery {
     /// Set boost factor for this query
     pub fn boost(mut self, boost: f32) -> Self {
         self.boost = boost;
+        self
+    }
+
+    /// Set inner hits configuration
+    pub fn inner_hits(mut self, inner_hits: crate::search::inner_hits::InnerHitsConfig) -> Self {
+        self.inner_hits = Some(inner_hits);
         self
     }
 }

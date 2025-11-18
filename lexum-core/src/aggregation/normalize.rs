@@ -3,20 +3,20 @@
 //! Normalizes metric values using various methods (rescale, percent, etc.).
 
 use super::AggregationTrait;
-use super::result::{AggregationResult, Bucket, BucketAggregationResult};
+use super::result::{AggregationResult, Bucket};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
-use std::collections::HashMap;
 use utoipa::ToSchema;
 
 /// Normalization method
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum NormalizeMethod {
     /// Rescale to [0, 1] range
+    #[default]
     Rescale,
     /// Percent of sum
     Percent,
@@ -26,12 +26,6 @@ pub enum NormalizeMethod {
     ZScore,
     /// Softmax normalization
     Softmax,
-}
-
-impl Default for NormalizeMethod {
-    fn default() -> Self {
-        NormalizeMethod::Rescale
-    }
 }
 
 /// Normalize Aggregation
@@ -114,8 +108,8 @@ impl AggregationTrait for NormalizeAggregation {
 /// This is a helper function that would be called during pipeline aggregation processing
 pub fn normalize_buckets(
     buckets: &[Bucket],
-    buckets_path: &str,
-    method: NormalizeMethod,
+    _buckets_path: &str,
+    _method: NormalizeMethod,
 ) -> Result<Vec<Bucket>> {
     // Note: Full implementation would:
     // 1. Parse buckets_path to extract metric values

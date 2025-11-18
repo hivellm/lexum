@@ -150,6 +150,7 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::ScriptedMetric(scripted_metric_agg) => {
                     scripted_metric_agg.execute(&parent_hits, field_cache)?
                 }
+                _ => todo!(),
             };
             sub_results.insert(name.clone(), result);
         }
@@ -291,6 +292,7 @@ impl AggregationTrait for ReverseNestedAggregation {
                                                 scripted_metric_agg,
                                             ) => scripted_metric_agg
                                                 .merge(&[existing.clone(), agg_result.clone()]),
+                                            _ => todo!(),
                                         } {
                                             *existing = merged;
                                         }
@@ -354,11 +356,11 @@ mod tests {
     use crate::types::{DocumentId, Score};
 
     fn create_test_hit(id: &str, field: &str, value: &str) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({ field: value }),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({ field: value }),
+        )
     }
 
     fn create_nested_hit(
@@ -368,16 +370,16 @@ mod tests {
         parent_field: &str,
         parent_value: &str,
     ) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({
                 parent_field: parent_value,
                 nested_path: {
                     "value": nested_value
                 }
             }),
-        }
+        )
     }
 
     #[test]

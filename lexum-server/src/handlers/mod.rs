@@ -7,6 +7,7 @@ pub mod batch;
 pub mod bottleneck;
 pub mod cluster;
 pub mod document;
+pub mod geo;
 pub mod health;
 pub mod index;
 pub mod mapping;
@@ -25,6 +26,10 @@ mod rollover_test;
 #[cfg(test)]
 mod admin_test;
 
+#[cfg(test)]
+mod point_in_time_test;
+
+pub mod point_in_time;
 pub mod scroll;
 pub mod search;
 pub mod snapshot;

@@ -173,15 +173,28 @@ pub struct CreateScrollResponse {
 pub async fn create_scroll(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
-    Json(request): Json<CreateScrollRequest>,
+    request: Result<Json<CreateScrollRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<CreateScrollResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     // Clean up expired contexts periodically
     get_scroll_manager().cleanup_expired().await;
 
-    let index = state
-        .index_manager
-        .get_index(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let index = state.index_manager.get_index(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     let keep_alive = parse_duration(&request.scroll)?;
     let batch_size = request.search.limit.clamp(1, 10000); // Max 10k per batch
@@ -339,7 +352,25 @@ pub async fn scroll(
     let index = state
         .index_manager
         .get_index(&context.index_name)
-        .map_err(|_| ApiError::IndexNotFound(context.index_name.clone()))?;
+        .map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(context.index_name.clone());
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(context.index_name.clone())
+            } else {
+                tracing::error!(
+                    "Failed to get index '{}': {}",
+                    context.index_name,
+                    error_msg
+                );
+                ApiError::Core(e)
+            }
+        })?;
 
     // Build final query with filters
     let final_query = if let Some(ref filters) = context.filter {
@@ -437,4 +468,52 @@ pub async fn clear_all_scrolls() -> ApiResult<Json<Value>> {
         "acknowledged": true,
         "num_freed": count
     })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[lexum_macros::tokio_test]
+    async fn test_clear_all_scrolls() {
+        // Test that clear_all_scrolls works even when there are no scrolls
+        let result = clear_all_scrolls().await;
+        assert!(result.is_ok());
+
+        let response = result.unwrap().0;
+        assert!(
+            response
+                .get("acknowledged")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        );
+        assert!(response.get("num_freed").and_then(|v| v.as_u64()).is_some());
+    }
+
+    #[lexum_macros::tokio_test]
+    async fn test_clear_all_scrolls_multiple_times() {
+        // Test that calling clear_all_scrolls multiple times works
+        let result1 = clear_all_scrolls().await;
+        assert!(result1.is_ok());
+
+        let result2 = clear_all_scrolls().await;
+        assert!(result2.is_ok());
+
+        // Both should succeed
+        let response1 = result1.unwrap().0;
+        let response2 = result2.unwrap().0;
+
+        assert!(
+            response1
+                .get("acknowledged")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        );
+        assert!(
+            response2
+                .get("acknowledged")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        );
+    }
 }

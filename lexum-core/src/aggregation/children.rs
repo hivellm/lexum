@@ -9,7 +9,6 @@ use crate::query::Query;
 use crate::search::field_cache::FieldCache;
 use crate::search::result::SearchHit;
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use utoipa::ToSchema;
 
@@ -58,7 +57,7 @@ impl AggregationTrait for ChildrenAggregation {
         "children"
     }
 
-    fn execute(&self, hits: &[SearchHit], field_cache: &FieldCache) -> Result<AggregationResult> {
+    fn execute(&self, _hits: &[SearchHit], _field_cache: &FieldCache) -> Result<AggregationResult> {
         // Note: Children Aggregation requires join field support in Tantivy
         // This is a placeholder implementation
         // Full implementation would:

@@ -97,6 +97,7 @@ impl QueryOptimizer {
                     path: nested_query.path,
                     query: Box::new(optimized_query),
                     score_mode: nested_query.score_mode,
+                    inner_hits: nested_query.inner_hits,
                 }))
             }
 

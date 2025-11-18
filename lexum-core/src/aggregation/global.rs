@@ -61,11 +61,11 @@ mod tests {
     use crate::types::{DocumentId, Score};
 
     fn create_test_hit(id: &str, field: &str, value: &str) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({ field: value }),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({ field: value }),
+        )
     }
 
     #[test]
@@ -201,21 +201,17 @@ mod tests {
         let field_cache = FieldCache::new();
 
         let hits = vec![
-            SearchHit {
-                id: DocumentId::new("1"),
-                score: Score::new(1.0),
-                source: serde_json::json!({ "name": "item1", "price": 10.0 }),
-            },
-            SearchHit {
-                id: DocumentId::new("2"),
-                score: Score::new(2.0),
-                source: serde_json::json!({ "name": "item2", "category": "electronics" }),
-            },
-            SearchHit {
-                id: DocumentId::new("3"),
-                score: Score::new(3.0),
-                source: serde_json::json!({}),
-            },
+            SearchHit::new(
+                DocumentId::new("1"),
+                Score::new(1.0),
+                serde_json::json!({ "name": "item1", "price": 10.0 }),
+            ),
+            SearchHit::new(
+                DocumentId::new("2"),
+                Score::new(2.0),
+                serde_json::json!({ "name": "item2", "category": "electronics" }),
+            ),
+            SearchHit::new(DocumentId::new("3"), Score::new(3.0), serde_json::json!({})),
         ];
 
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -282,11 +278,11 @@ mod tests {
             create_test_hit("1", "status", "active"),
             create_test_hit("2", "status", "pending"),
             create_test_hit("3", "status", "deleted"),
-            SearchHit {
-                id: DocumentId::new("4"),
-                score: Score::new(1.0),
-                source: serde_json::json!({}), // No status field
-            },
+            SearchHit::new(
+                DocumentId::new("4"),
+                Score::new(1.0),
+                serde_json::json!({}), // No status field
+            ),
         ];
 
         let result = agg.execute(&hits, &field_cache).unwrap();

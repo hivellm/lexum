@@ -333,11 +333,7 @@ impl SearchExecutor {
                 // Apply boost to score
                 let boosted_score = *score * boost;
 
-                hits.push(SearchHit {
-                    id: doc_id,
-                    score: Score::new(boosted_score),
-                    source,
-                });
+                hits.push(SearchHit::new(doc_id, Score::new(boosted_score), source));
             }
 
             // Apply efficient in-memory sorting if requested

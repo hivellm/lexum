@@ -215,21 +215,21 @@ mod tests {
         // Hit 3: price=30, quantity=1 -> weighted: 30*1 = 30
         // Total weighted: 110, Total weights: 6
         // Weighted average: 110/6 ≈ 18.33
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 10, "quantity": 2 }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 20, "quantity": 3 }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 30, "quantity": 1 }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 10, "quantity": 2 }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 20, "quantity": 3 }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 30, "quantity": 1 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -254,21 +254,21 @@ mod tests {
         let mut hits = vec![];
 
         // Create hits with one zero weight
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 10, "quantity": 2 }),
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 20, "quantity": 0 }), // Zero weight should be skipped
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 30, "quantity": 1 }),
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 10, "quantity": 2 }),
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 20, "quantity": 0 }), // Zero weight should be skipped
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 30, "quantity": 1 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -293,21 +293,21 @@ mod tests {
         let mut hits = vec![];
 
         // Create hits with missing fields
-        hits.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 10 }), // Missing quantity
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "quantity": 2 }), // Missing price
-        });
-        hits.push(SearchHit {
-            id: DocumentId::new("3"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 30, "quantity": 1 }), // Both present
-        });
+        hits.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 10 }), // Missing quantity
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "quantity": 2 }), // Missing price
+        ));
+        hits.push(SearchHit::new(
+            DocumentId::new("3"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 30, "quantity": 1 }), // Both present
+        ));
 
         let field_cache = FieldCache::new();
         let result = agg.execute(&hits, &field_cache).unwrap();
@@ -331,19 +331,19 @@ mod tests {
 
         // Create first result: price=10, quantity=2 -> weighted avg = 10
         let mut hits1 = vec![];
-        hits1.push(SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 10, "quantity": 2 }),
-        });
+        hits1.push(SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 10, "quantity": 2 }),
+        ));
 
         // Create second result: price=20, quantity=3 -> weighted avg = 20
         let mut hits2 = vec![];
-        hits2.push(SearchHit {
-            id: DocumentId::new("2"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "price": 20, "quantity": 3 }),
-        });
+        hits2.push(SearchHit::new(
+            DocumentId::new("2"),
+            Score::new(1.0),
+            serde_json::json!({ "price": 20, "quantity": 3 }),
+        ));
 
         let field_cache = FieldCache::new();
         let result1 = agg.execute(&hits1, &field_cache).unwrap();

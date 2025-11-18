@@ -194,11 +194,11 @@ mod tests {
         let dt = chrono::DateTime::<chrono::Utc>::from_timestamp(timestamp, 0)
             .unwrap()
             .to_rfc3339();
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({ field: dt }),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({ field: dt }),
+        )
     }
 
     #[test]

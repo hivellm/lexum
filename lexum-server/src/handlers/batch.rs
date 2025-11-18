@@ -219,10 +219,21 @@ async fn add_document_internal(
 ) -> Result<document::AddDocumentResponse, ApiError> {
     use lexum_core::DocumentStore;
 
-    let index = state
-        .index_manager
-        .get_index(index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.to_string()))?;
+    let index = state.index_manager.get_index(index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.to_string());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.to_string())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     let store = DocumentStore::new(std::sync::Arc::new(index));
     let doc_id = store.add_document(body).await?;

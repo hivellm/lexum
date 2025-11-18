@@ -4,8 +4,6 @@ use crate::error::{Error, Result};
 use crate::index::Index;
 use crate::query::Query;
 use crate::search::executor::SearchExecutor;
-use crate::search::result::SearchHit;
-use crate::types::DocumentId;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
@@ -108,6 +106,7 @@ pub struct DeleteByQueryResponse {
 
 /// Query-based operations for documents
 pub struct QueryOperations {
+    #[allow(dead_code)]
     index: Arc<Index>,
     store: Arc<crate::document::store::DocumentStore>,
     executor: Arc<SearchExecutor>,
@@ -269,7 +268,7 @@ impl QueryOperations {
         let current_doc = hit.source.clone();
 
         // Apply updates
-        let updated_doc = if let Some(ref script) = request.script {
+        let updated_doc = if let Some(ref _script) = request.script {
             // Script-based update
             // Note: Full implementation requires script engine integration
             // For now, return error indicating script support is not yet available

@@ -1,0 +1,299 @@
+
+========================================
+  LEXUM SERVER - TESTE COMPLETO DE ROTAS
+  Server: http://localhost:17000
+========================================
+
+Verificando se o servidor estÃ¡ rodando...
+  [OK] Servidor estÃ¡ rodando (Status: 200)
+
+1. HEALTH CHECK & SYSTEM
+  [OK] Health Check
+    Status: 200
+True
+  [OK] Readiness Check
+    Status: 200
+True
+  [OK] Cluster Info
+    Status: 200
+True
+  [OK] Cluster Health
+    Status: 200
+True
+  [OK] Cluster Stats
+    Status: 200
+True
+  [OK] Cluster State
+    Status: 200
+True
+  [OK] Node Stats
+    Status: 200
+True
+  [OK] Cluster Settings
+    Status: 200
+True
+  [OK] Metrics
+    Status: 200
+True
+
+2. INDEX MANAGEMENT
+  [FAIL] Create Index
+    Error: O servidor remoto retornou um erro: (400) Solicitação Incorreta.
+    Status: 400
+False
+  [FAIL] Create Index 2
+    Error: O servidor remoto retornou um erro: (400) Solicitação Incorreta.
+    Status: 400
+False
+  [OK] List Indices
+    Status: 200
+True
+  [FAIL] Get Index
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Get Index Stats
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+
+3. INDEX OPERATIONS
+  [FAIL] Refresh Index
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Flush Index
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Close Index
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Open Index
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Force Merge Index
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Update Index Settings
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+
+4. INDEX ADVANCED OPERATIONS
+  [SKIP] Create Index for Shrink (Skipped - Pre-requisite not met)
+False
+  [SKIP] Shrink Index (Skipped - Pre-requisite not met)
+False
+  [SKIP] Split Index (Skipped - Pre-requisite not met)
+False
+  [OK] Clone Index
+    Status: 404 (Error expected)
+True
+
+5. GEO OPERATIONS
+  [OK] Validate GeoPoint (Object)
+    Status: 200
+True
+  [OK] Validate GeoPoint (Array)
+    Status: 200
+True
+  [OK] Validate GeoPoint (String)
+    Status: 200
+True
+  [OK] Calculate Distance
+    Status: 200
+True
+  [OK] Check Bounds
+    Status: 200
+True
+
+6. DOCUMENT OPERATIONS
+  [FAIL] Add Document
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Get Document
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Update Document
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [OK] Delete Document
+    Status: 404 (Error expected)
+True
+
+7. BULK OPERATIONS
+  [OK] Bulk Operations
+    Status: 400 (Error expected)
+True
+
+8. SEARCH OPERATIONS
+  [OK] Search (POST)
+    Status: 400 (Error expected)
+True
+  [FAIL] Search (GET)
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [OK] Explain Document
+    Status: 404 (Error expected)
+True
+
+9. SCROLL API
+  [FAIL] Create Scroll
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [OK] Clear All Scrolls
+    Status: 200
+True
+
+10. POINT IN TIME API
+  [FAIL] Create PIT
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+
+11. QUERY OPERATIONS
+  [FAIL] Update By Query
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Delete By Query
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Multi-Get
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [FAIL] Multi-Search
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+
+12. SUGGESTIONS
+  [FAIL] Suggest (GET)
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [OK] Suggest (POST)
+    Status: 400 (Error expected)
+True
+
+13. MAPPING OPERATIONS
+  [FAIL] Get Mapping
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [OK] Get All Mappings
+    Status: 200
+True
+
+14. ALIAS OPERATIONS
+  [OK] Get Aliases
+    Status: 200
+True
+  [FAIL] Add Alias
+    Error: O servidor remoto retornou um erro: (400) Solicitação Incorreta.
+    Status: 400
+False
+  [OK] Get Index Aliases
+    Status: 200
+True
+  [OK] Remove Alias
+    Status: 404 (Error expected)
+True
+
+15. TEMPLATE OPERATIONS
+  [OK] List Templates
+    Status: 200
+True
+  [FAIL] Create Template
+    Error: O servidor remoto retornou um erro: (400) Solicitação Incorreta.
+    Status: 400
+False
+  [FAIL] Get Template
+    Error: O servidor remoto retornou um erro: (404) Não Localizado.
+    Status: 404
+False
+  [OK] Delete Template
+    Status: 404 (Error expected)
+True
+
+16. SNAPSHOT OPERATIONS
+  [OK] List Repositories
+    Status: 200
+True
+  [OK] Create Repository
+    Status: 200
+True
+  [OK] Get Repository
+    Status: 200
+True
+  [OK] Get Snapshot Stats
+    Status: 200
+True
+
+17. REINDEX OPERATIONS
+  [OK] List Tasks
+    Status: 200
+True
+  [OK] Reindex
+    Status: 400 (Error expected)
+True
+
+18. ROLLOVER OPERATIONS
+  [OK] Get Rollover Conditions
+    Status: 404 (Error expected)
+True
+  [OK] Rollover Index
+    Status: 400 (Error expected)
+True
+
+19. PROGRESS TRACKING
+  [OK] List Progress
+    Status: 200
+True
+  [OK] Progress Stats
+    Status: 200
+True
+
+20. AUTHENTICATION
+  [OK] List API Keys
+    Status: 200
+True
+
+21. PROFILING
+  [OK] Get Profiling Status
+    Status: 200
+True
+
+22. CLEANUP
+  [OK] Delete Test Index 1
+    Status: 404 (Error expected)
+True
+  [OK] Delete Test Index 2
+    Status: 404 (Error expected)
+True
+  [OK] Delete Test Index 3
+    Status: 404 (Error expected)
+True
+
+========================================
+  RESUMO DOS TESTES
+========================================
+Total de Testes: 71
+Passou: 43
+Falhou: 25
+Avisos: 0
+Taxa de Sucesso: 60.56%
+========================================
+
+[ERROR] Alguns testes falharam. Verifique os detalhes acima.

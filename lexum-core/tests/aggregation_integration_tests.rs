@@ -7,6 +7,7 @@ use lexum_core::aggregation::{
     MedianAbsoluteDeviationAggregation, RateAggregation, StringStatsAggregation, TTestAggregation,
     TopHitsAggregation, TopHitsHighlight, WeightedAverageAggregation,
 };
+use lexum_core::document::DocumentStore;
 use lexum_core::index::{IndexManager, IndexSettings};
 use lexum_core::query::{Query, TermQuery};
 use lexum_core::schema::SchemaBuilder;
@@ -38,6 +39,8 @@ async fn create_test_index() -> (Arc<lexum_core::index::Index>, TempDir) {
 
     // Get the created index
     let index = manager.get_index("test_index").unwrap();
+    let index_arc = Arc::new(index);
+    let store = DocumentStore::new(index_arc.clone());
 
     // Add sample documents
     let docs = vec![
@@ -79,11 +82,10 @@ async fn create_test_index() -> (Arc<lexum_core::index::Index>, TempDir) {
     ];
 
     for doc in docs {
-        index.add_document(doc).await.unwrap();
+        store.add_document(doc).await.unwrap();
     }
 
-    index.commit().await.unwrap();
-    (Arc::new(index), temp_dir)
+    (index_arc, temp_dir)
 }
 
 #[tokio::test]
@@ -317,7 +319,7 @@ async fn test_t_test_aggregation_integration() {
     let mut aggs = HashMap::new();
     aggs.insert(
         "t_test".to_string(),
-        AggregationSpec::TTest(TTestAggregation::new("value", a_filter, b_filter)),
+        AggregationSpec::TTest(Box::new(TTestAggregation::new("value", a_filter, b_filter))),
     );
 
     let aggs_vec: Vec<AggregationSpec> = aggs.values().cloned().collect();
@@ -510,18 +512,18 @@ async fn test_aggregation_executor_merge_integration() {
 
     // Create sample hits
     let mut hits1 = vec![];
-    hits1.push(SearchHit {
-        id: DocumentId::new("1"),
-        score: Score::new(0.9),
-        source: serde_json::json!({ "value": 10 }),
-    });
+    hits1.push(SearchHit::new(
+        DocumentId::new("1"),
+        Score::new(0.9),
+        serde_json::json!({ "value": 10 }),
+    ));
 
     let mut hits2 = vec![];
-    hits2.push(SearchHit {
-        id: DocumentId::new("2"),
-        score: Score::new(0.8),
-        source: serde_json::json!({ "value": 20 }),
-    });
+    hits2.push(SearchHit::new(
+        DocumentId::new("2"),
+        Score::new(0.8),
+        serde_json::json!({ "value": 20 }),
+    ));
 
     // Execute aggregations on both sets
     let aggs = vec![AggregationSpec::ExtendedStats(

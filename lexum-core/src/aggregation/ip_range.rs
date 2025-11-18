@@ -325,11 +325,11 @@ mod tests {
     use crate::types::{DocumentId, Score};
 
     fn create_test_hit_ip(id: &str, field: &str, ip_str: &str) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({ field: ip_str }),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({ field: ip_str }),
+        )
     }
 
     #[test]
@@ -501,11 +501,11 @@ mod tests {
         let agg = IpRangeAggregation::new("ip", ranges);
         let field_cache = FieldCache::new();
 
-        let hits = vec![SearchHit {
-            id: DocumentId::new("1"),
-            score: Score::new(1.0),
-            source: serde_json::json!({ "other_field": "value" }),
-        }];
+        let hits = vec![SearchHit::new(
+            DocumentId::new("1"),
+            Score::new(1.0),
+            serde_json::json!({ "other_field": "value" }),
+        )];
 
         let result = agg.execute(&hits, &field_cache).unwrap();
 

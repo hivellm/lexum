@@ -379,11 +379,11 @@ mod tests {
     use crate::types::{DocumentId, Score};
 
     fn create_test_hit(id: &str, field: &str, value: &str) -> SearchHit {
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source: serde_json::json!({ field: value }),
-        }
+        SearchHit::new(
+            DocumentId::new(id),
+            Score::new(1.0),
+            serde_json::json!({ field: value }),
+        )
     }
 
     #[test]

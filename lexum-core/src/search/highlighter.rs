@@ -6,7 +6,7 @@
 use std::collections::HashSet;
 
 /// Highlighter configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct HighlighterConfig {
     /// Pre-tag for highlighting (e.g., "<em>")
     pub pre_tag: String,

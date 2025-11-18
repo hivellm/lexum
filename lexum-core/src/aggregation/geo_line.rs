@@ -6,7 +6,7 @@ use super::AggregationTrait;
 use super::result::{AggregationResult, MetricAggregationResult};
 use crate::error::Result;
 use crate::search::field_cache::FieldCache;
-use crate::search::result::{SearchHit, SortOption, SortOrder};
+use crate::search::result::{SearchHit, SortOrder};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
@@ -167,10 +167,10 @@ impl AggregationTrait for GeoLineAggregation {
             None
         };
 
-        for (point, sort_value) in all_points {
-            geometry.push(point);
+        for (point, sort_value) in &all_points {
+            geometry.push(*point);
             if let Some(ref mut sort) = sort_values {
-                sort.push(sort_value.unwrap_or(JsonValue::Null));
+                sort.push(sort_value.clone().unwrap_or(JsonValue::Null));
             }
         }
 

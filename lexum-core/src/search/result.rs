@@ -66,6 +66,36 @@ pub struct SearchHit {
     pub score: Score,
     /// Document source
     pub source: JsonValue,
+    /// Inner hits (for nested/parent-child queries)
+    #[serde(rename = "inner_hits", skip_serializing_if = "Option::is_none")]
+    pub inner_hits: Option<HashMap<String, crate::search::inner_hits::InnerHitsResult>>,
+}
+
+impl SearchHit {
+    /// Create new search hit
+    pub fn new(id: DocumentId, score: Score, source: JsonValue) -> Self {
+        Self {
+            id,
+            score,
+            source,
+            inner_hits: None,
+        }
+    }
+
+    /// Create new search hit with inner hits
+    pub fn with_inner_hits(
+        id: DocumentId,
+        score: Score,
+        source: JsonValue,
+        inner_hits: HashMap<String, crate::search::inner_hits::InnerHitsResult>,
+    ) -> Self {
+        Self {
+            id,
+            score,
+            source,
+            inner_hits: Some(inner_hits),
+        }
+    }
 }
 
 /// Search result containing hits and metadata
@@ -120,6 +150,7 @@ mod tests {
             id: DocumentId::new("doc1"),
             score: Score::new(0.95_f32),
             source: serde_json::json!({"title": "Test"}),
+            inner_hits: None,
         };
 
         assert_eq!(hit.id.as_str(), "doc1");
@@ -139,16 +170,16 @@ mod tests {
     #[test]
     fn test_search_result_with_hits() {
         let hits = vec![
-            SearchHit {
-                id: DocumentId::new("doc1"),
-                score: Score::new(0.95_f32),
-                source: serde_json::json!({"title": "Test 1"}),
-            },
-            SearchHit {
-                id: DocumentId::new("doc2"),
-                score: Score::new(0.85_f32),
-                source: serde_json::json!({"title": "Test 2"}),
-            },
+            SearchHit::new(
+                DocumentId::new("doc1"),
+                Score::new(0.95_f32),
+                serde_json::json!({"title": "Test 1"}),
+            ),
+            SearchHit::new(
+                DocumentId::new("doc2"),
+                Score::new(0.85_f32),
+                serde_json::json!({"title": "Test 2"}),
+            ),
         ];
 
         let result = SearchResult::new(hits.clone(), 2, 15);
@@ -241,6 +272,7 @@ mod tests {
             id: DocumentId::new("doc1"),
             score: Score::new(0.95_f32),
             source: serde_json::json!({"title": "Test"}),
+            inner_hits: None,
         };
 
         let json = serde_json::to_string(&hit).unwrap();
@@ -255,11 +287,11 @@ mod tests {
 
     #[test]
     fn test_search_result_serialization() {
-        let hits = vec![SearchHit {
-            id: DocumentId::new("doc1"),
-            score: Score::new(0.95_f32),
-            source: serde_json::json!({"title": "Test"}),
-        }];
+        let hits = vec![SearchHit::new(
+            DocumentId::new("doc1"),
+            Score::new(0.95_f32),
+            serde_json::json!({"title": "Test"}),
+        )];
 
         let result = SearchResult::new(hits, 1, 10);
         let json = serde_json::to_string(&result).unwrap();

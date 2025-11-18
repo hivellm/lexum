@@ -249,16 +249,14 @@ impl AggregationTrait for TTestAggregation {
             None
         };
 
-        let merged_a_variance = if merged_a_count > 1 && merged_a_mean.is_some() {
-            let mean = merged_a_mean.unwrap();
+        let merged_a_variance = if let Some(mean) = merged_a_mean.filter(|_| merged_a_count > 1) {
             let n = merged_a_count as f64;
             Some((merged_a_sum_squares - n * mean * mean) / (n - 1.0))
         } else {
             None
         };
 
-        let merged_b_variance = if merged_b_count > 1 && merged_b_mean.is_some() {
-            let mean = merged_b_mean.unwrap();
+        let merged_b_variance = if let Some(mean) = merged_b_mean.filter(|_| merged_b_count > 1) {
             let n = merged_b_count as f64;
             Some((merged_b_sum_squares - n * mean * mean) / (n - 1.0))
         } else {
@@ -422,11 +420,11 @@ mod tests {
         // Group A: [10, 20, 30] -> mean = 20
         // Group B: [15, 25, 35] -> mean = 25
         for i in 1..=6 {
-            hits.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 5 }),
-            });
+            hits.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 5 }),
+            ));
         }
 
         let field_cache = FieldCache::new();
@@ -456,21 +454,21 @@ mod tests {
         // Create first result
         let mut hits1 = vec![];
         for i in 1..=3 {
-            hits1.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits1.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         // Create second result
         let mut hits2 = vec![];
         for i in 4..=6 {
-            hits2.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits2.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         let field_cache = FieldCache::new();

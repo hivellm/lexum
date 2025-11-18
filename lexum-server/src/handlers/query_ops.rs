@@ -65,14 +65,27 @@ pub struct UpdateByQueryResponse {
 pub async fn update_by_query(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
-    Json(request): Json<UpdateByQueryRequest>,
+    request: Result<Json<UpdateByQueryRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<UpdateByQueryResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     let start = std::time::Instant::now();
 
-    let index = state
-        .index_manager
-        .get_index(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let index = state.index_manager.get_index(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     // Build query from search request
     let query = if let Some(q) = &request.query.q {
@@ -219,14 +232,27 @@ pub struct DeleteByQueryResponse {
 pub async fn delete_by_query(
     State(state): State<AppState>,
     Path(index_name): Path<String>,
-    Json(request): Json<DeleteByQueryRequest>,
+    request: Result<Json<DeleteByQueryRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<DeleteByQueryResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     let start = std::time::Instant::now();
 
-    let index = state
-        .index_manager
-        .get_index(&index_name)
-        .map_err(|_| ApiError::IndexNotFound(index_name.clone()))?;
+    let index = state.index_manager.get_index(&index_name).map_err(|e| {
+        // Convert Validation error for "not found" to IndexNotFound
+        if let lexum_core::Error::Validation(ref msg) = e {
+            if msg.contains("not found") || msg.contains("does not exist") {
+                return ApiError::IndexNotFound(index_name.clone());
+            }
+        }
+        let error_msg = e.to_string();
+        if error_msg.contains("not found") || error_msg.contains("does not exist") {
+            ApiError::IndexNotFound(index_name.clone())
+        } else {
+            tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+            ApiError::Core(e)
+        }
+    })?;
 
     // Build query from search request
     let query = if let Some(q) = &request.query.q {
@@ -368,8 +394,10 @@ pub struct MultiGetResponse {
 /// POST /api/v1/_mget
 pub async fn multi_get(
     State(state): State<AppState>,
-    Json(request): Json<MultiGetRequest>,
+    request: Result<Json<MultiGetRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<MultiGetResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     let mut docs = Vec::new();
 
     for item in request.docs {
@@ -380,10 +408,21 @@ pub async fn multi_get(
             ));
         }
 
-        let index = state
-            .index_manager
-            .get_index(index_name)
-            .map_err(|_| ApiError::IndexNotFound(index_name.to_string()))?;
+        let index = state.index_manager.get_index(index_name).map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(index_name.to_string());
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(index_name.to_string())
+            } else {
+                tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+                ApiError::Core(e)
+            }
+        })?;
 
         let store = DocumentStore::new(Arc::new(index));
         let doc_id = lexum_core::types::DocumentId::new(item.id.clone());
@@ -452,8 +491,10 @@ pub struct MultiSearchResponse {
 /// POST /api/v1/_msearch
 pub async fn multi_search(
     State(state): State<AppState>,
-    Json(request): Json<MultiSearchRequest>,
+    request: Result<Json<MultiSearchRequest>, axum::extract::rejection::JsonRejection>,
 ) -> ApiResult<Json<MultiSearchResponse>> {
+    // Convert JsonRejection to ApiError if JSON parsing failed
+    let Json(request) = request.map_err(ApiError::from)?;
     let mut responses = Vec::new();
 
     for item in request.searches {
@@ -464,10 +505,21 @@ pub async fn multi_search(
             ));
         }
 
-        let index = state
-            .index_manager
-            .get_index(index_name)
-            .map_err(|_| ApiError::IndexNotFound(index_name.to_string()))?;
+        let index = state.index_manager.get_index(index_name).map_err(|e| {
+            // Convert Validation error for "not found" to IndexNotFound
+            if let lexum_core::Error::Validation(ref msg) = e {
+                if msg.contains("not found") || msg.contains("does not exist") {
+                    return ApiError::IndexNotFound(index_name.to_string());
+                }
+            }
+            let error_msg = e.to_string();
+            if error_msg.contains("not found") || error_msg.contains("does not exist") {
+                ApiError::IndexNotFound(index_name.to_string())
+            } else {
+                tracing::error!("Failed to get index '{}': {}", index_name, error_msg);
+                ApiError::Core(e)
+            }
+        })?;
 
         // Build query from search request
         let query = if let Some(q) = &item.search.q {

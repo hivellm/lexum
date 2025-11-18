@@ -197,11 +197,14 @@ impl SingleBucketAggregationResult {
     }
 
     /// Get aggregations iterator
-    pub fn aggregations(&self) -> impl Iterator<Item = (&String, &AggregationResult)> {
+    pub fn aggregations(&self) -> std::collections::hash_map::Iter<'_, String, AggregationResult> {
+        static EMPTY_MAP: std::sync::LazyLock<
+            std::collections::HashMap<String, AggregationResult>,
+        > = std::sync::LazyLock::new(std::collections::HashMap::new);
         self.aggregations
             .as_ref()
             .map(|aggs| aggs.iter())
-            .unwrap_or_else(|| HashMap::new().iter())
+            .unwrap_or(EMPTY_MAP.iter())
     }
 }
 

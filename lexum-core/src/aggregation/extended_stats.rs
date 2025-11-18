@@ -311,11 +311,11 @@ mod tests {
 
         // Create hits with numeric values
         for i in 1..=5 {
-            hits.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         let field_cache = FieldCache::new();
@@ -350,11 +350,11 @@ mod tests {
         // Variance = sum((x - mean)^2) / (n - 1) = (400 + 100 + 0 + 100 + 400) / 4 = 250
         // Std deviation = sqrt(250) ≈ 15.81
         for i in 1..=5 {
-            hits.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         let field_cache = FieldCache::new();
@@ -383,21 +383,21 @@ mod tests {
         // Create first result: [10, 20, 30]
         let mut hits1 = vec![];
         for i in 1..=3 {
-            hits1.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits1.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         // Create second result: [40, 50]
         let mut hits2 = vec![];
         for i in 4..=5 {
-            hits2.push(SearchHit {
-                id: DocumentId::new(&i.to_string()),
-                score: Score::new(i as f32),
-                source: serde_json::json!({ "value": i * 10 }),
-            });
+            hits2.push(SearchHit::new(
+                DocumentId::new(&i.to_string()),
+                Score::new(i as f32),
+                serde_json::json!({ "value": i * 10 }),
+            ));
         }
 
         let field_cache = FieldCache::new();

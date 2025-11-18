@@ -13,7 +13,7 @@ use tantivy::{Index as TantivyIndex, IndexWriter};
 use super::alias::{
     AliasManager, AliasName, AliasOperationsRequest, AliasOperationsResponse, IndexAlias,
 };
-use super::settings::{IndexSettings, StorageSettings};
+use super::settings::{IndexSettings, IndexSettingsUpdate, StorageSettings};
 
 /// Index wrapper around Tantivy index
 #[derive(Clone, Debug)]
@@ -91,10 +91,21 @@ impl Index {
     }
 }
 
+/// Index state (open/closed)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IndexState {
+    /// Index is open
+    Open,
+    /// Index is closed
+    Closed,
+}
+
 /// Manages multiple indices
 pub struct IndexManager {
     data_dir: PathBuf,
     indices: Arc<RwLock<HashMap<String, Index>>>,
+    /// Track which indices are closed
+    closed_indices: Arc<RwLock<HashMap<String, IndexState>>>,
     alias_manager: AliasManager,
 }
 
@@ -104,6 +115,7 @@ impl IndexManager {
         Self {
             data_dir: data_dir.as_ref().to_path_buf(),
             indices: Arc::new(RwLock::new(HashMap::new())),
+            closed_indices: Arc::new(RwLock::new(HashMap::new())),
             alias_manager: AliasManager::new(),
         }
     }
@@ -356,11 +368,587 @@ impl IndexManager {
 
     /// Get an existing index
     pub fn get_index(&self, name: &str) -> Result<Index> {
+        // Check if index is closed
+        {
+            let closed = self.closed_indices.read();
+            if closed.get(name) == Some(&IndexState::Closed) {
+                return Err(Error::Validation(format!("Index {name} is closed")));
+            }
+        }
+
         let indices = self.indices.read();
         indices
             .get(name)
             .cloned()
             .ok_or_else(|| Error::Validation(format!("Index {name} not found")))
+    }
+
+    /// Check if index is open
+    pub fn is_index_open(&self, name: &str) -> bool {
+        let closed = self.closed_indices.read();
+        closed.get(name) != Some(&IndexState::Closed)
+    }
+
+    /// Close an index (prevents read/write operations)
+    pub async fn close_index(&self, name: &str) -> Result<()> {
+        // Verify index exists
+        {
+            let indices = self.indices.read();
+            if !indices.contains_key(name) {
+                return Err(Error::Validation(format!("Index {name} not found")));
+            }
+        }
+
+        // Check if already closed
+        {
+            let closed = self.closed_indices.read();
+            if closed.get(name) == Some(&IndexState::Closed) {
+                return Err(Error::Validation(format!("Index {name} is already closed")));
+            }
+        }
+
+        // Flush any pending changes before closing
+        self.flush_index(name).await?;
+
+        // Mark as closed
+        {
+            let mut closed = self.closed_indices.write();
+            closed.insert(name.to_string(), IndexState::Closed);
+        }
+
+        tracing::info!(index = %name, "Index closed");
+        Ok(())
+    }
+
+    /// Open a closed index (allows read/write operations)
+    pub async fn open_index(&self, name: &str) -> Result<()> {
+        // Verify index exists
+        {
+            let indices = self.indices.read();
+            if !indices.contains_key(name) {
+                return Err(Error::Validation(format!("Index {name} not found")));
+            }
+        }
+
+        // Check if already open
+        {
+            let closed = self.closed_indices.read();
+            if closed.get(name) != Some(&IndexState::Closed) {
+                return Err(Error::Validation(format!("Index {name} is already open")));
+            }
+        }
+
+        // Mark as open
+        {
+            let mut closed = self.closed_indices.write();
+            closed.remove(name);
+        }
+
+        tracing::info!(index = %name, "Index opened");
+        Ok(())
+    }
+
+    /// Force merge segments in an index
+    ///
+    /// # Arguments
+    /// * `name` - Index name
+    /// * `max_num_segments` - Maximum number of segments after merge (None = merge to 1 segment)
+    /// * `only_expunge_deletes` - If true, only merge segments that have deletions
+    pub async fn force_merge_index(
+        &self,
+        name: &str,
+        max_num_segments: Option<usize>,
+        only_expunge_deletes: bool,
+    ) -> Result<()> {
+        let index = self.get_index(name)?;
+
+        // Run Tantivy operations in blocking context
+        tokio::task::spawn_blocking({
+            let index = index.clone();
+            let max_segments = max_num_segments.unwrap_or(1);
+            move || {
+                // Get initial segment count
+                let reader = index.reader()?;
+                let searcher = reader.searcher();
+                let initial_segments = searcher.segment_readers().len();
+
+                if initial_segments <= max_segments && !only_expunge_deletes {
+                    // Already at or below target segment count
+                    tracing::debug!(
+                        index = %index.name(),
+                        segments = initial_segments,
+                        target = max_segments,
+                        "Index already at target segment count"
+                    );
+                    return Ok(());
+                }
+
+                // Create writer with large heap for merging
+                let mut writer = index.writer(100_000_000)?;
+
+                // Force merge by committing empty operations
+                // Tantivy will merge segments based on merge policy
+                // We iterate until we reach the target segment count
+                let mut iterations = 0;
+                const MAX_ITERATIONS: usize = 10; // Prevent infinite loops
+
+                while iterations < MAX_ITERATIONS {
+                    // Trigger merge by committing
+                    writer.commit()?;
+
+                    // Check current segment count
+                    let reader = index.reader()?;
+                    let searcher = reader.searcher();
+                    let current_segments = searcher.segment_readers().len();
+
+                    tracing::debug!(
+                        index = %index.name(),
+                        iteration = iterations,
+                        segments = current_segments,
+                        target = max_segments,
+                        only_expunge_deletes,
+                        "Force merge iteration"
+                    );
+
+                    if only_expunge_deletes {
+                        // For expunge deletes, we just need to commit once
+                        // The merge policy will handle segments with deletions
+                        break;
+                    }
+
+                    if current_segments <= max_segments {
+                        // Reached target
+                        break;
+                    }
+
+                    // Get writer again for next iteration
+                    writer = index.writer(100_000_000)?;
+                    iterations += 1;
+                }
+
+                // Final commit
+                writer.commit()?;
+
+                // Verify final segment count
+                let reader = index.reader()?;
+                let searcher = reader.searcher();
+                let final_segments = searcher.segment_readers().len();
+
+                tracing::info!(
+                    index = %index.name(),
+                    initial_segments,
+                    final_segments,
+                    target = max_segments,
+                    iterations,
+                    "Force merge completed"
+                );
+
+                Ok::<(), Error>(())
+            }
+        })
+        .await
+        .map_err(|e| Error::Config(format!("Task join error: {e}")))??;
+
+        tracing::info!(
+            index = %name,
+            max_segments = ?max_num_segments,
+            only_expunge_deletes,
+            "Index force merged"
+        );
+        Ok(())
+    }
+
+    /// Update index settings (dynamic settings only)
+    pub async fn update_index_settings(
+        &self,
+        name: &str,
+        update: IndexSettingsUpdate,
+    ) -> Result<IndexSettings> {
+        if update.is_empty() {
+            return Err(Error::Validation(
+                "No settings provided for update".to_string(),
+            ));
+        }
+
+        // Ensure index exists
+        {
+            let indices = self.indices.read();
+            if !indices.contains_key(name) {
+                return Err(Error::Validation(format!("Index {name} not found")));
+            }
+        }
+
+        let mut indices = self.indices.write();
+        if let Some(index) = indices.get_mut(name) {
+            index.settings.apply_update(&update)?;
+            tracing::info!(index = %name, "Index settings updated");
+            Ok(index.settings.clone())
+        } else {
+            Err(Error::Validation(format!("Index {name} not found")))
+        }
+    }
+
+    /// Shrink an index to reduce the number of shards
+    ///
+    /// # Arguments
+    /// * `source_index` - Name of the source index to shrink
+    /// * `target_index` - Name for the new shrunk index
+    /// * `target_shards` - Number of shards for the target index (must be less than source)
+    pub async fn shrink_index(
+        &self,
+        source_index: &str,
+        target_index: &str,
+        target_shards: usize,
+    ) -> Result<()> {
+        // Validate target index name doesn't exist
+        {
+            let indices = self.indices.read();
+            if indices.contains_key(target_index) {
+                return Err(Error::Validation(format!(
+                    "Target index {target_index} already exists"
+                )));
+            }
+        }
+
+        // Get source index and validate
+        let source_idx = self.get_index(source_index)?;
+        let source_shards = source_idx.settings().number_of_shards;
+
+        if target_shards >= source_shards {
+            return Err(Error::Validation(format!(
+                "Target shards ({target_shards}) must be less than source shards ({source_shards})"
+            )));
+        }
+
+        if target_shards == 0 {
+            return Err(Error::Validation(
+                "Target shards must be greater than 0".to_string(),
+            ));
+        }
+
+        // Create target index settings (same as source but with fewer shards)
+        let mut target_settings = source_idx.settings().clone();
+        target_settings.number_of_shards = target_shards;
+
+        // Create target index schema (same as source)
+        let target_schema = source_idx.schema();
+
+        // Create target index
+        self.create_index_with_mapping(
+            target_index,
+            target_schema,
+            target_settings,
+            source_idx.mapping().cloned(),
+        )
+        .await?;
+
+        // Copy all documents from source to target
+        self.copy_index_documents(source_index, target_index)
+            .await?;
+
+        tracing::info!(
+            source = %source_index,
+            target = %target_index,
+            source_shards,
+            target_shards,
+            "Index shrunk successfully"
+        );
+
+        Ok(())
+    }
+
+    /// Copy all documents from source index to target index
+    async fn copy_index_documents(&self, source_index: &str, target_index: &str) -> Result<()> {
+        use crate::document::store::DocumentStore;
+
+        let source_idx = self.get_index(source_index)?;
+        let target_idx = self.get_index(target_index)?;
+
+        let source_store = DocumentStore::new(Arc::new(source_idx.clone()));
+        let target_store = DocumentStore::new(Arc::new(target_idx));
+
+        // Use search to get all documents from source index
+        let query = crate::query::Query::MatchAll;
+        let search_executor = crate::search::executor::SearchExecutor::new(Arc::new(source_idx));
+        let search_result = search_executor.search(query, 10000, 0, None).await?;
+
+        let mut docs_copied = 0;
+        let mut docs_failed = 0;
+
+        // Copy each document
+        for hit in search_result.hits {
+            // Get full document from source store
+            match source_store.get_document(&hit.id).await {
+                Ok(mut doc) => {
+                    // Remove _id field before indexing (it will be auto-generated)
+                    if let Some(obj) = doc.as_object_mut() {
+                        obj.remove("_id");
+                    }
+
+                    // Add document to target index
+                    match target_store.add_document(doc).await {
+                        Ok(_) => docs_copied += 1,
+                        Err(e) => {
+                            tracing::warn!(
+                                doc_id = %hit.id,
+                                error = %e,
+                                "Failed to copy document"
+                            );
+                            docs_failed += 1;
+                        }
+                    }
+                }
+                Err(e) => {
+                    if e.to_string().contains("not found") {
+                        tracing::warn!(
+                            doc_id = %hit.id,
+                            "Document not found in source index"
+                        );
+                    } else {
+                        tracing::warn!(
+                            doc_id = %hit.id,
+                            error = %e,
+                            "Failed to read document from source"
+                        );
+                        docs_failed += 1;
+                    }
+                }
+            }
+        }
+
+        // Flush target index to ensure all documents are committed
+        self.flush_index(target_index).await?;
+
+        tracing::info!(
+            source = %source_index,
+            target = %target_index,
+            docs_copied,
+            docs_failed,
+            total_docs = search_result.total,
+            "Document copying completed"
+        );
+
+        Ok(())
+    }
+
+    /// Split an index to increase the number of shards
+    ///
+    /// # Arguments
+    /// * `source_index` - Name of the source index to split
+    /// * `target_index` - Name for the new split index
+    /// * `target_shards` - Number of shards for the target index (must be greater than source)
+    pub async fn split_index(
+        &self,
+        source_index: &str,
+        target_index: &str,
+        target_shards: usize,
+    ) -> Result<()> {
+        // Validate target index name doesn't exist
+        {
+            let indices = self.indices.read();
+            if indices.contains_key(target_index) {
+                return Err(Error::Validation(format!(
+                    "Target index {target_index} already exists"
+                )));
+            }
+        }
+
+        // Get source index and validate
+        let source_idx = self.get_index(source_index)?;
+        let source_shards = source_idx.settings().number_of_shards;
+
+        if target_shards <= source_shards {
+            return Err(Error::Validation(format!(
+                "Target shards ({target_shards}) must be greater than source shards ({source_shards})"
+            )));
+        }
+
+        if target_shards == 0 {
+            return Err(Error::Validation(
+                "Target shards must be greater than 0".to_string(),
+            ));
+        }
+
+        // Create target index settings (same as source but with more shards)
+        let mut target_settings = source_idx.settings().clone();
+        target_settings.number_of_shards = target_shards;
+
+        // Create target index schema (same as source)
+        let target_schema = source_idx.schema();
+
+        // Create target index
+        self.create_index_with_mapping(
+            target_index,
+            target_schema,
+            target_settings,
+            source_idx.mapping().cloned(),
+        )
+        .await?;
+
+        // Copy all documents from source to target
+        self.copy_index_documents(source_index, target_index)
+            .await?;
+
+        tracing::info!(
+            source = %source_index,
+            target = %target_index,
+            source_shards,
+            target_shards,
+            "Index split successfully"
+        );
+
+        Ok(())
+    }
+
+    /// Clone an index with optional settings override
+    ///
+    /// # Arguments
+    /// * `source_index` - Name of the source index to clone
+    /// * `target_index` - Name for the new cloned index
+    /// * `settings_override` - Optional settings to override in the cloned index
+    pub async fn clone_index(
+        &self,
+        source_index: &str,
+        target_index: &str,
+        settings_override: Option<IndexSettings>,
+    ) -> Result<()> {
+        // Validate target index name doesn't exist
+        {
+            let indices = self.indices.read();
+            if indices.contains_key(target_index) {
+                return Err(Error::Validation(format!(
+                    "Target index {target_index} already exists"
+                )));
+            }
+        }
+
+        // Get source index
+        let source_idx = self.get_index(source_index)?;
+
+        // Create target index settings (source settings with optional override)
+        let target_settings = if let Some(ref override_settings) = settings_override {
+            // Validate that static settings are not being changed
+            let source_settings = source_idx.settings();
+            if override_settings.number_of_shards != source_settings.number_of_shards {
+                return Err(Error::Validation(
+                    "number_of_shards cannot be changed during clone".to_string(),
+                ));
+            }
+            override_settings.clone()
+        } else {
+            source_idx.settings().clone()
+        };
+
+        // Create target index schema (same as source)
+        let target_schema = source_idx.schema();
+
+        // Create target index
+        self.create_index_with_mapping(
+            target_index,
+            target_schema,
+            target_settings,
+            source_idx.mapping().cloned(),
+        )
+        .await?;
+
+        // Copy all documents from source to target
+        self.copy_index_documents(source_index, target_index)
+            .await?;
+
+        tracing::info!(
+            source = %source_index,
+            target = %target_index,
+            settings_override = settings_override.is_some(),
+            "Index cloned successfully"
+        );
+
+        Ok(())
+    }
+
+    /// Perform index rollover based on conditions
+    ///
+    /// # Arguments
+    /// * `alias` - Alias name to rollover
+    /// * `config` - Rollover configuration
+    pub async fn rollover_index(
+        &self,
+        alias: &str,
+        config: &crate::index::RolloverConfig,
+    ) -> Result<crate::index::RolloverResult> {
+        // Find the current index for this alias
+        let current_index = self
+            .alias_manager
+            .get_alias(alias)
+            .map_err(|_| Error::Validation(format!("Alias {alias} not found")))?;
+
+        if current_index.indices.is_empty() {
+            return Err(Error::Validation(format!("Alias {alias} has no indices")));
+        }
+
+        // For simplicity, take the first index (should be only one for rollover)
+        let current_index_name = current_index.indices[0].as_str();
+
+        // Get current index stats
+        let stats = self.get_index_stats(current_index_name).await?;
+
+        // Check if rollover conditions are met
+        let rollover_info = crate::index::should_rollover(&config.conditions, &stats);
+
+        if !rollover_info.rollover_needed {
+            return Ok(crate::index::RolloverResult::no_rollover(rollover_info));
+        }
+
+        // Generate new index name
+        let new_index_name = crate::index::generate_next_index_name(&config.new_index)?;
+
+        // Get current index details
+        let current_idx = self.get_index(current_index_name)?;
+
+        // Create new index with same settings and schema
+        let target_schema = current_idx.schema();
+        let target_settings = current_idx.settings().clone();
+
+        self.create_index_with_mapping(
+            &new_index_name,
+            target_schema,
+            target_settings,
+            current_idx.mapping().cloned(),
+        )
+        .await?;
+
+        // Copy documents from current to new index
+        self.copy_index_documents(current_index_name, &new_index_name)
+            .await?;
+
+        // Switch alias to point to new index
+        // First remove the old index from alias
+        self.alias_manager
+            .remove_indices_from_alias(alias, vec![current_index_name.to_string().into()])?;
+
+        // Then add the new index to alias
+        self.alias_manager
+            .add_indices_to_alias(alias, vec![new_index_name.clone().into()])?;
+
+        let result_info = crate::index::RolloverInfo::rollover_needed(
+            rollover_info.current_docs,
+            rollover_info.current_age,
+            rollover_info.current_size,
+            rollover_info.met_conditions,
+        );
+
+        tracing::info!(
+            alias = %alias,
+            old_index = %current_index_name,
+            new_index = %new_index_name,
+            conditions = ?result_info.met_conditions,
+            "Index rolled over successfully"
+        );
+
+        Ok(crate::index::RolloverResult::rolled_over(
+            current_index_name.to_string(),
+            new_index_name,
+            result_info,
+        ))
     }
 
     /// Delete an index
@@ -371,6 +959,12 @@ impl IndexManager {
             if indices.remove(name).is_none() {
                 return Err(Error::Validation(format!("Index {name} not found")));
             }
+        }
+
+        // Remove from closed indices if present
+        {
+            let mut closed = self.closed_indices.write();
+            closed.remove(name);
         }
 
         // Delete directory

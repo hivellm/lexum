@@ -65,11 +65,7 @@ mod tests {
         if let Some(v) = value {
             source[field] = serde_json::json!(v);
         }
-        SearchHit {
-            id: DocumentId::new(id),
-            score: Score::new(1.0),
-            source,
-        }
+        SearchHit::new(DocumentId::new(id), Score::new(1.0), source)
     }
 
     #[test]
