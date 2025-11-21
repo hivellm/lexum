@@ -270,7 +270,6 @@ mod tests {
     /// Uses Linux native paths in WSL to avoid Tantivy compatibility issues
     fn create_test_temp_dir() -> (TempDir, PathBuf) {
         use std::env;
-        use std::time::{SystemTime, UNIX_EPOCH};
 
         // Detect WSL by checking multiple indicators
         let cargo_manifest = env::var("CARGO_MANIFEST_DIR").unwrap_or_default();

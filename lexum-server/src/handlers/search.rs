@@ -88,6 +88,9 @@ pub struct HighlightConfig {
     /// Whether to highlight whole field instead of fragments
     #[serde(default)]
     pub highlight_whole_field: bool,
+    /// Query to use for highlighting (if different from search query)
+    #[serde(rename = "highlight_query", skip_serializing_if = "Option::is_none")]
+    pub highlight_query: Option<Query>,
 }
 
 /// Highlight fields configuration - supports both simple list and field-specific configs
@@ -127,6 +130,9 @@ pub struct FieldHighlightConfig {
     /// Whether to highlight whole field
     #[serde(skip_serializing_if = "Option::is_none")]
     pub highlight_whole_field: Option<bool>,
+    /// Query to use for highlighting this field (if different from search query)
+    #[serde(rename = "highlight_query", skip_serializing_if = "Option::is_none")]
+    pub highlight_query: Option<Query>,
 }
 
 fn default_fragment_size() -> usize {
@@ -523,8 +529,12 @@ pub async fn search(
 
     // Apply highlighting if requested
     if let Some(highlight) = request.highlight {
-        // Extract query terms for highlighting
-        let query_terms = extract_query_terms(&final_query_for_highlighting, request.q.as_deref());
+        // Extract query terms for highlighting - use highlight_query if provided, otherwise use search query
+        let query_for_highlighting = highlight
+            .highlight_query
+            .as_ref()
+            .unwrap_or(&final_query_for_highlighting);
+        let query_terms = extract_query_terms(query_for_highlighting, request.q.as_deref());
 
         // Determine highlighter type from config
         let highlighter_type = highlight
@@ -622,6 +632,17 @@ pub async fn search(
                                     })
                                     .unwrap_or(highlighter_type);
 
+                                // Use field-specific highlight_query if provided, otherwise use global or search query
+                                let field_query_for_highlighting = field_config
+                                    .highlight_query
+                                    .as_ref()
+                                    .or(highlight.highlight_query.as_ref())
+                                    .unwrap_or(&final_query_for_highlighting);
+                                let field_query_terms = extract_query_terms(
+                                    field_query_for_highlighting,
+                                    request.q.as_deref(),
+                                );
+
                                 let highlighter_config = HighlighterConfig::new()
                                     .with_pre_tag(pre_tag)
                                     .with_post_tag(post_tag)
@@ -632,9 +653,9 @@ pub async fn search(
                                 let highlighter = Highlighter::with_config(highlighter_config);
 
                                 let fragments = if highlight_whole {
-                                    vec![highlighter.highlight_full(text, &query_terms)]
+                                    vec![highlighter.highlight_full(text, &field_query_terms)]
                                 } else {
-                                    highlighter.highlight(text, &query_terms)
+                                    highlighter.highlight(text, &field_query_terms)
                                 };
 
                                 if !fragments.is_empty() {
@@ -959,6 +980,7 @@ pub async fn search_get(
             max_fragments: 3,
             highlighter_type: None,
             highlight_whole_field: false,
+            highlight_query: None,
         })
     } else {
         None
@@ -1044,8 +1066,9 @@ pub async fn search_get(
 
         // Apply highlighting if requested
         if let Some(highlight) = request.highlight {
-            // Extract query terms for highlighting
-            let query_terms = extract_query_terms(&query, request.q.as_deref());
+            // Extract query terms for highlighting - use highlight_query if provided, otherwise use search query
+            let query_for_highlighting = highlight.highlight_query.as_ref().unwrap_or(&query);
+            let query_terms = extract_query_terms(query_for_highlighting, request.q.as_deref());
 
             // Determine highlighter type from config
             let highlighter_type = highlight
@@ -1149,6 +1172,17 @@ pub async fn search_get(
                                     })
                                     .unwrap_or(highlighter_type);
 
+                                    // Use field-specific highlight_query if provided, otherwise use global or search query
+                                    let field_query_for_highlighting = field_config
+                                        .highlight_query
+                                        .as_ref()
+                                        .or(highlight.highlight_query.as_ref())
+                                        .unwrap_or(&query);
+                                    let field_query_terms = extract_query_terms(
+                                        field_query_for_highlighting,
+                                        request.q.as_deref(),
+                                    );
+
                                     let field_highlighter_config = HighlighterConfig::new()
                                         .with_pre_tag(pre_tag)
                                         .with_post_tag(post_tag)
@@ -1160,9 +1194,12 @@ pub async fn search_get(
                                         Highlighter::with_config(field_highlighter_config);
 
                                     let fragments: Vec<String> = if highlight_whole {
-                                        vec![field_highlighter.highlight_full(text, &query_terms)]
+                                        vec![
+                                            field_highlighter
+                                                .highlight_full(text, &field_query_terms),
+                                        ]
                                     } else {
-                                        field_highlighter.highlight(text, &query_terms)
+                                        field_highlighter.highlight(text, &field_query_terms)
                                     };
 
                                     if !fragments.is_empty() {

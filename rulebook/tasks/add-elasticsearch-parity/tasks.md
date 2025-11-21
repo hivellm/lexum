@@ -850,7 +850,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
 - [x] Basic highlighting
 - [x] Highlight settings ✅ **IMPLEMENTED**
 - [x] Multiple highlighters ✅ **IMPLEMENTED**
-- [ ] Highlight query - **MISSING** (will require query parsing)
+- [x] Highlight query ✅ **IMPLEMENTED** (2025-11-18)
 - [x] Postings highlighter ✅ **IMPLEMENTED**
 - [x] Fast vector highlighter ✅ **IMPLEMENTED**
 - [x] Unified highlighter ✅ **IMPLEMENTED**
@@ -864,7 +864,7 @@ This document provides a comprehensive analysis comparing Lexum's current capabi
   - Highlight whole field option ✅
   - Field-specific highlight configurations ✅ (per-field pre/post tags, fragment sizes, highlighter types)
   - SearchHit highlight field ✅ (Elasticsearch-compatible format)
-  - Highlight query support - **MISSING** (will require query parsing)
+  - Highlight query support ✅ (supports global and per-field highlight_query)
   - **Files**: 
     - `lexum-core/src/search/highlighter.rs` - Enhanced HighlighterConfig with new options
     - `lexum-core/src/search/result.rs` - Added highlight field to SearchHit

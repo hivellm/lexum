@@ -210,6 +210,7 @@ impl Highlighter {
     }
 
     /// Find all match positions in text using Plain highlighter (simple substring matching)
+    #[allow(clippy::unused_self)]
     fn find_matches_plain(&self, text: &str, query_terms: &HashSet<String>) -> Vec<MatchPosition> {
         let mut matches = Vec::new();
         let text_lower = text.to_lowercase();
@@ -238,6 +239,7 @@ impl Highlighter {
     ///
     /// Postings highlighter is optimized for term-based highlighting with word boundary detection.
     /// It performs better than Plain highlighter by respecting word boundaries and being more efficient.
+    #[allow(clippy::unused_self)]
     fn find_matches_postings(
         &self,
         text: &str,
@@ -295,6 +297,7 @@ impl Highlighter {
     ///
     /// Fast Vector highlighter provides precise matching with phrase support.
     /// It considers word boundaries more carefully and can handle phrase matching more accurately.
+    #[allow(clippy::unused_self)]
     fn find_matches_fast_vector(
         &self,
         text: &str,
