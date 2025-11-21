@@ -261,19 +261,54 @@ mod tests {
     use crate::index::Index;
     use crate::query::{MatchQuery, Query};
     use crate::types::IndexName;
+    use std::path::PathBuf;
     use std::sync::Arc;
     use tantivy::schema::{STORED, Schema, TEXT};
     use tempfile::TempDir;
 
+    /// Create a temporary directory compatible with WSL/Windows
+    /// Uses Linux native paths in WSL to avoid Tantivy compatibility issues
+    fn create_test_temp_dir() -> (TempDir, PathBuf) {
+        use std::env;
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        // Detect WSL by checking multiple indicators
+        let cargo_manifest = env::var("CARGO_MANIFEST_DIR").unwrap_or_default();
+        let current_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let is_wsl_mounted = cargo_manifest.contains("/mnt/")
+            || current_dir.to_string_lossy().contains("/mnt/")
+            || env::var("WSL_DISTRO_NAME").is_ok();
+
+        if is_wsl_mounted {
+            // In WSL: use /tmp which is always Linux native filesystem
+            // This avoids 9p filesystem protocol issues with Windows-mounted drives
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos();
+            let mut linux_path = PathBuf::from("/tmp");
+            linux_path.push("lexum-test");
+            linux_path.push(format!("pit_test_{timestamp}"));
+            std::fs::create_dir_all(&linux_path).unwrap();
+            // Return a dummy TempDir and the actual path
+            (TempDir::new_in("/tmp").unwrap(), linux_path)
+        } else {
+            // Native Windows or Linux: use tempfile
+            let temp_dir = TempDir::new().unwrap();
+            let path = temp_dir.path().to_path_buf();
+            (temp_dir, path)
+        }
+    }
+
     fn create_test_index() -> (TempDir, Arc<Index>) {
-        let temp_dir = TempDir::new().unwrap();
+        let (temp_dir, index_path) = create_test_temp_dir();
         let mut schema_builder = Schema::builder();
         schema_builder.add_text_field("title", TEXT | STORED);
         schema_builder.add_text_field("content", TEXT | STORED);
         let schema = schema_builder.build();
 
         let schema_clone = schema.clone();
-        let tantivy_index = tantivy::Index::create_in_dir(temp_dir.path(), schema).unwrap();
+        let tantivy_index = tantivy::Index::create_in_dir(&index_path, schema).unwrap();
         let index = Index {
             name: IndexName::new("test_pit"),
             inner: Arc::new(tantivy_index),
