@@ -421,7 +421,7 @@ mod tests {
         // Group B: [15, 25, 35] -> mean = 25
         for i in 1..=6 {
             hits.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 5 }),
             ));
@@ -455,7 +455,7 @@ mod tests {
         let mut hits1 = vec![];
         for i in 1..=3 {
             hits1.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));
@@ -465,7 +465,7 @@ mod tests {
         let mut hits2 = vec![];
         for i in 4..=6 {
             hits2.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));

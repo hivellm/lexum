@@ -279,7 +279,7 @@ mod tests {
 
         let info = should_rollover(&conditions, &stats);
         assert!(info.rollover_needed);
-        assert!(info.met_conditions.len() > 0);
+        assert!(!info.met_conditions.is_empty());
         assert!(info.met_conditions[0].contains("max_docs"));
     }
 

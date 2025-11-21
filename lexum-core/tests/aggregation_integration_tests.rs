@@ -150,10 +150,11 @@ async fn test_median_absolute_deviation_aggregation_integration() {
 
     assert!(result.aggregations.is_some());
     let aggs_result = result.aggregations.unwrap();
-    assert!(aggs_result.contains_key("mad"));
+    // The executor uses agg.name() which returns "median_absolute_deviation", not the HashMap key
+    assert!(aggs_result.contains_key("median_absolute_deviation"));
 
     if let Some(lexum_core::aggregation::AggregationResult::Metric(metric_result)) =
-        aggs_result.get("mad")
+        aggs_result.get("median_absolute_deviation")
     {
         let mad: serde_json::Value = serde_json::from_value(metric_result.value.clone()).unwrap();
         assert!(mad.get("value").is_some());

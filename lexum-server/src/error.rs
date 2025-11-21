@@ -217,14 +217,13 @@ pub(crate) fn extract_json_error_details(error_msg: &str) -> Option<String> {
 
     // Extract column number
     if let Some(col_pos) = error_msg.find("column ") {
-        let col_part = &error_msg[col_pos..];
-        if let Some(space_pos) = col_part.find(' ') {
-            let after_col = &col_part[space_pos + 1..];
-            if let Some(end_pos) = after_col.find(|c: char| !c.is_ascii_digit() && c != ' ') {
-                if let Ok(col_num) = after_col[..end_pos].trim().parse::<usize>() {
-                    details.push(format!("Column: {col_num}"));
-                }
-            }
+        let col_part = &error_msg[col_pos + 7..]; // Skip "column "
+        let col_num_str: String = col_part
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
+        if let Ok(col_num) = col_num_str.parse::<usize>() {
+            details.push(format!("Column: {col_num}"));
         }
     }
 
@@ -238,10 +237,24 @@ pub(crate) fn extract_json_error_details(error_msg: &str) -> Option<String> {
     }
 
     // Extract expected type if present
+    // Pattern: "expected a string" or "expected string"
     if let Some(expected_pos) = error_msg.find("expected ") {
         let expected_part = &error_msg[expected_pos + 9..];
-        if let Some(end_pos) = expected_part.find([' ', '`', '\n']) {
-            let expected_type = expected_part[..end_pos].trim();
+        // Skip "a " if present (e.g., "expected a string")
+        let type_start = if expected_part.starts_with("a ") {
+            2
+        } else {
+            0
+        };
+        let type_part = &expected_part[type_start..];
+        if let Some(end_pos) = type_part.find([' ', '`', '\n', 'a']) {
+            let expected_type = type_part[..end_pos].trim();
+            if !expected_type.is_empty() && expected_type != "a" {
+                details.push(format!("Expected type: {expected_type}"));
+            }
+        } else if !type_part.trim().is_empty() {
+            // If no delimiter found, use the rest of the string
+            let expected_type = type_part.trim();
             if !expected_type.is_empty() {
                 details.push(format!("Expected type: {expected_type}"));
             }

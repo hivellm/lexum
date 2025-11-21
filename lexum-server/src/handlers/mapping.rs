@@ -405,7 +405,7 @@ mod tests {
             },
         };
 
-        let result = create_index(State(state.clone()), Json(create_request)).await;
+        let result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         assert!(
             result.is_ok(),
@@ -469,7 +469,7 @@ mod tests {
             },
         };
 
-        let result = create_index(State(state.clone()), Json(create_request)).await;
+        let result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         assert!(
             result.is_ok(),
@@ -536,7 +536,7 @@ mod tests {
             },
         };
 
-        let result = create_index(State(state.clone()), Json(create_request)).await;
+        let result = create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         assert!(
             result.is_ok(),
@@ -603,7 +603,7 @@ mod tests {
         let template_result = put_template(
             State(state.clone()),
             Path("test_template".to_string()),
-            Json(template_request),
+            Ok(Json(template_request)),
         )
         .await;
 
@@ -630,7 +630,7 @@ mod tests {
         };
 
         let result: ApiResult<(StatusCode, Json<crate::handlers::index::IndexInfo>)> =
-            create_index(State(state.clone()), Json(create_request)).await;
+            create_index(State(state.clone()), Ok(Json(create_request))).await;
 
         assert!(
             result.is_ok(),

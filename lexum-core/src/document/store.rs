@@ -18,15 +18,36 @@ pub enum BulkOperation {
         index: String,
         id: DocumentId,
         document: JsonValue,
+        /// Document version (optional, for optimistic concurrency control)
+        #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+        version: Option<u64>,
+        /// Version type (internal, external, external_gte, force)
+        #[serde(rename = "_version_type", skip_serializing_if = "Option::is_none")]
+        version_type: Option<String>,
     },
     /// Update a document
     Update {
         index: String,
         id: DocumentId,
         document: JsonValue,
+        /// Document version (optional, for optimistic concurrency control)
+        #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+        version: Option<u64>,
+        /// Version type (internal, external, external_gte, force)
+        #[serde(rename = "_version_type", skip_serializing_if = "Option::is_none")]
+        version_type: Option<String>,
     },
     /// Delete a document
-    Delete { index: String, id: DocumentId },
+    Delete {
+        index: String,
+        id: DocumentId,
+        /// Document version (optional, for optimistic concurrency control)
+        #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+        version: Option<u64>,
+        /// Version type (internal, external, external_gte, force)
+        #[serde(rename = "_version_type", skip_serializing_if = "Option::is_none")]
+        version_type: Option<String>,
+    },
 }
 
 /// Result of a bulk operation
@@ -39,6 +60,9 @@ pub enum BulkOperationResult {
         id: DocumentId,
         success: bool,
         error: Option<String>,
+        /// Document version (if versioning is enabled)
+        #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+        version: Option<u64>,
     },
     /// Update operation result
     Update {
@@ -46,6 +70,9 @@ pub enum BulkOperationResult {
         id: DocumentId,
         success: bool,
         error: Option<String>,
+        /// Document version (if versioning is enabled)
+        #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+        version: Option<u64>,
     },
     /// Delete operation result
     Delete {
@@ -53,6 +80,9 @@ pub enum BulkOperationResult {
         id: DocumentId,
         success: bool,
         error: Option<String>,
+        /// Document version (if versioning is enabled)
+        #[serde(rename = "_version", skip_serializing_if = "Option::is_none")]
+        version: Option<u64>,
     },
 }
 
@@ -366,11 +396,15 @@ impl DocumentStore {
     ///         index: "test".to_string(),
     ///         id: DocumentId::new("doc1"),
     ///         document: json!({"title": "Document 1"}),
+    ///         version: None,
+    ///         version_type: None,
     ///     },
     ///     BulkOperation::Index {
     ///         index: "test".to_string(),
     ///         id: DocumentId::new("doc2"),
     ///         document: json!({"title": "Document 2"}),
+    ///         version: None,
+    ///         version_type: None,
     ///     },
     /// ];
     ///
@@ -395,82 +429,119 @@ impl DocumentStore {
                         index,
                         id,
                         document,
+                        version,
+                        version_type,
                     } => {
+                        // Version checking (basic implementation - full versioning requires document version storage)
+                        if let Some(ref ver) = version {
+                            tracing::debug!(
+                                doc_id = %id,
+                                version = ver,
+                                version_type = ?version_type,
+                                "Bulk index with version"
+                            );
+                        }
+
                         // Validate document against mapping if available (for dynamic mapping validation)
                         if let Some(ref mapping) = mapping {
                             if let Err(e) = mapping.validate_document(&document) {
                                 let error_msg = format!("Document validation failed: {e}");
                                 errors.push(BulkError {
-                                    operation_index: i,
-                                    error: error_msg.clone(),
+operation_index: i,
+error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Index {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: false,
-                                    error: Some(error_msg),
+index: index.clone(),
+id: id.clone(),
+success: false,
+error: Some(error_msg),
+version: None,
                                 });
                                 continue;
                             }
                         }
 
                         match Self::json_to_tantivy_doc(&schema, &document) {
-                        Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
-                            Ok(_) => {
-                                results.push(BulkOperationResult::Index {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: true,
-                                    error: None,
-                                });
-                                tracing::debug!(doc_id = %id, "Bulk indexed document");
-                            }Err(e) => {
-                                let error_msg = format!("Failed to add document: {e}");
+                            Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
+                                Ok(_) => {
+// Generate version if versioning is enabled
+let doc_version = version.map(|v| {
+    match version_type.as_deref() {
+        Some("external") | Some("external_gte") => v,
+        _ => v + 1, // Internal versioning increments
+    }
+});
+results.push(BulkOperationResult::Index {
+    index: index.clone(),
+    id: id.clone(),
+    success: true,
+    error: None,
+    version: doc_version,
+});
+tracing::debug!(doc_id = %id, "Bulk indexed document");
+                                }
+                                Err(e) => {
+let error_msg = format!("Failed to add document: {e}");
+errors.push(BulkError {
+    operation_index: i,
+    error: error_msg.clone(),
+});
+results.push(BulkOperationResult::Index {
+    index: index.clone(),
+    id: id.clone(),
+    success: false,
+    error: Some(error_msg),
+    version: None,
+});
+                                }
+                            },
+                            Err(e) => {
+                                let error_msg = format!("Failed to parse document: {e}");
                                 errors.push(BulkError {
-                                    operation_index: i,
-                                    error: error_msg.clone(),
+operation_index: i,
+error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Index {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: false,
-                                    error: Some(error_msg),
+index: index.clone(),
+id: id.clone(),
+success: false,
+error: Some(error_msg),
+version: None,
                                 });
                             }
-                        },
-                        Err(e) => {
-                            let error_msg = format!("Failed to parse document: {e}");
-                            errors.push(BulkError {
-                                operation_index: i,
-                                error: error_msg.clone(),
-                            });
-                            results.push(BulkOperationResult::Index {
-                                index: index.clone(),
-                                id: id.clone(),
-                                success: false,
-                                error: Some(error_msg),
-                            });
-                        }
                         }
                     }
                     BulkOperation::Update {
                         index,
                         id,
                         mut document,
+                        version,
+                        version_type,
                     } => {
+                        // Version checking for updates
+                        if let Some(ref ver) = version {
+                            tracing::debug!(
+                                doc_id = %id,
+                                version = ver,
+                                version_type = ?version_type,
+                                "Bulk update with version"
+                            );
+                        }
+
                         // Validate document against mapping if available (for dynamic mapping validation)
                         if let Some(ref mapping) = mapping {
                             if let Err(e) = mapping.validate_document(&document) {
                                 let error_msg = format!("Document validation failed: {e}");
                                 errors.push(BulkError {
-                                    operation_index: i,
-                                    error: error_msg.clone(),
+operation_index: i,
+error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Update {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: false,
-                                    error: Some(error_msg),
+index: index.clone(),
+id: id.clone(),
+success: false,
+error: Some(error_msg),
+version: None,
                                 });
                                 continue;
                             }
@@ -478,14 +549,15 @@ impl DocumentStore {
                             if let Err(e) = mapping.apply_copy_to(&mut document) {
                                 let error_msg = format!("Failed to apply copy_to: {e}");
                                 errors.push(BulkError {
-                                    operation_index: i,
-                                    error: error_msg.clone(),
+operation_index: i,
+error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Update {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: false,
-                                    error: Some(error_msg),
+index: index.clone(),
+id: id.clone(),
+success: false,
+error: Some(error_msg),
+version: None,
                                 });
                                 continue;
                             }
@@ -495,42 +567,69 @@ impl DocumentStore {
                         match Self::json_to_tantivy_doc(&schema, &document) {
                             Ok(tantivy_doc) => match writer.add_document(tantivy_doc) {
                                 Ok(_) => {
-                                    results.push(BulkOperationResult::Update {
-                                        index: index.clone(),
-                                        id: id.clone(),
-                                        success: true,
-                                        error: None,
-                                    });
-                                    tracing::debug!(doc_id = %id, "Bulk updated document");
-                                }    Err(e) => {
-                                    let error_msg = format!("Failed to update document: {e}");
-                                    errors.push(BulkError {
-                                        operation_index: i,
-                                        error: error_msg.clone(),
-                                    });
-                                    results.push(BulkOperationResult::Update {
-                                        index: index.clone(),
-                                        id: id.clone(),
-                                        success: false,
-                                        error: Some(error_msg),
-                                    });
-                                }},
+// Generate version if versioning is enabled
+let doc_version = version.map(|v| {
+    match version_type.as_deref() {
+        Some("external") | Some("external_gte") => v,
+        _ => v + 1, // Internal versioning increments
+    }
+});
+results.push(BulkOperationResult::Update {
+    index: index.clone(),
+    id: id.clone(),
+    success: true,
+    error: None,
+    version: doc_version,
+});
+tracing::debug!(doc_id = %id, "Bulk updated document");
+                                }
+                                Err(e) => {
+let error_msg = format!("Failed to update document: {e}");
+errors.push(BulkError {
+    operation_index: i,
+    error: error_msg.clone(),
+});
+results.push(BulkOperationResult::Update {
+    index: index.clone(),
+    id: id.clone(),
+    success: false,
+    error: Some(error_msg),
+    version: None,
+});
+                                }
+                            },
                             Err(e) => {
                                 let error_msg = format!("Failed to parse document: {e}");
                                 errors.push(BulkError {
-                                    operation_index: i,
-                                    error: error_msg.clone(),
+operation_index: i,
+error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Update {
-                                    index: index.clone(),
-                                    id: id.clone(),
-                                    success: false,
-                                    error: Some(error_msg),
+index: index.clone(),
+id: id.clone(),
+success: false,
+error: Some(error_msg),
+version: None,
                                 });
                             }
                         }
                     }
-                    BulkOperation::Delete { index: index_name, id } => {
+                    BulkOperation::Delete {
+                        index: index_name,
+                        id,
+                        version,
+                        version_type,
+                    } => {
+                        // Version checking for deletes
+                        if let Some(ref ver) = version {
+                            tracing::debug!(
+                                doc_id = %id,
+                                version = ver,
+                                version_type = ?version_type,
+                                "Bulk delete with version"
+                            );
+                        }
+
                         // Check if schema has _id field
                         match schema.get_field("_id") {
                             Ok(id_field) => {
@@ -540,24 +639,35 @@ impl DocumentStore {
                                 // delete_term doesn't return a Result, it just marks the term for deletion
                                 writer.delete_term(term);
 
+                                // Generate version if versioning is enabled
+                                let doc_version = version.map(|v| {
+match version_type.as_deref() {
+    Some("external") | Some("external_gte") => v,
+    _ => v + 1, // Internal versioning increments
+}
+                                });
+
                                 results.push(BulkOperationResult::Delete {
-                                    index: index_name.clone(),
-                                    id: id.clone(),
-                                    success: true,
-                                    error: None,
+index: index_name.clone(),
+id: id.clone(),
+success: true,
+error: None,
+version: doc_version,
                                 });
                                 tracing::debug!(doc_id = %id, "Bulk deleted document");
-                            }Err(_) => {
+                            }
+                            Err(_) => {
                                 let error_msg = "Delete operation requires schema with _id field. Please add an _id field (keyword or text type) to your schema.".to_string();
                                 errors.push(BulkError {
-                                    operation_index: i,
-                                    error: error_msg.clone(),
+operation_index: i,
+error: error_msg.clone(),
                                 });
                                 results.push(BulkOperationResult::Delete {
-                                    index: index_name.clone(),
-                                    id: id.clone(),
-                                    success: false,
-                                    error: Some(error_msg),
+index: index_name.clone(),
+id: id.clone(),
+success: false,
+error: Some(error_msg),
+version: None,
                                 });
                             }
                         }
@@ -1020,20 +1130,28 @@ mod tests {
                 index: "test".to_string(),
                 id: DocumentId::new("doc1"),
                 document: serde_json::json!({"title": "Document 1"}),
+                version: None,
+                version_type: None,
             },
             BulkOperation::Index {
                 index: "test".to_string(),
                 id: DocumentId::new("doc2"),
                 document: serde_json::json!({"title": "Document 2"}),
+                version: None,
+                version_type: None,
             },
             BulkOperation::Update {
                 index: "test".to_string(),
                 id: DocumentId::new("doc1"),
                 document: serde_json::json!({"title": "Updated Document 1"}),
+                version: None,
+                version_type: None,
             },
             BulkOperation::Delete {
                 index: "test".to_string(),
                 id: DocumentId::new("doc2"),
+                version: None,
+                version_type: None,
             },
         ];
 
@@ -1100,6 +1218,8 @@ mod tests {
         let operations = vec![BulkOperation::Delete {
             index: "test".to_string(),
             id: DocumentId::new("doc1"),
+            version: None,
+            version_type: None,
         }];
 
         let result = store.bulk_operations(operations).await;
@@ -1177,6 +1297,8 @@ mod tests {
                     "title": "Document 1",
                     "views": 100
                 }),
+                version: None,
+                version_type: None,
             },
             BulkOperation::Index {
                 index: "test_index".to_string(),
@@ -1185,6 +1307,8 @@ mod tests {
                     "title": "Document 2",
                     "views": 200
                 }),
+                version: None,
+                version_type: None,
             },
         ];
 
@@ -1227,6 +1351,8 @@ mod tests {
             document: serde_json::json!({
                 "title": "Updated Document 1"
             }),
+            version: None,
+            version_type: None,
         }];
 
         let result = store.bulk_operations(operations).await;
@@ -1276,15 +1402,21 @@ mod tests {
                 index: "test_index".to_string(),
                 id: doc_id.clone(),
                 document: serde_json::json!({"title": "Updated", "views": 200}),
+                version: None,
+                version_type: None,
             },
             BulkOperation::Delete {
                 index: "test_index".to_string(),
                 id: DocumentId::new("doc2"), // Non-existent, should still succeed
+                version: None,
+                version_type: None,
             },
             BulkOperation::Index {
                 index: "test_index".to_string(),
                 id: DocumentId::new("doc3"),
                 document: serde_json::json!({"title": "New Document", "views": 300}),
+                version: None,
+                version_type: None,
             },
         ];
 
@@ -1347,6 +1479,8 @@ mod tests {
                     "title": format!("Document {}", i),
                     "value": i
                 }),
+                version: None,
+                version_type: None,
             });
         }
 
@@ -1432,6 +1566,8 @@ mod tests {
             document: serde_json::json!({
                 "title": "Document 1"
             }),
+            version: None,
+            version_type: None,
         }];
         store.bulk_operations(add_ops).await.unwrap();
 
@@ -1439,6 +1575,8 @@ mod tests {
         let operations = vec![BulkOperation::Delete {
             index: "test_index".to_string(),
             id: DocumentId::new("doc1"),
+            version: None,
+            version_type: None,
         }];
 
         let result = store.bulk_operations(operations).await;
@@ -1485,6 +1623,8 @@ mod tests {
             index: "test_index".to_string(),
             id: DocumentId::new("doc1"),
             document: invalid_doc,
+            version: None,
+            version_type: None,
         }];
 
         let result = store.bulk_operations(operations).await;
@@ -1567,12 +1707,16 @@ mod tests {
             index: "test_index".to_string(),
             id: doc_id.clone(),
             document: document.clone(),
+            version: None,
+            version_type: None,
         };
         match index_op {
             BulkOperation::Index {
                 index,
                 id,
                 document,
+                version: _,
+                version_type: _,
             } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
@@ -1586,12 +1730,16 @@ mod tests {
             index: "test_index".to_string(),
             id: doc_id.clone(),
             document: document.clone(),
+            version: None,
+            version_type: None,
         };
         match update_op {
             BulkOperation::Update {
                 index,
                 id,
                 document,
+                version: _,
+                version_type: _,
             } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
@@ -1604,9 +1752,16 @@ mod tests {
         let delete_op = BulkOperation::Delete {
             index: "test_index".to_string(),
             id: doc_id,
+            version: None,
+            version_type: None,
         };
         match delete_op {
-            BulkOperation::Delete { index, id } => {
+            BulkOperation::Delete {
+                index,
+                id,
+                version: _,
+                version_type: _,
+            } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, DocumentId::new("test_doc"));
             }
@@ -1624,6 +1779,7 @@ mod tests {
             id: doc_id.clone(),
             success: true,
             error: None,
+            version: Some(1),
         };
         match index_result {
             BulkOperationResult::Index {
@@ -1631,11 +1787,13 @@ mod tests {
                 id,
                 success,
                 error,
+                version,
             } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert!(success);
                 assert!(error.is_none());
+                assert_eq!(version, Some(1));
             }
             _ => panic!("Expected Index result"),
         }
@@ -1646,6 +1804,7 @@ mod tests {
             id: doc_id.clone(),
             success: false,
             error: Some("Test error".to_string()),
+            version: None,
         };
         match update_result {
             BulkOperationResult::Update {
@@ -1653,11 +1812,13 @@ mod tests {
                 id,
                 success,
                 error,
+                version,
             } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, doc_id);
                 assert!(!success);
                 assert_eq!(error, Some("Test error".to_string()));
+                assert_eq!(version, None);
             }
             _ => panic!("Expected Update result"),
         }
@@ -1668,6 +1829,7 @@ mod tests {
             id: doc_id,
             success: false,
             error: Some("Not implemented".to_string()),
+            version: None,
         };
         match delete_result {
             BulkOperationResult::Delete {
@@ -1675,11 +1837,13 @@ mod tests {
                 id,
                 success,
                 error,
+                version,
             } => {
                 assert_eq!(index, "test_index");
                 assert_eq!(id, DocumentId::new("test_doc"));
                 assert!(!success);
                 assert_eq!(error, Some("Not implemented".to_string()));
+                assert_eq!(version, None);
             }
             _ => panic!("Expected Delete result"),
         }
@@ -1703,6 +1867,7 @@ mod tests {
             id: DocumentId::new("doc1"),
             success: true,
             error: None,
+            version: Some(1),
         }];
         let errors = vec![BulkError {
             operation_index: 1,

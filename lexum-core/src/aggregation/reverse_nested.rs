@@ -82,6 +82,9 @@ impl AggregationTrait for ReverseNestedAggregation {
                 AggregationSpec::Range(range_agg) => {
                     range_agg.execute(&parent_hits, field_cache)?
                 }
+                AggregationSpec::Rollup(rollup_agg) => {
+                    rollup_agg.execute(&parent_hits, field_cache)?
+                }
                 AggregationSpec::Filters(filters_agg) => {
                     filters_agg.execute(&parent_hits, field_cache)?
                 }
@@ -215,6 +218,8 @@ impl AggregationTrait for ReverseNestedAggregation {
                                                     .merge(&[existing.clone(), agg_result.clone()])
                                             }
                                             AggregationSpec::Range(range_agg) => range_agg
+                                                .merge(&[existing.clone(), agg_result.clone()]),
+                                            AggregationSpec::Rollup(rollup_agg) => rollup_agg
                                                 .merge(&[existing.clone(), agg_result.clone()]),
                                             AggregationSpec::Filters(filters_agg) => filters_agg
                                                 .merge(&[existing.clone(), agg_result.clone()]),

@@ -49,6 +49,7 @@ pub mod range;
 pub mod rate;
 pub mod result;
 pub mod reverse_nested;
+pub mod rollup;
 pub mod sampler;
 pub mod scripted_metric;
 pub mod serial_differencing;
@@ -106,6 +107,10 @@ pub use result::{
     SingleBucketAggregationResult,
 };
 pub use reverse_nested::ReverseNestedAggregation;
+pub use rollup::{
+    RollupAggregation, RollupField, RollupFieldType, RollupJob, RollupJobConfig, RollupJobStats,
+    RollupJobStatus,
+};
 pub use sampler::{DiversifiedSamplerAggregation, SamplerAggregation};
 pub use scripted_metric::{ScriptedMetricAggregation, ScriptedMetricResult};
 pub use serial_differencing::SerialDifferencingAggregation;
@@ -168,6 +173,8 @@ pub enum AggregationSpec {
     Pipeline(PipelineAggregation),
     /// Range aggregation (numeric ranges)
     Range(RangeAggregation),
+    /// Rollup aggregation (pre-computed aggregations for time series)
+    Rollup(RollupAggregation),
     /// Filters aggregation (multiple named filters)
     Filters(FiltersAggregation),
     /// Missing aggregation (documents with missing values)
@@ -261,6 +268,7 @@ impl AggregationSpec {
             AggregationSpec::ReverseNested(agg) => agg.name(),
             AggregationSpec::Pipeline(agg) => agg.name(),
             AggregationSpec::Range(agg) => agg.name(),
+            AggregationSpec::Rollup(agg) => agg.name(),
             AggregationSpec::Filters(agg) => agg.name(),
             AggregationSpec::Missing(agg) => agg.name(),
             AggregationSpec::Global(agg) => agg.name(),

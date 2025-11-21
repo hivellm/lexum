@@ -513,8 +513,8 @@ mod tests {
             .body(Body::from("{}"))
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        // Expect 400 because the index doesn't exist
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        // Expect 404 because the index doesn't exist
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[lexum_macros::tokio_test]
@@ -716,8 +716,8 @@ mod tests {
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
         let response = app.oneshot(request).await.unwrap();
-        // Expect 400 because the index doesn't exist
-        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        // Expect 404 because the index doesn't exist
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
     #[lexum_macros::tokio_test]

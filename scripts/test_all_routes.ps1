@@ -1,30 +1,30 @@
-# Script completo para testar todas as rotas do Lexum Server
-# Uso: .\test_all_routes.ps1 [-ServerUrl http://localhost:17000] [-LogFile test_results.log]
+# Complete script to test all Lexum Server routes
+# Usage: .\test_all_routes.ps1 [-ServerUrl http://localhost:17000] [-LogFile test_results.log]
 
 param(
     [string]$ServerUrl = "http://localhost:17000",
     [string]$LogFile = "test_results_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 )
 
-# Cores para output
+# Colors for output
 $ErrorColor = "Red"
 $SuccessColor = "Green"
 $InfoColor = "Cyan"
 $WarningColor = "Yellow"
 
-# Contadores
+# Counters
 $script:TotalTests = 0
 $script:PassedTests = 0
 $script:FailedTests = 0
 $script:WarningTests = 0
 $script:RetryCount = 0
 
-# Configuração de retry
+# Retry configuration
 $script:MaxRetries = 3
 $script:RetryDelayMs = 1000  # Base delay in milliseconds
 $script:RetryBackoffMultiplier = 2  # Exponential backoff
 
-# Lista de índices criados para cleanup
+# List of created indices for cleanup
 $script:CreatedIndices = @()
 $script:CreatedTemplates = @()
 $script:CreatedRepositories = @()
@@ -220,20 +220,20 @@ function Test-Route {
 }
 
 Write-Log "========================================"
-Write-Log "  LEXUM SERVER - TESTE COMPLETO DE ROTAS"
+Write-Log "  LEXUM SERVER - COMPLETE ROUTE TEST"
 Write-Log "  Server: $ServerUrl"
 Write-Log "  Log File: $LogFile"
 Write-Log "========================================"
 
-# Verificar se o servidor está rodando
-Write-Log "Verificando se o servidor está rodando..."
+# Check if server is running
+Write-Log "Checking if server is running..."
 try {
     $healthCheck = Invoke-WebRequest -Uri "$ServerUrl/health" -Method GET -ErrorAction Stop
-    Write-Log "  [OK] Servidor está rodando (Status: $($healthCheck.StatusCode))" "SUCCESS"
+    Write-Log "  [OK] Server is running (Status: $($healthCheck.StatusCode))" "SUCCESS"
 } catch {
-    Write-Log "  [ERRO] Servidor não está rodando ou não está acessível em $ServerUrl" "ERROR"
-    Write-Log "  Por favor, inicie o servidor antes de executar os testes." "WARN"
-    Write-Log "  Comando: cargo run --bin lexum-server" "WARN"
+    Write-Log "  [ERROR] Server is not running or not accessible at $ServerUrl" "ERROR"
+    Write-Log "  Please start the server before running the tests." "WARN"
+    Write-Log "  Command: cargo run --bin lexum-server" "WARN"
     exit 1
 }
 Write-Log ""
@@ -258,7 +258,7 @@ $testIndex1 = "test_index_1"
 $testIndex2 = "test_index_2"
 $testIndex3 = "test_index_shrink"
 
-# Criar índices (com tracking para cleanup)
+# Create indices (with tracking for cleanup)
 Test-Route "Create Index" "POST" "/api/v1/indices" -Body @{
     name = $testIndex1
     fields = @(
@@ -736,17 +736,17 @@ Cleanup-Resources
 
 Write-Log ""
 
-# RESUMO FINAL
+# FINAL SUMMARY
 Write-Log "========================================"
-Write-Log "  RESUMO DOS TESTES"
+Write-Log "  TEST SUMMARY"
 Write-Log "========================================"
-Write-Log "Total de Testes: $script:TotalTests"
-Write-Log "Passou: $script:PassedTests" "SUCCESS"
-Write-Log "Falhou: $script:FailedTests" "ERROR"
-Write-Log "Avisos: $script:WarningTests" "WARN"
+Write-Log "Total Tests: $script:TotalTests"
+Write-Log "Passed: $script:PassedTests" "SUCCESS"
+Write-Log "Failed: $script:FailedTests" "ERROR"
+Write-Log "Warnings: $script:WarningTests" "WARN"
 Write-Log "Retries: $script:RetryCount" "INFO"
 $successRate = if ($script:TotalTests -gt 0) { [math]::Round(($script:PassedTests / $script:TotalTests) * 100, 2) } else { 0 }
-Write-Log "Taxa de Sucesso: ${successRate}%"
+Write-Log "Success Rate: ${successRate}%"
 Write-Log "Log File: $LogFile"
 $errorFile = $LogFile -replace '\.log$', '_errors.json'
 if (Test-Path $errorFile) {
@@ -755,10 +755,10 @@ if (Test-Path $errorFile) {
 Write-Log "========================================"
 
 if ($script:FailedTests -eq 0) {
-    Write-Log "[SUCCESS] Todos os testes criticos passaram!" "SUCCESS"
+    Write-Log "[SUCCESS] All critical tests passed!" "SUCCESS"
     exit 0
 } else {
-    Write-Log "[ERROR] Alguns testes falharam. Verifique os detalhes acima e o arquivo de log." "ERROR"
+    Write-Log "[ERROR] Some tests failed. Check the details above and the log file." "ERROR"
     Write-Log "Log file: $LogFile" "INFO"
     if (Test-Path $errorFile) {
         Write-Log "Error details: $errorFile" "INFO"

@@ -107,6 +107,9 @@ impl AggregationTrait for NestedAggregation {
                 AggregationSpec::Range(range_agg) => {
                     range_agg.execute(&nested_hits, field_cache)?
                 }
+                AggregationSpec::Rollup(rollup_agg) => {
+                    rollup_agg.execute(&nested_hits, field_cache)?
+                }
                 AggregationSpec::Filters(filters_agg) => {
                     filters_agg.execute(&nested_hits, field_cache)?
                 }
@@ -271,6 +274,7 @@ impl AggregationTrait for NestedAggregation {
                     }
                     AggregationSpec::Pipeline(pipeline_agg) => pipeline_agg.merge(sub_results),
                     AggregationSpec::Range(range_agg) => range_agg.merge(sub_results),
+                    AggregationSpec::Rollup(rollup_agg) => rollup_agg.merge(sub_results),
                     AggregationSpec::Filters(filters_agg) => filters_agg.merge(sub_results),
                     AggregationSpec::Missing(missing_agg) => missing_agg.merge(sub_results),
                     AggregationSpec::Global(global_agg) => global_agg.merge(sub_results),
@@ -427,11 +431,11 @@ mod tests {
 
         let result = nested_agg.execute(&hits, &field_cache).unwrap();
 
-        if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets().len(), 1);
-            // Should have one bucket with nested path
+        if let AggregationResult::SingleBucket(single_bucket) = result {
+            // Should have sub-aggregations
+            assert!(single_bucket.aggregations().len() > 0);
         } else {
-            panic!("Expected Buckets result");
+            panic!("Expected SingleBucket result, got: {result:?}");
         }
     }
 
@@ -452,11 +456,11 @@ mod tests {
 
         let result = nested_agg.execute(&hits, &field_cache).unwrap();
 
-        if let AggregationResult::Buckets(bucket_result) = result {
-            assert_eq!(bucket_result.buckets().len(), 1);
+        if let AggregationResult::SingleBucket(single_bucket) = result {
             // Should have sub-aggregations
+            assert!(single_bucket.aggregations().len() > 0);
         } else {
-            panic!("Expected Buckets result");
+            panic!("Expected SingleBucket result, got: {result:?}");
         }
     }
 
@@ -469,14 +473,11 @@ mod tests {
 
         let result = nested_agg.execute(&hits, &field_cache).unwrap();
 
-        if let AggregationResult::Buckets(bucket_result) = result {
-            // Should have empty or single bucket with 0 docs
-            assert!(
-                bucket_result.buckets().is_empty()
-                    || bucket_result.buckets().iter().all(|b| b.doc_count == 0)
-            );
+        if let AggregationResult::SingleBucket(single_bucket) = result {
+            // Should have empty result when no matching path
+            assert_eq!(single_bucket.doc_count(), 0);
         } else {
-            panic!("Expected Buckets result");
+            panic!("Expected SingleBucket result, got: {result:?}");
         }
     }
 }

@@ -66,6 +66,9 @@ pub struct SearchHit {
     pub score: Score,
     /// Document source
     pub source: JsonValue,
+    /// Highlighted fields (if highlighting is enabled)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub highlight: Option<HashMap<String, Vec<String>>>,
     /// Inner hits (for nested/parent-child queries)
     #[serde(rename = "inner_hits", skip_serializing_if = "Option::is_none")]
     pub inner_hits: Option<HashMap<String, crate::search::inner_hits::InnerHitsResult>>,
@@ -78,6 +81,7 @@ impl SearchHit {
             id,
             score,
             source,
+            highlight: None,
             inner_hits: None,
         }
     }
@@ -93,6 +97,7 @@ impl SearchHit {
             id,
             score,
             source,
+            highlight: None,
             inner_hits: Some(inner_hits),
         }
     }
@@ -147,6 +152,7 @@ mod tests {
     #[test]
     fn test_search_hit() {
         let hit = SearchHit {
+            highlight: None,
             id: DocumentId::new("doc1"),
             score: Score::new(0.95_f32),
             source: serde_json::json!({"title": "Test"}),
@@ -269,6 +275,7 @@ mod tests {
     #[test]
     fn test_search_hit_serialization() {
         let hit = SearchHit {
+            highlight: None,
             id: DocumentId::new("doc1"),
             score: Score::new(0.95_f32),
             source: serde_json::json!({"title": "Test"}),

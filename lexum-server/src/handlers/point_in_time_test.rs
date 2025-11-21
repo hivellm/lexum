@@ -191,7 +191,7 @@ mod tests {
         let extend_request = json!({
             "keep_alive": "10m"
         });
-        let result = extend_pit(Path(pit_id), Json(extend_request)).await;
+        let result = extend_pit(Path(pit_id), Ok(Json(extend_request))).await;
         assert!(result.is_ok());
     }
 
@@ -343,7 +343,7 @@ mod tests {
         let extend_request = json!({
             "keep_alive": "invalid"
         });
-        let result = extend_pit(Path(pit_id), Json(extend_request)).await;
+        let result = extend_pit(Path(pit_id), Ok(Json(extend_request))).await;
         assert!(result.is_err());
     }
 
@@ -381,7 +381,7 @@ mod tests {
 
         // Try to extend without keep_alive
         let extend_request = json!({});
-        let result = extend_pit(Path(pit_id), Json(extend_request)).await;
+        let result = extend_pit(Path(pit_id), Ok(Json(extend_request))).await;
         assert!(result.is_err());
     }
 
@@ -445,8 +445,7 @@ mod tests {
 
         let result = search_with_pit(State(state), Json(search_request)).await;
         assert!(result.is_ok());
-        let search_result = result.unwrap().0;
-        assert!(search_result.total >= 0);
+        let _search_result = result.unwrap().0;
     }
 
     #[tokio::test]
@@ -509,8 +508,7 @@ mod tests {
 
         let result = search_with_pit(State(state), Json(search_request)).await;
         assert!(result.is_ok());
-        let search_result = result.unwrap().0;
-        assert!(search_result.total >= 0);
+        let _search_result = result.unwrap().0;
     }
 
     #[tokio::test]

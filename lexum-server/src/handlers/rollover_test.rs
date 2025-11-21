@@ -179,7 +179,7 @@ async fn test_rollover_index_dry_run() {
         let result = rollover_index(
             axum::extract::State(state),
             axum::extract::Path("test-index".to_string()),
-            axum::Json(request),
+            Ok(axum::Json(request)),
         )
         .await;
 
@@ -207,7 +207,7 @@ async fn test_rollover_index_not_found() {
     let result = rollover_index(
         axum::extract::State(state),
         axum::extract::Path("nonexistent-index".to_string()),
-        axum::Json(request),
+        Ok(axum::Json(request)),
     )
     .await;
 

@@ -78,6 +78,8 @@ impl ProgressDocumentStore {
                         index,
                         id,
                         mut document,
+                        version: _,
+                        version_type: _,
                     } => {
                         // Validate document against mapping if available (for dynamic mapping validation)
                         if let Some(ref mapping) = mapping {
@@ -92,6 +94,7 @@ impl ProgressDocumentStore {
                                     id: id.clone(),
                                     success: false,
                                     error: Some(error_msg),
+                                    version: None,
                                 }
                             } else {
                                 // Apply copy_to transformations
@@ -106,6 +109,7 @@ impl ProgressDocumentStore {
                                         id: id.clone(),
                                         success: false,
                                         error: Some(error_msg),
+                                        version: None,
                                     }
                                 } else {
                                     let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
@@ -115,6 +119,7 @@ impl ProgressDocumentStore {
                                             id: id.clone(),
                                             success: true,
                                             error: None,
+                                            version: None,
                                         },
                                         Err(e) => {
                                             let error_msg = format!("Failed to add document: {e}");
@@ -127,6 +132,7 @@ impl ProgressDocumentStore {
                                                 id: id.clone(),
                                                 success: false,
                                                 error: Some(error_msg),
+                                                version: None,
                                             }
                                         }
                                     }
@@ -140,6 +146,7 @@ impl ProgressDocumentStore {
                                     id: id.clone(),
                                     success: true,
                                     error: None,
+                                    version: None,
                                 },
                                 Err(e) => {
                                     let error_msg = format!("Failed to add document: {e}");
@@ -152,6 +159,7 @@ impl ProgressDocumentStore {
                                         id: id.clone(),
                                         success: false,
                                         error: Some(error_msg),
+                                        version: None,
                                     }
                                 }
                             }
@@ -161,6 +169,8 @@ impl ProgressDocumentStore {
                         index,
                         id,
                         mut document,
+                        version: _,
+                        version_type: _,
                     } => {
                         // Validate document against mapping if available (for dynamic mapping validation)
                         if let Some(ref mapping) = mapping {
@@ -175,6 +185,7 @@ impl ProgressDocumentStore {
                                     id: id.clone(),
                                     success: false,
                                     error: Some(error_msg),
+                                    version: None,
                                 }
                             } else {
                                 // Apply copy_to transformations
@@ -189,6 +200,7 @@ impl ProgressDocumentStore {
                                         id: id.clone(),
                                         success: false,
                                         error: Some(error_msg),
+                                        version: None,
                                     }
                                 } else {
                                     let tantivy_doc = Self::json_to_tantivy_doc(&schema, &document);
@@ -198,6 +210,7 @@ impl ProgressDocumentStore {
                                             id: id.clone(),
                                             success: true,
                                             error: None,
+                                            version: None,
                                         },
                                         Err(e) => {
                                             let error_msg =
@@ -211,6 +224,7 @@ impl ProgressDocumentStore {
                                                 id: id.clone(),
                                                 success: false,
                                                 error: Some(error_msg),
+                                                version: None,
                                             }
                                         }
                                     }
@@ -224,6 +238,7 @@ impl ProgressDocumentStore {
                                     id: id.clone(),
                                     success: true,
                                     error: None,
+                                    version: None,
                                 },
                                 Err(e) => {
                                     let error_msg = format!("Failed to update document: {e}");
@@ -236,12 +251,18 @@ impl ProgressDocumentStore {
                                         id: id.clone(),
                                         success: false,
                                         error: Some(error_msg),
+                                        version: None,
                                     }
                                 }
                             }
                         }
                     }
-                    BulkOperation::Delete { index, id } => {
+                    BulkOperation::Delete {
+                        index,
+                        id,
+                        version: _,
+                        version_type: _,
+                    } => {
                         // For delete operations, we need to find the document first
                         // This is a simplified implementation
                         BulkOperationResult::Delete {
@@ -249,6 +270,7 @@ impl ProgressDocumentStore {
                             id: id.clone(),
                             success: true,
                             error: None,
+                            version: None,
                         }
                     }
                 };
@@ -323,6 +345,8 @@ impl ProgressDocumentStore {
             index: self.index.name().to_string(),
             id: doc_id.clone(),
             document,
+            version: None,
+            version_type: None,
         }];
 
         let result = self
@@ -347,6 +371,8 @@ impl ProgressDocumentStore {
             index: self.index.name().to_string(),
             id,
             document,
+            version: None,
+            version_type: None,
         }];
         let result = self
             .bulk_operations_with_progress(operations, progress_id)
@@ -368,6 +394,8 @@ impl ProgressDocumentStore {
         let operations = vec![BulkOperation::Delete {
             index: self.index.name().to_string(),
             id,
+            version: None,
+            version_type: None,
         }];
         let result = self
             .bulk_operations_with_progress(operations, progress_id)

@@ -38,3 +38,7 @@ coverage/
 # Benchmarks
 criterion/
 
+# Test output files
+scripts/test_results.txt
+scripts/*.log
+scripts/*_errors.json

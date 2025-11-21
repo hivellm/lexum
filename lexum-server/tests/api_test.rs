@@ -211,6 +211,8 @@ fn test_search_request() {
         limit: 20,
         offset: 10,
         sort: Some(SortOption::desc("_score")),
+        sort_options: None,
+        search_after: None,
         fields: None,
         highlight: None,
         explain: false,

@@ -328,7 +328,8 @@ mod tests {
         // Test serialization (basic check)
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("40.7128"));
-        assert!(json.contains("-74.0060"));
+        // Serialization may remove trailing zeros, so check for -74.006 (with or without trailing zero)
+        assert!(json.contains("-74.006") || json.contains("-74.0060"));
     }
 
     #[test]
@@ -460,8 +461,8 @@ mod tests {
         let json = r#"{
             "point": {"lat": 40.7128, "lon": -74.0060},
             "bounds": {
-                "top_left": {"lat": 30.0, "lon": -70.0}, // Reversed
-                "bottom_right": {"lat": 50.0, "lon": -80.0} // Reversed
+                "top_left": {"lat": 30.0, "lon": -70.0},
+                "bottom_right": {"lat": 50.0, "lon": -80.0}
             }
         }"#;
         let request: GeoBoundsCheckRequest = serde_json::from_str(json).unwrap();

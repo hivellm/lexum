@@ -155,6 +155,7 @@ pub async fn bulk_operations_with_progress(
                 for operation in operations {
                     let error_result = match operation {
                         BulkOperation::Index { id, .. } => BulkOperationResult::Index {
+                            version: None,
                             index: index_name.clone(),
                             id: id.clone(),
                             success: false,
@@ -165,12 +166,14 @@ pub async fn bulk_operations_with_progress(
                             id: id.clone(),
                             success: false,
                             error: Some(e.to_string()),
+                            version: None,
                         },
                         BulkOperation::Delete { id, .. } => BulkOperationResult::Delete {
                             index: index_name.clone(),
                             id: id.clone(),
                             success: false,
                             error: Some(e.to_string()),
+                            version: None,
                         },
                     };
                     all_results.push(error_result);

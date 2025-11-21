@@ -132,6 +132,14 @@ pub fn build_router(state: AppState, http2_push_config: &Http2PushConfig) -> Rou
         // Search
         .route("/api/v1/indices/{index}/search", post(search::search))
         .route("/api/v1/indices/{index}/search", get(search::search_get))
+        .route(
+            "/api/v1/indices/{index}/_field_caps",
+            get(search::field_capabilities),
+        )
+        .route(
+            "/api/v1/indices/{index}/_field_stats",
+            get(search::field_stats),
+        )
         // StreamableHTTP streaming search
         .route(
             "/api/v1/indices/{index}/_search/stream",

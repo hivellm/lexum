@@ -374,7 +374,7 @@ mod tests {
             );
             doc.add_i64(
                 schema_clone.get_field("price").unwrap(),
-                (100 + i * 10) as i64,
+                i64::from(100 + i * 10),
             );
             writer.add_document(doc).unwrap();
         }
@@ -494,7 +494,7 @@ mod tests {
                 field: "category".to_string(),
                 inner_hits: Some(InnerHitsConfig {
                     name: "variants".to_string(),
-                    size: 3,
+                    size: 10, // Large enough to include all documents in each group
                     sort: None,
                     source: None,
                     highlight: None,

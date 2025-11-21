@@ -52,6 +52,11 @@ impl SchemaBuilder {
         self.add_field(FieldConfig::new(name, FieldType::Boolean))
     }
 
+    /// Add an IP address field
+    pub fn add_ip_address_field(self, name: impl Into<String>) -> Self {
+        self.add_field(FieldConfig::new(name, FieldType::IpAddress))
+    }
+
     /// Build the Tantivy schema
     pub fn build(self) -> Result<(Schema, HashMap<String, Field>)> {
         let mut tantivy_builder = Schema::builder();
@@ -147,6 +152,24 @@ impl SchemaBuilder {
                     tantivy_builder.add_u64_field(&config.name, options)
                 }
                 FieldType::GeoPoint => todo!(),
+                FieldType::IpAddress => {
+                    // IP addresses stored as keyword (text, not analyzed)
+                    let mut options = TextOptions::default();
+                    if config.indexed {
+                        options = options.set_indexing_options(
+                            TextFieldIndexing::default()
+                                .set_tokenizer("raw")
+                                .set_index_option(IndexRecordOption::Basic),
+                        );
+                    }
+                    if config.stored {
+                        options = options.set_stored();
+                    }
+                    if config.fast {
+                        options = options.set_fast(Some("raw"));
+                    }
+                    tantivy_builder.add_text_field(&config.name, options)
+                }
             };
 
             field_map.insert(config.name.clone(), field);
@@ -213,5 +236,60 @@ mod tests {
 
         let field_entries: Vec<_> = schema.fields().collect();
         assert_eq!(field_entries.len(), 2);
+    }
+
+    #[test]
+    fn test_ip_address_field() {
+        let (schema, fields) = SchemaBuilder::new()
+            .add_ip_address_field("ip_address")
+            .build()
+            .unwrap();
+
+        assert!(fields.contains_key("ip_address"));
+        let field_entries: Vec<_> = schema.fields().collect();
+        assert_eq!(field_entries.len(), 1);
+    }
+
+    #[test]
+    fn test_ip_address_field_with_options() {
+        let (schema, fields) = SchemaBuilder::new()
+            .add_field(
+                FieldConfig::new("ip", FieldType::IpAddress)
+                    .stored(true)
+                    .indexed(true)
+                    .fast(true),
+            )
+            .build()
+            .unwrap();
+
+        assert!(fields.contains_key("ip"));
+        let field_entries: Vec<_> = schema.fields().collect();
+        assert_eq!(field_entries.len(), 1);
+    }
+
+    #[test]
+    fn test_all_field_types_including_ip() {
+        let (schema, fields) = SchemaBuilder::new()
+            .add_text_field("title")
+            .add_keyword_field("status")
+            .add_i64_field("views")
+            .add_f64_field("price")
+            .add_date_field("created_at")
+            .add_bool_field("published")
+            .add_ip_address_field("client_ip")
+            .build()
+            .unwrap();
+
+        assert_eq!(fields.len(), 7);
+        assert!(fields.contains_key("title"));
+        assert!(fields.contains_key("status"));
+        assert!(fields.contains_key("views"));
+        assert!(fields.contains_key("price"));
+        assert!(fields.contains_key("created_at"));
+        assert!(fields.contains_key("published"));
+        assert!(fields.contains_key("client_ip"));
+
+        let field_entries: Vec<_> = schema.fields().collect();
+        assert_eq!(field_entries.len(), 7);
     }
 }

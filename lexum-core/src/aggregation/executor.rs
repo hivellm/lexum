@@ -70,6 +70,9 @@ impl AggregationExecutor {
                 super::AggregationSpec::Range(range_agg) => {
                     range_agg.execute(hits, &self.field_cache)?
                 }
+                super::AggregationSpec::Rollup(rollup_agg) => {
+                    rollup_agg.execute(hits, &self.field_cache)?
+                }
                 super::AggregationSpec::Filters(filters_agg) => {
                     filters_agg.execute(hits, &self.field_cache)?
                 }
@@ -203,6 +206,7 @@ impl AggregationExecutor {
             }
             super::AggregationSpec::Pipeline(pipeline_agg) => pipeline_agg.merge(results),
             super::AggregationSpec::Range(range_agg) => range_agg.merge(results),
+            super::AggregationSpec::Rollup(rollup_agg) => rollup_agg.merge(results),
             super::AggregationSpec::Filters(filters_agg) => filters_agg.merge(results),
             super::AggregationSpec::Missing(missing_agg) => missing_agg.merge(results),
             super::AggregationSpec::Global(global_agg) => global_agg.merge(results),

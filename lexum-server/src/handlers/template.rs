@@ -273,7 +273,7 @@ mod tests {
         let result = put_template(
             State(state),
             Path("test-template".to_string()),
-            Json(request),
+            Ok(Json(request)),
         )
         .await;
 
@@ -303,7 +303,7 @@ mod tests {
         let result = put_template(
             State(state),
             Path("test-template".to_string()),
-            Json(request),
+            Ok(Json(request)),
         )
         .await;
 

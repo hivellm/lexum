@@ -312,7 +312,7 @@ mod tests {
         // Create hits with numeric values
         for i in 1..=5 {
             hits.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));
@@ -351,7 +351,7 @@ mod tests {
         // Std deviation = sqrt(250) ≈ 15.81
         for i in 1..=5 {
             hits.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));
@@ -384,7 +384,7 @@ mod tests {
         let mut hits1 = vec![];
         for i in 1..=3 {
             hits1.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));
@@ -394,7 +394,7 @@ mod tests {
         let mut hits2 = vec![];
         for i in 4..=5 {
             hits2.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));

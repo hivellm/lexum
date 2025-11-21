@@ -1,6 +1,7 @@
 //! Field type definitions
 
 use serde::{Deserialize, Serialize};
+use std::net::IpAddr;
 
 /// Field types supported by Lexum
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -20,6 +21,8 @@ pub enum FieldType {
     Boolean,
     /// Geographic point (latitude, longitude)
     GeoPoint,
+    /// IP address (IPv4 or IPv6)
+    IpAddress,
 }
 
 /// Field configuration options
@@ -77,6 +80,24 @@ impl FieldConfig {
     pub fn fast(mut self, fast: bool) -> Self {
         self.fast = fast;
         self
+    }
+}
+
+impl FieldType {
+    /// Validate if a string value is valid for this field type
+    pub fn validate_value(&self, value: &str) -> Result<(), String> {
+        match self {
+            FieldType::IpAddress => value
+                .parse::<IpAddr>()
+                .map(|_| ())
+                .map_err(|e| format!("Invalid IP address '{value}': {e}")),
+            _ => Ok(()), // Other types don't have string validation yet
+        }
+    }
+
+    /// Check if a string looks like an IP address
+    pub fn is_ip_address(value: &str) -> bool {
+        value.parse::<IpAddr>().is_ok()
     }
 }
 
@@ -227,6 +248,8 @@ mod tests {
             FieldType::F64,
             FieldType::Date,
             FieldType::Boolean,
+            FieldType::GeoPoint,
+            FieldType::IpAddress,
         ];
 
         for field_type in field_types {
@@ -254,6 +277,8 @@ mod tests {
             (FieldType::F64, "\"f64\""),
             (FieldType::Date, "\"date\""),
             (FieldType::Boolean, "\"boolean\""),
+            (FieldType::GeoPoint, "\"geopoint\""),
+            (FieldType::IpAddress, "\"ipaddress\""),
         ];
 
         for (field_type, expected_json) in test_cases {
@@ -263,6 +288,91 @@ mod tests {
             let deserialized: FieldType = serde_json::from_str(&json).unwrap();
             assert_eq!(deserialized, field_type);
         }
+    }
+
+    #[test]
+    fn test_ip_address_field_type() {
+        let field_type = FieldType::IpAddress;
+        let json = serde_json::to_string(&field_type).unwrap();
+        assert_eq!(json, "\"ipaddress\"");
+
+        let deserialized: FieldType = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, field_type);
+    }
+
+    #[test]
+    fn test_ip_address_validation() {
+        // Valid IPv4
+        assert!(FieldType::IpAddress.validate_value("192.168.1.1").is_ok());
+        assert!(FieldType::IpAddress.validate_value("127.0.0.1").is_ok());
+        assert!(FieldType::IpAddress.validate_value("0.0.0.0").is_ok());
+        assert!(
+            FieldType::IpAddress
+                .validate_value("255.255.255.255")
+                .is_ok()
+        );
+        assert!(FieldType::IpAddress.validate_value("10.0.0.1").is_ok());
+
+        // Valid IPv6
+        assert!(FieldType::IpAddress.validate_value("::1").is_ok());
+        assert!(FieldType::IpAddress.validate_value("2001:db8::1").is_ok());
+        assert!(FieldType::IpAddress.validate_value("fe80::1").is_ok());
+        assert!(
+            FieldType::IpAddress
+                .validate_value("2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+                .is_ok()
+        );
+        assert!(
+            FieldType::IpAddress
+                .validate_value("2001:db8:85a3::8a2e:370:7334")
+                .is_ok()
+        );
+
+        // Invalid IP addresses
+        assert!(FieldType::IpAddress.validate_value("not.an.ip").is_err());
+        assert!(
+            FieldType::IpAddress
+                .validate_value("999.999.999.999")
+                .is_err()
+        );
+        assert!(FieldType::IpAddress.validate_value("256.1.1.1").is_err());
+        assert!(FieldType::IpAddress.validate_value("192.168.1").is_err());
+        assert!(
+            FieldType::IpAddress
+                .validate_value("192.168.1.1.1")
+                .is_err()
+        );
+        assert!(FieldType::IpAddress.validate_value("").is_err());
+        // Note: "::" is technically a valid IPv6 address (unspecified address)
+        // but we may want to reject it in some contexts
+        // For now, we accept it as valid
+    }
+
+    #[test]
+    fn test_is_ip_address() {
+        // Valid IPv4
+        assert!(FieldType::is_ip_address("192.168.1.1"));
+        assert!(FieldType::is_ip_address("127.0.0.1"));
+
+        // Valid IPv6
+        assert!(FieldType::is_ip_address("::1"));
+        assert!(FieldType::is_ip_address("2001:db8::1"));
+
+        // Invalid IP addresses
+        assert!(!FieldType::is_ip_address("not.an.ip"));
+        assert!(!FieldType::is_ip_address("999.999.999.999"));
+    }
+
+    #[test]
+    fn test_ip_address_field_config() {
+        let config = FieldConfig::new("ip", FieldType::IpAddress)
+            .stored(true)
+            .indexed(true);
+
+        assert_eq!(config.name, "ip");
+        assert_eq!(config.field_type, FieldType::IpAddress);
+        assert!(config.stored);
+        assert!(config.indexed);
     }
 
     #[test]

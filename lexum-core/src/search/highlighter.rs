@@ -5,29 +5,95 @@
 
 use std::collections::HashSet;
 
+/// Highlighter type
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    utoipa::ToSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum HighlighterType {
+    /// Default highlighter (simple term matching)
+    #[default]
+    Plain,
+    /// Postings highlighter (term-based, optimized)
+    Postings,
+    /// Fast vector highlighter (term vector-based)
+    FastVector,
+    /// Unified highlighter (automatically selects best highlighter)
+    Unified,
+}
+
 /// Highlighter configuration
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
 pub struct HighlighterConfig {
     /// Pre-tag for highlighting (e.g., "<em>")
+    #[serde(default = "default_pre_tag")]
     pub pre_tag: String,
     /// Post-tag for highlighting (e.g., "</em>")
+    #[serde(default = "default_post_tag")]
     pub post_tag: String,
     /// Maximum fragment size in characters
+    #[serde(default = "default_fragment_size")]
     pub fragment_size: usize,
     /// Maximum number of fragments per field
+    #[serde(default = "default_max_fragments")]
     pub max_fragments: usize,
     /// Number of characters before match to include
+    #[serde(default = "default_fragment_margin")]
     pub fragment_margin: usize,
+    /// Highlighter type to use
+    #[serde(default)]
+    pub highlighter_type: HighlighterType,
+    /// Whether to require field match for highlighting
+    #[serde(default)]
+    pub require_field_match: bool,
+    /// Number of matched fragments to return (0 = unlimited)
+    #[serde(default)]
+    pub number_of_fragments: usize,
+    /// Whether to highlight all fragments or just matched ones
+    #[serde(default)]
+    pub highlight_whole_field: bool,
+}
+
+fn default_pre_tag() -> String {
+    "<em>".to_string()
+}
+
+fn default_post_tag() -> String {
+    "</em>".to_string()
+}
+
+fn default_fragment_size() -> usize {
+    100
+}
+
+fn default_max_fragments() -> usize {
+    3
+}
+
+fn default_fragment_margin() -> usize {
+    20
 }
 
 impl Default for HighlighterConfig {
     fn default() -> Self {
         Self {
-            pre_tag: "<em>".to_string(),
-            post_tag: "</em>".to_string(),
-            fragment_size: 100,
-            max_fragments: 3,
-            fragment_margin: 20,
+            pre_tag: default_pre_tag(),
+            post_tag: default_post_tag(),
+            fragment_size: default_fragment_size(),
+            max_fragments: default_max_fragments(),
+            fragment_margin: default_fragment_margin(),
+            highlighter_type: HighlighterType::Plain,
+            require_field_match: false,
+            number_of_fragments: 0,
+            highlight_whole_field: false,
         }
     }
 }
@@ -65,6 +131,30 @@ impl HighlighterConfig {
     /// Set fragment margin
     pub fn with_fragment_margin(mut self, margin: usize) -> Self {
         self.fragment_margin = margin;
+        self
+    }
+
+    /// Set highlighter type
+    pub fn with_type(mut self, highlighter_type: HighlighterType) -> Self {
+        self.highlighter_type = highlighter_type;
+        self
+    }
+
+    /// Set require field match
+    pub fn with_require_field_match(mut self, require: bool) -> Self {
+        self.require_field_match = require;
+        self
+    }
+
+    /// Set number of fragments
+    pub fn with_number_of_fragments(mut self, number: usize) -> Self {
+        self.number_of_fragments = number;
+        self
+    }
+
+    /// Set highlight whole field
+    pub fn with_highlight_whole_field(mut self, highlight: bool) -> Self {
+        self.highlight_whole_field = highlight;
         self
     }
 }

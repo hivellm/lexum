@@ -355,6 +355,7 @@ fn apply_highlighting(hit: SearchHit, config: &TopHitsHighlight) -> SearchHit {
     }
 
     SearchHit {
+        highlight: None,
         id: hit.id,
         score: hit.score,
         source: highlighted_source,
@@ -448,7 +449,7 @@ mod tests {
 
         for i in 1..=5 {
             hits.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32 * 0.1),
                 serde_json::json!({ "title": format!("Title {}", i) }),
             ));

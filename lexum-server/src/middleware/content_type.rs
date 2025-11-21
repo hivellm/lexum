@@ -9,14 +9,16 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 use std::task::{Context, Poll};
-use tower::Service;
+#[allow(unused_imports)]
+use tower::Layer;
+use tower::Service; // Used in trait impl
 
 /// Configuration for Content-Type validation
 #[derive(Debug, Clone)]
 pub struct ContentTypeValidationConfig {
     /// Whether to enforce Content-Type validation
     pub enabled: bool,
-    /// Allowed Content-Type values (default: ["application/json", "application/json; charset=utf-8"])
+    /// Allowed Content-Type values (default: [`"application/json"`, `"application/json; charset=utf-8"`])
     pub allowed_types: Vec<String>,
 }
 
@@ -61,7 +63,7 @@ impl ContentTypeValidationLayer {
     }
 
     /// Create a new Content-Type validation layer with default config
-    pub fn default() -> Self {
+    pub fn with_default_config() -> Self {
         Self::new(ContentTypeValidationConfig::default())
     }
 }
@@ -218,6 +220,7 @@ mod tests {
     use axum::body::Body;
     use axum::extract::Request;
     use axum::http::Method;
+    use tower::Layer;
 
     #[tokio::test]
     async fn test_content_type_validation_valid() {
@@ -246,7 +249,12 @@ mod tests {
             .unwrap();
 
         // Should pass validation
-        let result = service.ready().await.unwrap().call(req).await;
+        let result: Result<axum::response::Response, axum::Error> =
+            tower::util::ServiceExt::ready(&mut service)
+                .await
+                .unwrap()
+                .call(req)
+                .await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -277,7 +285,12 @@ mod tests {
             .unwrap();
 
         // Should fail validation with 400 Bad Request
-        let result = service.ready().await.unwrap().call(req).await;
+        let result: Result<axum::response::Response, axum::Error> =
+            tower::util::ServiceExt::ready(&mut service)
+                .await
+                .unwrap()
+                .call(req)
+                .await;
         assert!(result.is_ok()); // Returns Ok with error response
         let response = result.unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -309,7 +322,12 @@ mod tests {
             .unwrap();
 
         // Should fail validation with 400 Bad Request
-        let result = service.ready().await.unwrap().call(req).await;
+        let result: Result<axum::response::Response, axum::Error> =
+            tower::util::ServiceExt::ready(&mut service)
+                .await
+                .unwrap()
+                .call(req)
+                .await;
         assert!(result.is_ok()); // Returns Ok with error response
         let response = result.unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
@@ -339,7 +357,12 @@ mod tests {
             .unwrap();
 
         // Should pass (validation skipped for GET)
-        let result = service.ready().await.unwrap().call(req).await;
+        let result: Result<axum::response::Response, axum::Error> =
+            tower::util::ServiceExt::ready(&mut service)
+                .await
+                .unwrap()
+                .call(req)
+                .await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
@@ -370,7 +393,12 @@ mod tests {
             .unwrap();
 
         // Should pass (validation skipped for empty body)
-        let result = service.ready().await.unwrap().call(req).await;
+        let result: Result<axum::response::Response, axum::Error> =
+            tower::util::ServiceExt::ready(&mut service)
+                .await
+                .unwrap()
+                .call(req)
+                .await;
         assert!(result.is_ok());
         let response = result.unwrap();
         assert_eq!(response.status(), StatusCode::OK);

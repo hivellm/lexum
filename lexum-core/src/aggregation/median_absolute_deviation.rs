@@ -216,7 +216,7 @@ mod tests {
         // MAD = median of deviations = 1
         for i in 1..=5 {
             hits.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i }),
             ));
@@ -250,7 +250,7 @@ mod tests {
         // MAD = median of deviations = 20
         for i in 1..=7 {
             hits.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));
@@ -285,7 +285,7 @@ mod tests {
         // MAD = (5 + 15) / 2 = 10
         for i in 1..=4 {
             hits.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i * 10 }),
             ));
@@ -316,7 +316,7 @@ mod tests {
         let mut hits1 = vec![];
         for i in 1..=3 {
             hits1.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i }),
             ));
@@ -326,7 +326,7 @@ mod tests {
         let mut hits2 = vec![];
         for i in 4..=6 {
             hits2.push(SearchHit::new(
-                DocumentId::new(&i.to_string()),
+                DocumentId::new(i.to_string()),
                 Score::new(i as f32),
                 serde_json::json!({ "value": i }),
             ));

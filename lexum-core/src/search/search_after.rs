@@ -10,6 +10,14 @@
 //! use lexum_core::search::search_after::{SearchAfterExecutor, SearchAfterRequest};
 //! use lexum_core::query::Query;
 //! use lexum_core::search::result::SortOption;
+//! use lexum_core::search::executor::SearchExecutor;
+//! use std::sync::Arc;
+//!
+//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create executor (requires an index)
+//! // let index = ...; // Your index here
+//! // let search_executor = Arc::new(SearchExecutor::new(index));
+//! // let executor = SearchAfterExecutor::new(search_executor);
 //!
 //! // First request
 //! let request = SearchAfterRequest {
@@ -21,17 +29,19 @@
 //!     pit_id: None,
 //! };
 //!
-//! let result = executor.search_after(request).await?;
+//! // let result = executor.search_after(request).await?;
 //!
 //! // Subsequent request using sort values from previous result
 //! let next_request = SearchAfterRequest {
 //!     query: Query::MatchAll,
 //!     sort: vec![SortOption::desc("timestamp")],
 //!     size: 10,
-//!     search_after: result.sort_values,
+//!     search_after: None, // Would use: result.sort_values
 //!     track_total_hits: None,
 //!     pit_id: None,
 //! };
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::error::Result;
@@ -456,7 +466,7 @@ mod tests {
                 format!("Document {i}"),
             );
             doc.add_text(schema_clone.get_field("name").unwrap(), format!("Name{i}"));
-            doc.add_i64(schema_clone.get_field("age").unwrap(), (20 + i) as i64);
+            doc.add_i64(schema_clone.get_field("age").unwrap(), i64::from(20 + i));
             writer.add_document(doc).unwrap();
         }
         writer.commit().unwrap();
