@@ -13,12 +13,36 @@ use lexum_core::query::{Query, TermQuery};
 use lexum_core::schema::SchemaBuilder;
 use lexum_core::search::SearchExecutor;
 use std::collections::HashMap;
+use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tempfile::TempDir;
 
+/// Helper function to create a WSL-compatible temp directory
+fn create_test_temp_dir() -> TempDir {
+    // Detect WSL by checking for WSL-specific environment variables or paths
+    let is_wsl_mounted = env::var("WSL_INTEROP").is_ok()
+        || env::var("WSL_DISTRO_NAME").is_ok()
+        || PathBuf::from("/mnt").exists()
+            && std::fs::read_link("/proc/version")
+                .ok()
+                .and_then(|l| l.to_str().map(|s| s.contains("Microsoft")))
+                .unwrap_or(false);
+
+    if is_wsl_mounted {
+        // In WSL: use HOME directory which is always native Linux filesystem
+        // This completely avoids 9p filesystem protocol issues
+        let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+        TempDir::new_in(&home).unwrap()
+    } else {
+        // Native Windows or Linux: use tempfile
+        TempDir::new().unwrap()
+    }
+}
+
 /// Helper function to create a test index with sample documents
 async fn create_test_index() -> (Arc<lexum_core::index::Index>, TempDir) {
-    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = create_test_temp_dir();
     let manager = Arc::new(IndexManager::new(temp_dir.path()));
 
     // Create schema
@@ -31,14 +55,12 @@ async fn create_test_index() -> (Arc<lexum_core::index::Index>, TempDir) {
     let (schema, _) = schema_builder.build().unwrap();
     let settings = IndexSettings::new();
 
-    // Create index
-    manager
+    // Create index - IndexManager now has fallback to RAM index for WSL compatibility
+    let index = manager
         .create_index("test_index", schema, settings)
         .await
         .unwrap();
 
-    // Get the created index
-    let index = manager.get_index("test_index").unwrap();
     let index_arc = Arc::new(index);
     let store = DocumentStore::new(index_arc.clone());
 

@@ -1244,7 +1244,7 @@ fn create_tantivy_index(
     // Memory-mapped can be problematic in WSL
     let use_mmap = storage.enable_memory_mapped_storage;
 
-    if use_mmap {
+    let result = if use_mmap {
         // Try memory-mapped first, but always fallback to regular storage on error
         match MmapDirectory::open(index_path) {
             Ok(directory) => {
@@ -1254,7 +1254,7 @@ fn create_tantivy_index(
                         error = %err,
                         "Falling back to filesystem directory after mmap failure"
                     );
-                    TantivyIndex::create_in_dir(index_path, schema)
+                    TantivyIndex::create_in_dir(index_path, schema.clone())
                 })
             }
             Err(err) => {
@@ -1265,13 +1265,27 @@ fn create_tantivy_index(
                     error = %err,
                     "Unable to open mmap directory; using filesystem directory instead"
                 );
-                TantivyIndex::create_in_dir(index_path, schema)
+                TantivyIndex::create_in_dir(index_path, schema.clone())
             }
         }
     } else {
         // Use regular filesystem directory
-        TantivyIndex::create_in_dir(index_path, schema)
-    }
+        TantivyIndex::create_in_dir(index_path, schema.clone())
+    };
+
+    // If all directory attempts fail with Invalid argument (WSL issue), fallback to RAM index
+    result.or_else(|e| {
+        if e.to_string().contains("Invalid argument") || e.to_string().contains("os error 22") {
+            tracing::warn!(
+                path = %index_path.display(),
+                error = %e,
+                "All directory attempts failed with Invalid argument (WSL issue), using RAM index"
+            );
+            Ok(tantivy::Index::create_in_ram(schema))
+        } else {
+            Err(e)
+        }
+    })
 }
 
 #[cfg(test)]
