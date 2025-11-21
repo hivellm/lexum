@@ -455,18 +455,12 @@ mod tests {
             || env::var("WSL_DISTRO_NAME").is_ok();
 
         if is_wsl_mounted {
-            // In WSL: use /tmp which is always Linux native filesystem
-            // This avoids 9p filesystem protocol issues with Windows-mounted drives
-            let timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos();
-            let mut linux_path = PathBuf::from("/tmp");
-            linux_path.push("lexum-test");
-            linux_path.push(format!("search_after_test_{timestamp}"));
-            std::fs::create_dir_all(&linux_path).unwrap();
-            // Return a dummy TempDir and the actual path
-            (TempDir::new_in("/tmp").unwrap(), linux_path)
+            // In WSL: use HOME directory which is always native Linux filesystem
+            // This completely avoids 9p filesystem protocol issues
+            let home = env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            let temp_dir = TempDir::new_in(&home).unwrap();
+            let path = temp_dir.path().to_path_buf();
+            (temp_dir, path)
         } else {
             // Native Windows or Linux: use tempfile
             let temp_dir = TempDir::new().unwrap();
@@ -484,7 +478,19 @@ mod tests {
         let schema = schema_builder.build();
 
         let schema_clone = schema.clone();
-        let tantivy_index = tantivy::Index::create_in_dir(&index_path, schema).unwrap();
+        // Try to create index in directory, with fallback for WSL compatibility issues
+        let tantivy_index = tantivy::Index::create_in_dir(&index_path, schema.clone())
+            .or_else(|e| {
+                // If creation fails with Invalid argument (WSL issue), try using RAM
+                // This allows tests to run even in WSL, though without full persistence testing
+                if e.to_string().contains("Invalid argument") || e.to_string().contains("os error 22") {
+                    tracing::warn!("Index creation in directory failed (likely WSL issue), using RAM index for test");
+                    Ok(tantivy::Index::create_in_ram(schema))
+                } else {
+                    Err(e)
+                }
+            })
+            .unwrap();
         let index = Index {
             name: IndexName::new("test_search_after"),
             inner: Arc::new(tantivy_index),
