@@ -19,10 +19,10 @@ fn test_index_settings_default() {
 
 #[test]
 fn test_index_settings_builder() {
-    let mut settings = IndexSettings::default();
-    settings.number_of_shards = 3;
-    settings.number_of_replicas = 2;
-    settings.refresh_interval = 5;
+    let settings = IndexSettings::default()
+        .with_shards(3)
+        .with_replicas(2)
+        .with_refresh_interval(5);
 
     assert_eq!(settings.number_of_shards, 3);
     assert_eq!(settings.number_of_replicas, 2);
@@ -31,12 +31,11 @@ fn test_index_settings_builder() {
 
 #[test]
 fn test_index_settings_shards_range() {
-    let mut settings = IndexSettings::default();
-    settings.number_of_shards = 5;
+    let settings = IndexSettings::default().with_shards(5);
     assert_eq!(settings.number_of_shards, 5);
 
     // Valid range test
-    settings.number_of_shards = 1;
+    let settings = IndexSettings::default().with_shards(1);
     assert!(settings.number_of_shards > 0);
 }
 
