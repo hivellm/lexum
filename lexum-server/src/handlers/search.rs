@@ -2358,6 +2358,540 @@ mod tests {
 
         // TempDir will be cleaned up automatically
     }
+
+    // Tests for helper functions to increase coverage
+    #[test]
+    fn test_default_pre_tag() {
+        assert_eq!(default_pre_tag(), "<em>");
+    }
+
+    #[test]
+    fn test_default_post_tag() {
+        assert_eq!(default_post_tag(), "</em>");
+    }
+
+    #[test]
+    fn test_default_fragment_size() {
+        assert_eq!(default_fragment_size(), 100);
+    }
+
+    #[test]
+    fn test_default_max_fragments() {
+        assert_eq!(default_max_fragments(), 3);
+    }
+
+    #[test]
+    fn test_extract_query_terms_with_query_string() {
+        let query = Query::Match(MatchQuery::new("field".to_string(), "test".to_string()));
+        let terms = extract_query_terms(&query, Some("query string with words"));
+        assert!(terms.contains("query"));
+        assert!(terms.contains("string"));
+        assert!(terms.contains("with"));
+        assert!(terms.contains("words"));
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_match_query() {
+        let query = Query::Match(MatchQuery::new(
+            "field".to_string(),
+            "test query example".to_string(),
+        ));
+        let terms = extract_query_terms(&query, None);
+        assert!(terms.contains("test"));
+        assert!(terms.contains("query"));
+        assert!(terms.contains("example"));
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_term_query() {
+        use lexum_core::TermQuery;
+        let query = Query::Term(TermQuery::new("field", "value"));
+        let terms = extract_query_terms(&query, None);
+        assert!(terms.contains("value"));
+        assert_eq!(terms.len(), 1);
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_fuzzy_query() {
+        use lexum_core::FuzzyQuery;
+        let query = Query::Fuzzy(FuzzyQuery::new("field", "fuzzyvalue"));
+        let terms = extract_query_terms(&query, None);
+        assert!(terms.contains("fuzzyvalue"));
+        assert_eq!(terms.len(), 1);
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_phrase_query() {
+        use lexum_core::PhraseQuery;
+        let query = Query::Phrase(PhraseQuery::new("field", "phrase query text"));
+        let terms = extract_query_terms(&query, None);
+        assert!(terms.contains("phrase"));
+        assert!(terms.contains("query"));
+        assert!(terms.contains("text"));
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_wildcard_query() {
+        use lexum_core::query::WildcardQuery;
+        let query = Query::Wildcard(WildcardQuery::new("field", "test*pattern"));
+        let terms = extract_query_terms(&query, None);
+        // Should extract base pattern without wildcards
+        assert!(terms.contains("testpattern"));
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_wildcard_empty_pattern() {
+        use lexum_core::query::WildcardQuery;
+        let query = Query::Wildcard(WildcardQuery::new("field", "*"));
+        let terms = extract_query_terms(&query, None);
+        // Empty pattern should not be added
+        assert!(terms.is_empty());
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_bool_query() {
+        use lexum_core::{BoolQuery, TermQuery};
+        let query = Query::Bool(BoolQuery {
+            must: vec![
+                Query::Term(TermQuery::new("field1", "value1")),
+                Query::Match(MatchQuery::new(
+                    "field2".to_string(),
+                    "value2 value3".to_string(),
+                )),
+            ],
+            should: vec![Query::Term(TermQuery::new("field3", "value4"))],
+            must_not: vec![],
+            filter: vec![],
+        });
+        let terms = extract_query_terms(&query, None);
+        assert!(terms.contains("value1"));
+        assert!(terms.contains("value2"));
+        assert!(terms.contains("value3"));
+        assert!(terms.contains("value4"));
+    }
+
+    #[test]
+    fn test_extract_query_terms_from_other_query_types() {
+        use lexum_core::RangeQuery;
+        let query = Query::Range(RangeQuery::new("field").gte(serde_json::json!(10)));
+        let terms = extract_query_terms(&query, None);
+        // Range queries don't extract terms
+        assert!(terms.is_empty());
+    }
+
+    #[test]
+    fn test_highlight_config_defaults() {
+        let config = HighlightConfig {
+            fields: HighlightFieldsConfig::Simple(vec!["title".to_string()]),
+            pre_tag: default_pre_tag(),
+            post_tag: default_post_tag(),
+            fragment_size: default_fragment_size(),
+            max_fragments: default_max_fragments(),
+            highlighter_type: None,
+            highlight_whole_field: false,
+            highlight_query: None,
+        };
+
+        assert_eq!(config.pre_tag, "<em>");
+        assert_eq!(config.post_tag, "</em>");
+        assert_eq!(config.fragment_size, 100);
+        assert_eq!(config.max_fragments, 3);
+    }
+
+    #[test]
+    fn test_highlight_config_serialization() {
+        let mut field_configs = HashMap::new();
+        field_configs.insert(
+            "title".to_string(),
+            FieldHighlightConfig {
+                pre_tag: None,
+                post_tag: None,
+                max_fragments: None,
+                fragment_size: None,
+                highlighter_type: None,
+                highlight_whole_field: None,
+                highlight_query: None,
+            },
+        );
+
+        let config = HighlightConfig {
+            fields: HighlightFieldsConfig::FieldConfigs(field_configs),
+            pre_tag: "<strong>".to_string(),
+            post_tag: "</strong>".to_string(),
+            fragment_size: 200,
+            max_fragments: 5,
+            highlighter_type: Some("unified".to_string()),
+            highlight_whole_field: true,
+            highlight_query: Some(Query::Match(MatchQuery::new(
+                "title".to_string(),
+                "test".to_string(),
+            ))),
+        };
+
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: HighlightConfig = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.pre_tag, "<strong>");
+        assert_eq!(deserialized.post_tag, "</strong>");
+        assert_eq!(deserialized.fragment_size, 200);
+        assert_eq!(deserialized.max_fragments, 5);
+        assert!(deserialized.highlight_whole_field);
+    }
+
+    #[test]
+    fn test_highlight_fields_config_simple() {
+        let config =
+            HighlightFieldsConfig::Simple(vec!["field1".to_string(), "field2".to_string()]);
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: HighlightFieldsConfig = serde_json::from_str(&json).unwrap();
+
+        match deserialized {
+            HighlightFieldsConfig::Simple(fields) => {
+                assert_eq!(fields.len(), 2);
+                assert!(fields.contains(&"field1".to_string()));
+                assert!(fields.contains(&"field2".to_string()));
+            }
+            HighlightFieldsConfig::FieldConfigs(_) => {
+                panic!("Expected Simple variant")
+            }
+        }
+    }
+
+    #[test]
+    fn test_highlight_fields_config_field_configs() {
+        let mut field_configs = HashMap::new();
+        field_configs.insert(
+            "title".to_string(),
+            FieldHighlightConfig {
+                pre_tag: Some("<b>".to_string()),
+                post_tag: Some("</b>".to_string()),
+                max_fragments: Some(5),
+                fragment_size: None,
+                highlighter_type: None,
+                highlight_whole_field: None,
+                highlight_query: None,
+            },
+        );
+
+        let config = HighlightFieldsConfig::FieldConfigs(field_configs.clone());
+        let json = serde_json::to_string(&config).unwrap();
+        let deserialized: HighlightFieldsConfig = serde_json::from_str(&json).unwrap();
+
+        match deserialized {
+            HighlightFieldsConfig::FieldConfigs(configs) => {
+                assert!(configs.contains_key("title"));
+                let title_config = configs.get("title").unwrap();
+                assert_eq!(title_config.pre_tag, Some("<b>".to_string()));
+                assert_eq!(title_config.post_tag, Some("</b>".to_string()));
+                assert_eq!(title_config.max_fragments, Some(5));
+            }
+            HighlightFieldsConfig::Simple(_) => {
+                panic!("Expected FieldConfigs variant")
+            }
+        }
+    }
+
+    #[test]
+    fn test_highlight_fields_config_default() {
+        let config = HighlightFieldsConfig::default();
+        match config {
+            HighlightFieldsConfig::Simple(fields) => {
+                assert!(fields.is_empty());
+            }
+            HighlightFieldsConfig::FieldConfigs(_) => {
+                panic!("Expected Simple variant with empty vector")
+            }
+        }
+    }
+
+    #[test]
+    fn test_search_request_with_highlight() {
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test".to_string()));
+        let request = SearchRequest {
+            query: Some(query),
+            filter: None,
+            limit: 10,
+            offset: 0,
+            sort: None,
+            sort_options: None,
+            search_after: None,
+            fields: None,
+            highlight: Some(HighlightConfig {
+                fields: HighlightFieldsConfig::Simple(vec!["title".to_string()]),
+                pre_tag: "<em>".to_string(),
+                post_tag: "</em>".to_string(),
+                fragment_size: 100,
+                max_fragments: 3,
+                highlighter_type: None,
+                highlight_whole_field: false,
+                highlight_query: None,
+            }),
+            explain: false,
+            min_score: None,
+            q: None,
+            aggregations: None,
+        };
+
+        assert!(request.highlight.is_some());
+        let highlight = request.highlight.unwrap();
+        assert_eq!(highlight.pre_tag, "<em>");
+        assert_eq!(highlight.post_tag, "</em>");
+    }
+
+    #[test]
+    fn test_search_request_with_aggregations() {
+        use lexum_core::aggregation::{AggregationSpec, TermsAggregation};
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test".to_string()));
+        let mut aggregations = HashMap::new();
+        aggregations.insert(
+            "tags".to_string(),
+            AggregationSpec::Terms(TermsAggregation::new("tag".to_string())),
+        );
+
+        let request = SearchRequest {
+            query: Some(query),
+            filter: None,
+            limit: 10,
+            offset: 0,
+            sort: None,
+            sort_options: None,
+            search_after: None,
+            fields: None,
+            highlight: None,
+            explain: false,
+            min_score: None,
+            q: None,
+            aggregations: Some(aggregations.clone()),
+        };
+
+        assert!(request.aggregations.is_some());
+        assert_eq!(request.aggregations.as_ref().unwrap().len(), 1);
+        assert!(request.aggregations.as_ref().unwrap().contains_key("tags"));
+    }
+
+    #[test]
+    fn test_search_request_with_search_after() {
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test".to_string()));
+        let request = SearchRequest {
+            query: Some(query),
+            filter: None,
+            limit: 10,
+            offset: 0,
+            sort: None,
+            sort_options: Some(vec![SortOption::desc("_score")]),
+            search_after: Some(vec![serde_json::json!(1.5), serde_json::json!("doc_id")]),
+            fields: None,
+            highlight: None,
+            explain: false,
+            min_score: None,
+            q: None,
+            aggregations: None,
+        };
+
+        assert!(request.search_after.is_some());
+        assert_eq!(request.search_after.as_ref().unwrap().len(), 2);
+        assert!(request.sort_options.is_some());
+    }
+
+    #[test]
+    fn test_search_request_with_min_score() {
+        let query = Query::Match(MatchQuery::new("title".to_string(), "test".to_string()));
+        let request = SearchRequest {
+            query: Some(query),
+            filter: None,
+            limit: 10,
+            offset: 0,
+            sort: None,
+            sort_options: None,
+            search_after: None,
+            fields: None,
+            highlight: None,
+            explain: true,
+            min_score: Some(0.5),
+            q: None,
+            aggregations: None,
+        };
+
+        assert!(request.explain);
+        assert_eq!(request.min_score, Some(0.5));
+    }
+
+    #[test]
+    fn test_search_request_with_q_parameter() {
+        let request = SearchRequest {
+            query: None,
+            filter: None,
+            limit: 10,
+            offset: 0,
+            sort: None,
+            sort_options: None,
+            search_after: None,
+            fields: None,
+            highlight: None,
+            explain: false,
+            min_score: None,
+            q: Some("simple query string".to_string()),
+            aggregations: None,
+        };
+
+        assert!(request.q.is_some());
+        assert_eq!(request.q.as_ref().unwrap(), "simple query string");
+    }
+
+    #[test]
+    fn test_field_capabilities_request_with_fields() {
+        let request = FieldCapabilitiesRequest {
+            fields: Some(vec!["field1".to_string(), "field2".to_string()]),
+        };
+
+        assert!(request.fields.is_some());
+        assert_eq!(request.fields.as_ref().unwrap().len(), 2);
+
+        let json = serde_json::to_string(&request).unwrap();
+        let deserialized: FieldCapabilitiesRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.fields.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_explain_result_serialization() {
+        let result = ExplainResult {
+            index: "test-index".to_string(),
+            id: "doc1".to_string(),
+            matched: true,
+            explanation: ExplainExplanation {
+                value: 1.5,
+                description: "Document matches query".to_string(),
+                details: vec![ExplainDetail {
+                    value: 1.5,
+                    description: "Query: test".to_string(),
+                }],
+            },
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        let deserialized: ExplainResult = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.index, "test-index");
+        assert_eq!(deserialized.id, "doc1");
+        assert!(deserialized.matched);
+        assert_eq!(deserialized.explanation.value, 1.5);
+    }
+
+    #[test]
+    fn test_explain_explanation_serialization() {
+        let explanation = ExplainExplanation {
+            value: 2.0,
+            description: "Test explanation".to_string(),
+            details: vec![
+                ExplainDetail {
+                    value: 1.0,
+                    description: "Detail 1".to_string(),
+                },
+                ExplainDetail {
+                    value: 1.0,
+                    description: "Detail 2".to_string(),
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&explanation).unwrap();
+        let deserialized: ExplainExplanation = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.value, 2.0);
+        assert_eq!(deserialized.description, "Test explanation");
+        assert_eq!(deserialized.details.len(), 2);
+    }
+
+    #[test]
+    fn test_explain_detail_serialization() {
+        let detail = ExplainDetail {
+            value: 1.5,
+            description: "Test detail".to_string(),
+        };
+
+        let json = serde_json::to_string(&detail).unwrap();
+        let deserialized: ExplainDetail = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.value, 1.5);
+        assert_eq!(deserialized.description, "Test detail");
+    }
+
+    #[test]
+    fn test_field_stats_with_numeric_values() {
+        let stats = FieldStats {
+            field_type: "long".to_string(),
+            doc_count: 50,
+            density: Some(1.0),
+            min_value: Some(serde_json::json!(10)),
+            max_value: Some(serde_json::json!(100)),
+            sum: Some(2500.0),
+            mean: Some(50.0),
+            searchable: true,
+            aggregatable: true,
+        };
+
+        let json = serde_json::to_string(&stats).unwrap();
+        let deserialized: FieldStats = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.min_value, Some(serde_json::json!(10)));
+        assert_eq!(deserialized.max_value, Some(serde_json::json!(100)));
+        assert_eq!(deserialized.sum, Some(2500.0));
+        assert_eq!(deserialized.mean, Some(50.0));
+    }
+
+    #[test]
+    fn test_shards_info_serialization() {
+        let shards = ShardsInfo {
+            total: 5,
+            successful: 4,
+            failed: 1,
+        };
+
+        let json = serde_json::to_string(&shards).unwrap();
+        let deserialized: ShardsInfo = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.total, 5);
+        assert_eq!(deserialized.successful, 4);
+        assert_eq!(deserialized.failed, 1);
+    }
+
+    #[test]
+    fn test_search_params_default() {
+        let params = SearchParams::default();
+        assert!(params.q.is_none());
+        assert!(params.filter.is_none());
+        assert!(params.limit.is_none());
+        assert!(params.offset.is_none());
+        assert!(params.sort.is_none());
+        assert!(params.fields.is_none());
+        assert!(params.highlight.is_none());
+        assert!(params.explain.is_none());
+        assert!(params.min_score.is_none());
+    }
+
+    #[test]
+    fn test_search_params_with_all_fields() {
+        let params = SearchParams {
+            q: Some("test query".to_string()),
+            filter: Some("[]".to_string()),
+            limit: Some(20),
+            offset: Some(10),
+            sort: Some("title:asc".to_string()),
+            fields: Some("title,content".to_string()),
+            highlight: Some(true),
+            explain: Some(true),
+            min_score: Some(0.5),
+        };
+
+        assert_eq!(params.q, Some("test query".to_string()));
+        assert_eq!(params.limit, Some(20));
+        assert_eq!(params.offset, Some(10));
+        assert_eq!(params.sort, Some("title:asc".to_string()));
+        assert_eq!(params.fields, Some("title,content".to_string()));
+        assert_eq!(params.highlight, Some(true));
+        assert_eq!(params.explain, Some(true));
+        assert_eq!(params.min_score, Some(0.5));
+    }
 }
 
 /// Field capabilities request
