@@ -80,6 +80,10 @@ Lexum provides enterprise-grade full-text search capabilities with:
 - [Troubleshooting](./guides/TROUBLESHOOTING.md) - Common issues and solutions
 - [GUI](./guides/GUI.md) - Electron-based GUI documentation
 
+### Specifications
+
+- [Specs Index](./specs/README.md) - The implementation contract: SPEC-001..SPEC-016, normative (RFC 2119) with stable requirement IDs, mapped to roadmap phases
+
 ### Analysis
 
 - [Meilisearch Analysis](./analysis/meilisearch/README.md) - Architecture and parity study (F-001..F-039)

@@ -1,0 +1,5 @@
+# Spec delta: vector-hybrid
+
+Normative contract: [`docs/specs/SPEC-012-vector-hybrid.md`](../../../../docs/specs/SPEC-012-vector-hybrid.md) (requirement IDs `VEC-xxx`).
+
+This task implements the requirements of that spec for its phase scope. Any behavior change discovered during implementation MUST be reflected in the spec (same review bar as the code change) before the task is archived.

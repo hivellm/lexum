@@ -2,13 +2,13 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-alpha-brightgreen.svg)](docs/STATUS.md)
-[![Tests](https://img.shields.io/badge/tests-278%20passing-success.svg)](IMPLEMENTATION_SUMMARY.md)
-[![Coverage](https://img.shields.io/badge/coverage-%3E95%25-success.svg)](IMPLEMENTATION_SUMMARY.md)
-[![Progress](https://img.shields.io/badge/progress-38%25-blue.svg)](openspec/OPENSPEC_STATUS.md)
+[![Tests](https://img.shields.io/badge/tests-278%20passing-success.svg)](docs/IMPLEMENTATION_SUMMARY.md)
+[![Coverage](https://img.shields.io/badge/coverage-%3E95%25-success.svg)](docs/IMPLEMENTATION_SUMMARY.md)
+[![Roadmap](https://img.shields.io/badge/roadmap-14%20phases-blue.svg)](docs/ROADMAP.md)
 
 **Lexum** is a high-performance, distributed full-text search engine written in Rust, inspired by ElasticSearch but designed from the ground up for modern cloud-native architectures.
 
-> **✅ Project Status**: **Foundation Complete** (38% overall). Core search engine, REST API, CLI tool, and LQL query language are production-ready with 278 tests passing and >95% coverage. See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for details.
+> **✅ Project Status**: **Foundation Complete** (38% overall). Core search engine, REST API, CLI tool, and LQL query language are production-ready with 278 tests passing and >95% coverage. See [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md) for details.
 
 ## Features
 
@@ -158,7 +158,7 @@ open http://localhost:17000/swagger-ui
 - ⏳ Advanced aggregations
 - ⏳ Performance tuning at scale
 
-See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for complete details.
+See [docs/IMPLEMENTATION_SUMMARY.md](docs/IMPLEMENTATION_SUMMARY.md) for complete details.
 
 ## Documentation
 
@@ -307,7 +307,7 @@ These are **planned performance targets**, not current measurements:
 - [ ] Time-series optimization
 - [ ] Graph traversal
 
-See [ROADMAP.md](docs/ROADMAP.md) and [OPENSPEC_STATUS.md](openspec/OPENSPEC_STATUS.md) for details.
+See [ROADMAP.md](docs/ROADMAP.md) and the task tracker in [.rulebook/tasks/](.rulebook/tasks/README.md) for details.
 
 ## Project Structure
 
@@ -447,9 +447,10 @@ For security issues, please see [SECURITY.md](SECURITY.md).
 
 ## Links
 
-- 📊 [Implementation Summary](IMPLEMENTATION_SUMMARY.md) - Complete overview
-- 📈 [Progress Analysis](openspec/PROGRESS_ANALYSIS.md) - Detailed metrics
-- 🎯 [OpenSpec Status](openspec/OPENSPEC_STATUS.md) - Feature tracking
+- 📊 [Implementation Summary](docs/IMPLEMENTATION_SUMMARY.md) - Complete overview
+- 📈 [Project Status](docs/STATUS.md) - Current state
+- 🎯 [Task Tracker](.rulebook/tasks/README.md) - Phased task board
+- 🔬 [Analyses](docs/analysis/) - Elasticsearch and Meilisearch studies
 - 📝 [Changelog](CHANGELOG.md) - Version history
 - 🗺️ [Roadmap](docs/ROADMAP.md) - Future plans
 
@@ -457,4 +458,4 @@ For security issues, please see [SECURITY.md](SECURITY.md).
 
 **Built with ❤️ in Rust Edition 2024**
 
-**Status**: Foundation Complete | **Progress**: 38% | **Tests**: 278 passing | **Coverage**: 53%
+**Status**: Foundation Complete — re-planned 2026-07-17 | **Roadmap**: [14 phases](docs/ROADMAP.md) | **Tests**: 278 passing
