@@ -1,9 +1,0 @@
-[2025-11-21 17:55:35] [INFO] ========================================
-[2025-11-21 17:55:35] [INFO]   LEXUM SERVER - COMPLETE ROUTE TEST
-[2025-11-21 17:55:35] [INFO]   Server: http://localhost:17000
-[2025-11-21 17:55:35] [INFO]   Log File: test_results_20251121_175535.log
-[2025-11-21 17:55:35] [INFO] ========================================
-[2025-11-21 17:55:35] [INFO] Checking if server is running...
-[2025-11-21 17:55:39] [ERROR]   [ERROR] Server is not running or not accessible at http://localhost:17000
-[2025-11-21 17:55:39] [WARN]   Please start the server before running the tests.
-[2025-11-21 17:55:39] [WARN]   Command: cargo run --bin lexum-server

@@ -43,14 +43,48 @@ Lexum provides enterprise-grade full-text search capabilities with:
 
 ## Documentation Structure
 
+### Core
+
 - [Architecture](./ARCHITECTURE.md) - System design and components
-- [Query Language](./QUERY_LANGUAGE.md) - LQL specification and examples
-- [API Reference](./API_REFERENCE.md) - Complete API documentation
-- [Deployment](./DEPLOYMENT.md) - Docker and Kubernetes deployment guides
-- [Telemetry](./TELEMETRY.md) - Observability and monitoring setup
-- [GUI](./GUI.md) - Electron-based GUI documentation
-- [Development](./DEVELOPMENT.md) - Development guide and contributing
-- [CI/CD](./CI_CD.md) - Build and deployment pipelines
+- [Roadmap](./ROADMAP.md) - Development phases and future plans
+- [Status](./STATUS.md) - Current project status
+- [DAG](./DAG.md) - Module dependency graph
+- [Performance](./PERFORMANCE.md) - Performance characteristics
+- [Implementation Summary](./IMPLEMENTATION_SUMMARY.md) - What is built and tested
+
+### API
+
+- [API Reference](./api/API_REFERENCE.md) - Complete API documentation
+- [Query Language](./api/QUERY_LANGUAGE.md) - LQL specification and examples
+
+### Development
+
+- [Development Guide](./development/DEVELOPMENT.md) - Development setup and workflow
+- [CI/CD](./development/CI_CD.md) - Build and deployment pipelines
+- [Windows Native](./development/WINDOWS_NATIVE.md) - Windows development setup
+- [WSL/Tantivy Conflict](./development/WSL_TANTIVY_CONFLICT.md) - Why builds must run on native Windows
+
+### Deployment
+
+- [Deployment](./deployment/DEPLOYMENT.md) - Docker and Kubernetes deployment guides
+- [Telemetry](./deployment/TELEMETRY.md) - Observability and monitoring setup
+- [Snapshot Configuration](./deployment/SNAPSHOT_CONFIGURATION.md) - Backup/restore configuration
+
+### Testing
+
+- [Test Coverage Report](./testing/TEST_COVERAGE_REPORT.md) - Coverage details
+- [Test Results](./testing/TEST_RESULTS.md) - Latest test run results
+
+### Guides
+
+- [Troubleshooting](./guides/TROUBLESHOOTING.md) - Common issues and solutions
+- [GUI](./guides/GUI.md) - Electron-based GUI documentation
+
+### Analysis
+
+- [Meilisearch Analysis](./analysis/meilisearch/README.md) - Architecture and parity study (F-001..F-039)
+- [Elasticsearch Analysis](./analysis/elastic/README.md) - Architecture and parity study (F-001..F-055)
+- [Tantivy Alternatives](./analysis/TANTIVY_ALTERNATIVES.md) - Search library evaluation
 
 ## Quick Start
 
@@ -230,5 +264,5 @@ Lexum is open-source software licensed under the [Apache License 2.0](../LICENSE
 
 ## Contributing
 
-See [DEVELOPMENT.md](./DEVELOPMENT.md) for development setup and [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines.
+See [DEVELOPMENT.md](./development/DEVELOPMENT.md) for development setup and [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines.
 

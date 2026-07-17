@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "Lexum": {
-      "url": "http://localhost:17000/mcp",
-      "type": "streamableHttp",
-      "protocol": "http"
-    }
-  }
-}

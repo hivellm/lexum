@@ -386,7 +386,7 @@ Config → Types → Error → Storage → Index Mgr → Query Exec → REST API
 
 - [Architecture](./ARCHITECTURE.md) - System architecture
 - [Roadmap](./ROADMAP.md) - Implementation timeline
-- [Development](./DEVELOPMENT.md) - Development guide
+- [Development](./development/DEVELOPMENT.md) - Development guide
 - [Contributing](../CONTRIBUTING.md) - Contribution guidelines
 
 ---

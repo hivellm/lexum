@@ -18,8 +18,8 @@ name = "snapshot_restore_workflow_tests"
 path = "snapshot_restore_workflow_tests.rs"
 
 [dependencies]
-lexum-core = { path = "../lexum-core" }
-lexum-server = { path = "../lexum-server" }
+lexum-core = { path = "../crates/lexum-core" }
+lexum-server = { path = "../crates/lexum-server" }
 lexum-stress-tests = { path = "stress" }
 tokio = { version = "1.48", features = ["full"] }
 serde_json = "1.0"

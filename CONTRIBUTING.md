@@ -54,7 +54,7 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 
 ## Development Setup
 
-See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for detailed development setup instructions.
+See [DEVELOPMENT.md](docs/development/DEVELOPMENT.md) for detailed development setup instructions.
 
 ### Quick Setup
 
@@ -162,10 +162,10 @@ Before submitting a PR, ensure:
 
 ```
 lexum/
-├── lexum-core/          # Core library
-├── lexum-server/        # Server binary
-├── lexum-cli/           # CLI tool
-├── lexum-gui/           # GUI application
+├── crates/
+│   ├── lexum-core/      # Core library
+│   ├── lexum-server/    # Server binary
+│   └── lexum-macros/    # Procedural macros
 ├── tests/               # Integration tests
 ├── benchmark/           # Benchmarks
 └── docs/                # Documentation

@@ -4,12 +4,12 @@ on:
   push:
     branches: [main, master, develop]
     paths:
-      - 'lexum-server/**'
+      - 'crates/lexum-server/**'
       - '.github/workflows/test-routes.yml'
   pull_request:
     branches: [main, master, develop]
     paths:
-      - 'lexum-server/**'
+      - 'crates/lexum-server/**'
       - '.github/workflows/test-routes.yml'
   workflow_dispatch:
 
@@ -60,16 +60,16 @@ jobs:
             ${{ runner.os }}-cargo-build-target-
 
       - name: Build lexum-server
-        working-directory: lexum-server
+        working-directory: crates/lexum-server
         run: cargo build --tests --verbose
 
       - name: Run route integration tests
-        working-directory: lexum-server
+        working-directory: crates/lexum-server
         run: cargo test --test route_integration_test --verbose -- --nocapture
         continue-on-error: false
 
       - name: Run critical route tests
-        working-directory: lexum-server
+        working-directory: crates/lexum-server
         run: |
           cargo test --test route_integration_test \
             test_health_check \
@@ -86,7 +86,7 @@ jobs:
 
       - name: Generate test report
         if: always()
-        working-directory: lexum-server
+        working-directory: crates/lexum-server
         run: |
           cargo test --test route_integration_test --verbose -- --test-threads=1 --nocapture 2>&1 | tee test-report.txt || true
 
@@ -96,7 +96,7 @@ jobs:
         with:
           name: route-test-report-${{ matrix.os }}
           path: |
-            lexum-server/test-report.txt
+            crates/lexum-server/test-report.txt
           retention-days: 7
           if-no-files-found: ignore
 
@@ -120,14 +120,14 @@ jobs:
         uses: taiki-e/install-action@cargo-llvm-cov
 
       - name: Generate coverage for route tests
-        working-directory: lexum-server
+        working-directory: crates/lexum-server
         run: |
           cargo llvm-cov --test route_integration_test --lcov --output-path route-coverage.lcov
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: lexum-server/route-coverage.lcov
+          files: crates/lexum-server/route-coverage.lcov
           flags: route-tests
           fail_ci_if_error: false
 

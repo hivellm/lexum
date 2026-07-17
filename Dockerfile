@@ -55,9 +55,9 @@ COPY Cargo.toml Cargo.lock ./
 COPY rust-toolchain.toml ./
 
 # Copy workspace members
-COPY lexum-core ./lexum-core
-COPY lexum-macros ./lexum-macros
-COPY lexum-server ./lexum-server
+COPY crates/lexum-core ./crates/lexum-core
+COPY crates/lexum-macros ./crates/lexum-macros
+COPY crates/lexum-server ./crates/lexum-server
 
 # Build arguments
 # VERSION: Application version (default: 0.1.0-alpha)

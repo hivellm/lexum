@@ -1,0 +1,27 @@
+{
+  "version": "7.0.0",
+  "installedAt": "2025-11-18T16:27:08.996Z",
+  "updatedAt": "2026-07-17T02:26:34.732Z",
+  "projectId": "Lexum",
+  "mode": "full",
+  "features": {
+    "logging": true,
+    "gitHooks": true,
+    "templates": true,
+    "context": true,
+    "health": true,
+    "parallel": true,
+    "smartContinue": true
+  },
+  "coverageThreshold": 95,
+  "language": "en",
+  "outputLanguage": "en",
+  "cliTools": [],
+  "maxParallelTasks": 5,
+  "timeouts": {
+    "taskExecution": 3600000,
+    "cliResponse": 180000,
+    "testRun": 600000
+  },
+  "agentsMode": "lean"
+}

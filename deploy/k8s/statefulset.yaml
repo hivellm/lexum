@@ -1,0 +1,178 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lexum
+  namespace: lexum
+  labels:
+    app: lexum-search-engine
+spec:
+  serviceName: lexum-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: lexum-search-engine
+  template:
+    metadata:
+      labels:
+        app: lexum-search-engine
+    spec:
+      # Security context
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      
+      # Init container to set permissions
+      initContainers:
+      - name: init-permissions
+        image: busybox:latest
+        command: ['sh', '-c']
+        args:
+          - |
+            chown -R 1000:1000 /data /snapshots
+            chmod -R 755 /data /snapshots
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: snapshots
+          mountPath: /snapshots
+      
+      containers:
+      - name: lexum-server
+        image: lexum:0.1.0-alpha
+        imagePullPolicy: IfNotPresent
+        
+        # Environment variables
+        env:
+        - name: LEXUM_DATA_DIR
+          value: "/data"
+        - name: LEXUM_NETWORK_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: lexum-config
+              key: network.host
+        - name: LEXUM_NETWORK_HTTP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: lexum-config
+              key: network.http_port
+        - name: LEXUM_CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: lexum-config
+              key: cluster.name
+        - name: LEXUM_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: RUST_LOG
+          value: "info"
+        
+        # Ports
+        ports:
+        - name: http
+          containerPort: 9200
+          protocol: TCP
+        - name: transport
+          containerPort: 17300
+          protocol: TCP
+        
+        # Resource limits
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        
+        # Volume mounts
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: snapshots
+          mountPath: /snapshots
+        - name: config
+          mountPath: /app/config.yml
+          subPath: config.yml
+          readOnly: true
+        
+        # Liveness probe - checks if container is running
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Readiness probe - checks if container is ready to serve traffic
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Startup probe - gives container time to start
+        startupProbe:
+          httpGet:
+            path: /_cluster/health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 30
+        
+        # Security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+      
+      # Volumes
+      volumes:
+      - name: config
+        configMap:
+          name: lexum-config
+          items:
+          - key: cluster.name
+            path: config.yml
+      
+      # Termination grace period (for graceful shutdown)
+      terminationGracePeriodSeconds: 60
+      
+      # Restart policy
+      restartPolicy: Always
+      
+  # Volume claim templates
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: standard  # Change to your storage class
+      resources:
+        requests:
+          storage: 10Gi
+  - metadata:
+      name: snapshots
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: standard  # Change to your storage class
+      resources:
+        requests:
+          storage: 20Gi
+

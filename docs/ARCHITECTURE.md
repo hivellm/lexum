@@ -515,7 +515,7 @@ High-performance binary protocol for model communication.
 - Log aggregation ready
 - Correlation IDs
 
-See [TELEMETRY.md](./TELEMETRY.md) for detailed telemetry documentation.
+See [TELEMETRY.md](./deployment/TELEMETRY.md) for detailed telemetry documentation.
 
 ## Technology Decisions
 

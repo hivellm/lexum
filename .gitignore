@@ -42,3 +42,13 @@ criterion/
 scripts/test_results.txt
 scripts/*.log
 scripts/*_errors.json
+
+# Rulebook - ignore runtime data, keep specs and tasks
+/.rulebook/*
+!/.rulebook/specs/
+!/.rulebook/tasks/
+!/.rulebook/tasks/**/*.md
+!/.rulebook/rulebook.json
+
+CLAUDE.local.md
+.rulebook/backup/

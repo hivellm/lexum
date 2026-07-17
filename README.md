@@ -164,13 +164,13 @@ See [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) for complete details.
 
 - **[Overview](docs/README.md)** - Introduction and features
 - **[Architecture](docs/ARCHITECTURE.md)** - System design and components
-- **[Query Language](docs/QUERY_LANGUAGE.md)** - LQL specification
-- **[API Reference](docs/API_REFERENCE.md)** - Complete API documentation
-- **[Deployment](docs/DEPLOYMENT.md)** - Docker and Kubernetes deployment
-- **[Telemetry](docs/TELEMETRY.md)** - Monitoring and observability
-- **[GUI](docs/GUI.md)** - Electron-based interface
-- **[Development](docs/DEVELOPMENT.md)** - Development guide
-- **[CI/CD](docs/CI_CD.md)** - Build and deployment pipelines
+- **[Query Language](docs/api/QUERY_LANGUAGE.md)** - LQL specification
+- **[API Reference](docs/api/API_REFERENCE.md)** - Complete API documentation
+- **[Deployment](docs/deployment/DEPLOYMENT.md)** - Docker and Kubernetes deployment
+- **[Telemetry](docs/deployment/TELEMETRY.md)** - Monitoring and observability
+- **[GUI](docs/guides/GUI.md)** - Electron-based interface
+- **[Development](docs/development/DEVELOPMENT.md)** - Development guide
+- **[CI/CD](docs/development/CI_CD.md)** - Build and deployment pipelines
 
 ## Architecture
 
@@ -313,23 +313,21 @@ See [ROADMAP.md](docs/ROADMAP.md) and [OPENSPEC_STATUS.md](openspec/OPENSPEC_STA
 
 ```
 lexum/
-├── lexum-core/          # Core search engine (23 modules, 40K LOC)
-│   ├── config/          # Configuration management
-│   ├── document/        # Document operations
-│   ├── index/           # Index and template management
-│   ├── query/           # Query types and builder
-│   ├── schema/          # Schema builder
-│   ├── search/          # Search executor
-│   └── snapshot/        # Snapshot and repository
-├── lexum-server/        # REST API server (15 modules, 30K LOC)
-│   ├── handlers/        # API endpoint handlers
-│   ├── middleware/      # Auth, rate limiting, CORS
-│   └── openapi/         # OpenAPI specification
-├── lexum-cli/           # CLI tool (11 modules, 8K LOC)
-│   ├── commands/        # CLI command implementations
-│   ├── lql/             # LQL parser
-│   └── repl/            # Interactive shell
-├── tests/               # Integration tests
+├── crates/
+│   ├── lexum-core/      # Core search engine (23 modules, 40K LOC)
+│   │   ├── config/      # Configuration management
+│   │   ├── document/    # Document operations
+│   │   ├── index/       # Index and template management
+│   │   ├── query/       # Query types and builder
+│   │   ├── schema/      # Schema builder
+│   │   ├── search/      # Search executor
+│   │   └── snapshot/    # Snapshot and repository
+│   ├── lexum-server/    # REST API server (15 modules, 30K LOC)
+│   │   ├── handlers/    # API endpoint handlers
+│   │   ├── middleware/  # Auth, rate limiting, CORS
+│   │   └── openapi/     # OpenAPI specification
+│   └── lexum-macros/    # Procedural macros
+├── tests/               # Integration, e2e, and stress tests
 ├── benchmark/           # Performance benchmarks
 └── docs/                # Documentation
 
@@ -352,7 +350,7 @@ Total: 129 Rust files, ~93,000 LOC
 
 - Tantivy has filesystem compatibility issues with WSL's `9p` protocol when accessing Windows-mounted drives
 - This causes `Invalid argument (os error 22)` errors during index creation
-- See [WSL_TANTIVY_CONFLICT.md](docs/WSL_TANTIVY_CONFLICT.md) for technical details
+- See [WSL_TANTIVY_CONFLICT.md](docs/development/WSL_TANTIVY_CONFLICT.md) for technical details
 
 **Solutions:**
 
@@ -360,7 +358,7 @@ Total: 129 Rust files, ~93,000 LOC
 2. **Use Linux Native Paths in WSL**: Store data in WSL's native filesystem (`~/.lexum/data`) instead of `/mnt/f/...`
 3. **Use Docker**: Run Lexum in a Docker container for better filesystem isolation
 
-See [WINDOWS_NATIVE.md](docs/WINDOWS_NATIVE.md) for Windows setup instructions.
+See [WINDOWS_NATIVE.md](docs/development/WINDOWS_NATIVE.md) for Windows setup instructions.
 
 ### Building
 
@@ -404,13 +402,13 @@ cargo run --bin lexum-cli -- server start
 cargo run --bin lexum-cli repl
 ```
 
-**Troubleshooting**: If you encounter `Invalid argument (os error 22)` errors, see [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for solutions.
+**Troubleshooting**: If you encounter `Invalid argument (os error 22)` errors, see [TROUBLESHOOTING.md](docs/guides/TROUBLESHOOTING.md) for solutions.
 
 ## Contributing
 
 We welcome contributions! Please see:
 
-- [Development Guide](docs/DEVELOPMENT.md)
+- [Development Guide](docs/development/DEVELOPMENT.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)
 

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lexum
+  namespace: lexum
+  labels:
+    app: lexum-search-engine
+spec:
+  type: ClusterIP
+  selector:
+    app: lexum-search-engine
+  ports:
+    - name: http
+      port: 9200
+      targetPort: 9200
+      protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+
